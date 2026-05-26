@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>전세피해 소송구조 신청 — 대한변협법률구조재단</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:#FAFAF8;color:#1A1A1A;-webkit-font-smoothing:antialiased;}
+.header{background:#1B3A2D;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 40px;position:sticky;top:0;z-index:100;}
+.header a{display:flex;align-items:center;cursor:pointer;}
+.header img{height:36px;filter:brightness(0) invert(1);opacity:.92;}
+.hnav{display:flex;gap:4px;}
+.hnav button{background:none;border:none;font-family:inherit;font-size:13px;color:rgba(255,255,255,.6);padding:8px 16px;border-radius:4px;cursor:pointer;}
+.hnav button:hover{color:#fff;background:rgba(255,255,255,.08);}
+.hnav button.on{color:#fff;background:rgba(255,255,255,.15);font-weight:600;}
+.nbadge{background:#C0392B;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;}
+.tab{display:none;}.tab.on{display:block;}
+
+/* ── 폼 ── */
+.wrap{max-width:720px;margin:0 auto;padding:52px 24px 80px;}
+.page-hd{border-bottom:2px solid #1B3A2D;padding-bottom:18px;margin-bottom:36px;}
+.page-hd h1{font-family:'Noto Serif KR',serif;font-size:24px;font-weight:700;color:#1B3A2D;letter-spacing:-.5px;margin-bottom:5px;}
+.page-hd p{font-size:13px;color:#777;line-height:1.6;}
+
+/* 진행바 */
+.prog{display:flex;border:1px solid #DDD;border-radius:4px;overflow:hidden;margin-bottom:44px;}
+.ps{flex:1;padding:11px 4px;text-align:center;font-size:11px;color:#AAA;background:#F5F5F0;border-right:1px solid #DDD;transition:all .2s;}
+.ps:last-child{border-right:none;}
+.ps b{display:block;font-size:15px;font-weight:700;margin-bottom:1px;}
+.ps.on{background:#1B3A2D;color:#fff;}
+.ps.done{background:#E8F0EB;color:#2D6A4F;}
+
+.sec{display:none;animation:fd .2s ease;}
+.sec.on{display:block;}
+@keyframes fd{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+.sec-h{font-family:'Noto Serif KR',serif;font-size:18px;font-weight:600;color:#1A1A1A;margin-bottom:5px;letter-spacing:-.3px;}
+.sec-d{font-size:13px;color:#999;margin-bottom:26px;line-height:1.6;}
+
+/* 필드 */
+.fg{margin-bottom:20px;}
+.fg label{display:block;font-size:13px;font-weight:600;color:#333;margin-bottom:6px;}
+.req{color:#C0392B;}
+.fg input,.fg select,.fg textarea{width:100%;border:1px solid #CCC;border-radius:3px;padding:11px 13px;font-family:inherit;font-size:14px;color:#1A1A1A;background:#fff;outline:none;transition:border-color .15s;-webkit-appearance:none;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:#1B3A2D;box-shadow:0 0 0 2px rgba(27,58,45,.08);}
+.fg input::placeholder,.fg textarea::placeholder{color:#CCC;}
+.fg textarea{resize:vertical;min-height:88px;line-height:1.6;}
+.fg select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:34px;cursor:pointer;}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:500px){.frow{grid-template-columns:1fr;}}
+
+/* 소득확인 */
+.ins-box{background:#EEF4F0;border:1px solid #C8D8CC;border-radius:3px;padding:20px;margin-bottom:20px;}
+.ins-box-title{font-size:13px;font-weight:700;color:#1B3A2D;margin-bottom:12px;}
+.ins-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px;}
+.ins-table th{background:#D8EBE0;padding:8px 12px;text-align:center;border:1px solid #C8D8CC;font-weight:700;color:#1B3A2D;}
+.ins-table td{padding:7px 12px;text-align:center;border:1px solid #C8D8CC;color:#333;}
+.ins-table tr:nth-child(even) td{background:#F5FAF7;}
+.ins-table .hl{font-weight:700;color:#1B3A2D;}
+.ins-note{font-size:11px;color:#888;margin-top:6px;}
+
+/* 계산기 */
+.calc-box{background:#fff;border:1px solid #C8D8CC;border-radius:3px;padding:18px;margin-top:14px;}
+.calc-title{font-size:12px;font-weight:700;color:#333;margin-bottom:12px;}
+.calc-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;}
+.calc-field{display:flex;flex-direction:column;gap:4px;}
+.calc-field span{font-size:11px;color:#666;}
+.calc-field select,.calc-field input{border:1px solid #CCC;border-radius:3px;padding:9px 10px;font-size:13px;font-family:inherit;background:#fff;outline:none;-webkit-appearance:none;}
+.calc-field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;padding-right:26px;cursor:pointer;}
+.calc-btn{background:#1B3A2D;color:#fff;border:none;border-radius:3px;padding:10px 22px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;height:40px;align-self:flex-end;}
+.calc-btn:hover{background:#2D6A4F;}
+#calc_result{display:none;padding:12px 14px;border-radius:3px;font-size:13px;font-weight:600;line-height:1.7;margin-top:4px;}
+.res-low{background:#F0F5F2;border:1px solid #C8D8CC;color:#1B3A2D;}
+.res-high{background:#FEF9EC;border:1px solid #F5D78A;color:#8A5A10;}
+
+/* 소득 선택 */
+.ichoice-list{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;}
+.ichoice{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:1px solid #DDD;border-radius:3px;cursor:pointer;background:#fff;transition:all .15s;user-select:none;}
+.ichoice:hover{border-color:#1B3A2D;}
+.ichoice.sel{border-color:#1B3A2D;background:#F0F5F2;border-width:2px;}
+.ichoice-dot{width:18px;height:18px;border:2px solid #CCC;border-radius:50%;flex-shrink:0;margin-top:2px;transition:all .15s;display:flex;align-items:center;justify-content:center;}
+.ichoice.sel .ichoice-dot{background:#1B3A2D;border-color:#1B3A2D;}
+.ichoice-title{font-size:14px;font-weight:600;color:#1A1A1A;margin-bottom:3px;}
+.ichoice-desc{font-size:12px;color:#888;line-height:1.5;}
+
+/* 접수방법 */
+.rchoice-list{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px;}
+.rchoice{border:1px solid #DDD;border-radius:3px;padding:18px;cursor:pointer;background:#fff;transition:all .15s;user-select:none;display:flex;align-items:flex-start;gap:12px;}
+.rchoice:hover{border-color:#1B3A2D;}
+.rchoice.sel{border-color:#1B3A2D;background:#F0F5F2;border-width:2px;}
+.rchoice-ico{font-size:24px;flex-shrink:0;}
+.rchoice-title{font-size:14px;font-weight:700;color:#1A1A1A;margin-bottom:3px;}
+.rchoice-desc{font-size:12px;color:#888;line-height:1.4;}
+.post-box{display:none;background:#FFFDF0;border:1px solid #C8A84B;border-radius:3px;padding:16px;margin-top:10px;}
+.post-box.show{display:block;}
+.post-box b{font-size:13px;font-weight:700;color:#8A6D10;display:block;margin-bottom:8px;}
+.post-box p{font-size:12px;color:#7A6020;line-height:1.8;}
+.post-addr{margin-top:10px;background:rgba(200,168,75,.1);border-radius:2px;padding:10px 12px;font-size:12px;color:#5A4810;line-height:1.9;}
+
+/* 유형 선택 */
+.type-notice{background:#F0F5F2;border:1px solid #C8D8CC;border-radius:3px;padding:12px 14px;font-size:12px;color:#2D5A3D;margin-bottom:14px;line-height:1.7;}
+.tchoice-list{display:flex;flex-direction:column;gap:8px;}
+.tchoice{border:1px solid #DDD;border-radius:3px;padding:14px 16px;cursor:pointer;background:#fff;transition:all .15s;display:flex;align-items:flex-start;gap:12px;user-select:none;}
+.tchoice:hover{border-color:#1B3A2D;background:#F8FAF8;}
+.tchoice.sel{border-color:#1B3A2D;background:#F0F5F2;border-width:2px;}
+.tchoice.disabled{opacity:.4;cursor:not-allowed;pointer-events:none;}
+.tchoice-chk{width:18px;height:18px;border:2px solid #CCC;border-radius:3px;flex-shrink:0;margin-top:2px;transition:all .15s;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;}
+.tchoice.sel .tchoice-chk{background:#1B3A2D;border-color:#1B3A2D;}
+.tchoice-title{font-size:14px;font-weight:700;color:#1A1A1A;margin-bottom:3px;}
+.tchoice-desc{font-size:12px;color:#888;line-height:1.5;}
+.tchoice-warn{font-size:11px;color:#C0392B;font-weight:600;margin-top:3px;display:none;}
+.sel-count{font-size:12px;color:#1B3A2D;font-weight:700;margin-top:10px;}
+
+/* 공단 팝업 */
+.popup-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:center;justify-content:center;}
+.popup-bg.open{display:flex;}
+.popup{background:#fff;border-radius:4px;width:100%;max-width:460px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+.popup-hd{background:#1B3A2D;padding:20px 24px;}
+.popup-hd h3{font-family:'Noto Serif KR',serif;font-size:17px;font-weight:700;color:#fff;margin-bottom:4px;}
+.popup-hd p{font-size:12px;color:rgba(255,255,255,.7);}
+.popup-body{padding:22px;}
+.popup-alert{background:#FEF9EC;border:1px solid #F5D78A;border-left:4px solid #C8891A;border-radius:3px;padding:14px;margin-bottom:18px;}
+.popup-alert b{display:block;font-size:13px;font-weight:700;color:#8A5A10;margin-bottom:6px;}
+.popup-alert p{font-size:12px;color:#7A5010;line-height:1.7;}
+.popup-tel{display:flex;align-items:center;gap:16px;background:#F0F5F2;border:1px solid #C8D8CC;border-radius:3px;padding:14px;margin-bottom:18px;}
+.popup-tel-num{font-size:28px;font-weight:900;color:#1B3A2D;letter-spacing:-1px;}
+.popup-tel-info{font-size:12px;color:#4A6357;line-height:1.7;border-left:1px solid #C8D8CC;padding-left:14px;}
+.popup-btns{display:flex;gap:10px;}
+.popup-btns button{flex:1;padding:12px;border-radius:3px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+.btn-cancel{background:#fff;color:#555;border:1px solid #CCC;}
+.btn-ok{background:#1B3A2D;color:#fff;border:none;}
+.btn-ok:hover{background:#2D6A4F;}
+
+/* 서류 체크 */
+.doc-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+.doc-item{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1px solid #DDD;border-radius:3px;cursor:pointer;background:#fff;transition:all .15s;user-select:none;}
+.doc-item:hover{border-color:#1B3A2D;background:#F8FAF8;}
+.doc-item.ck{border-color:#1B3A2D;background:#F0F5F2;}
+.doc-ck{width:18px;height:18px;border:2px solid #CCC;border-radius:3px;flex-shrink:0;margin-top:1px;transition:all .15s;display:flex;align-items:center;justify-content:center;font-size:11px;}
+.doc-item.ck .doc-ck{background:#1B3A2D;border-color:#1B3A2D;color:#fff;}
+.doc-name{font-size:13px;font-weight:600;color:#1A1A1A;}
+.doc-where{font-size:11px;color:#999;margin-top:2px;}
+.doc-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:2px;flex-shrink:0;margin-top:2px;}
+.b-req{background:#FEF0EF;color:#C0392B;}
+.b-opt{background:#EEF4F0;color:#2D6A4F;}
+.prog-bar{background:#E8E8E4;border-radius:2px;height:4px;overflow:hidden;margin-top:12px;}
+.prog-fill{height:100%;background:#1B3A2D;border-radius:2px;transition:width .3s;width:0%;}
+.prog-txt{font-size:11px;color:#999;margin-top:5px;text-align:right;}
+
+/* 파일 업로드 */
+.upload-zone{border:1px dashed #CCC;border-radius:3px;padding:26px;text-align:center;cursor:pointer;background:#FAFAF8;transition:all .15s;}
+.upload-zone:hover{border-color:#1B3A2D;background:#F0F5F2;}
+.upload-zone p{font-size:13px;color:#666;margin-top:6px;}
+.upload-zone span{font-size:11px;color:#AAA;}
+.file-list{margin-top:10px;display:flex;flex-direction:column;gap:5px;}
+.file-chip{display:flex;align-items:center;gap:8px;background:#F0F5F2;border:1px solid #C8D8CC;border-radius:3px;padding:7px 10px;font-size:12px;color:#2D5A3D;}
+.file-rm{margin-left:auto;cursor:pointer;color:#999;}
+.file-rm:hover{color:#C0392B;}
+
+/* 확인 테이블 */
+.apps-wrap{display:flex;flex-direction:column;gap:14px;margin-bottom:20px;}
+.app-card{border:1px solid #DDD;border-radius:3px;overflow:hidden;}
+.app-card-hd{background:#1B3A2D;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;}
+.app-card-hd b{font-size:13px;color:#fff;}
+.app-card-hd span{font-size:11px;color:rgba(255,255,255,.7);}
+.conf-table{width:100%;border-collapse:collapse;}
+.conf-table tr{border-bottom:1px solid #F0F0EB;}
+.conf-table tr:last-child{border-bottom:none;}
+.conf-table td{padding:9px 14px;font-size:13px;}
+.conf-table td:first-child{color:#999;width:90px;font-size:12px;}
+.conf-table td:last-child{font-weight:600;}
+
+/* 서류 재확인 */
+.doc-recheck{background:#FFFDF0;border:1px solid #C8A84B;border-radius:3px;padding:16px;margin-bottom:18px;}
+.doc-recheck b{display:block;font-size:13px;font-weight:700;color:#8A6D10;margin-bottom:10px;}
+.doc-recheck-item{display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid #F5E8C0;}
+.doc-recheck-item:last-child{border-bottom:none;}
+
+.info-box{background:#F0F5F2;border-left:3px solid #1B3A2D;padding:13px 15px;font-size:12px;color:#2D5A3D;line-height:1.9;}
+
+/* 버튼 */
+.btn-row{display:flex;gap:10px;margin-top:32px;}
+.btn{padding:13px 26px;border-radius:3px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;border:none;}
+.btn-primary{background:#1B3A2D;color:#fff;flex:1;}
+.btn-primary:hover{background:#2D6A4F;}
+.btn-sec{background:#fff;color:#555;border:1px solid #CCC;padding:13px 20px;}
+.btn-sec:hover{background:#F5F5F0;}
+.btn-sub{background:#1B3A2D;color:#fff;flex:1;font-size:15px;font-weight:700;}
+.btn-sub:hover{background:#2D6A4F;}
+
+/* 완료 */
+.done{display:none;text-align:center;padding:60px 0;}
+.done-ico{font-size:48px;margin-bottom:18px;}
+.done-title{font-family:'Noto Serif KR',serif;font-size:22px;font-weight:700;color:#1B3A2D;margin-bottom:8px;}
+.done-desc{font-size:14px;color:#666;line-height:1.7;margin-bottom:28px;}
+.done-receipts{display:flex;flex-direction:column;gap:10px;max-width:440px;margin:0 auto 24px;text-align:left;}
+.receipt{border:1px solid #DDD;border-radius:3px;overflow:hidden;}
+.receipt-hd{background:#1B3A2D;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;}
+.receipt-hd b{font-size:15px;color:#fff;letter-spacing:.5px;}
+.receipt-hd span{font-size:11px;color:rgba(255,255,255,.7);}
+.receipt-body{padding:14px 16px;}
+.receipt-row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid #F0F0EB;}
+.receipt-row:last-child{border-bottom:none;}
+.receipt-row span:first-child{color:#999;}
+.receipt-row span:last-child{font-weight:600;}
+
+/* ── 대시보드 ── */
+.dash{display:grid;grid-template-columns:200px 1fr;min-height:calc(100vh - 64px);}
+.sb{background:#fff;border-right:1px solid #E0E0DA;padding:24px 0;}
+.sb-sec{margin-bottom:24px;}
+.sb-lbl{font-size:10px;font-weight:700;color:#BBB;letter-spacing:1px;padding:0 20px;margin-bottom:6px;}
+.sb-item{display:flex;align-items:center;gap:8px;padding:9px 20px;font-size:13px;color:#555;cursor:pointer;border:none;background:none;font-family:inherit;width:100%;text-align:left;transition:all .15s;}
+.sb-item:hover{background:#F5F5F0;color:#1A1A1A;}
+.sb-item.on{background:#F0F5F2;color:#1B3A2D;font-weight:700;border-right:3px solid #1B3A2D;}
+.sb-badge{margin-left:auto;background:#C0392B;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;}
+.dm{padding:32px 36px;background:#FAFAF8;overflow-y:auto;}
+.dm-hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;}
+.dm-title{font-family:'Noto Serif KR',serif;font-size:18px;font-weight:700;color:#1A1A1A;}
+.dm-date{font-size:12px;color:#999;margin-top:4px;}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+.kpi{background:#fff;border:1px solid #E0E0DA;border-radius:3px;padding:18px;position:relative;}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:#1B3A2D;}
+.kpi.or::before{background:#C8891A;}.kpi.rd::before{background:#C0392B;}.kpi.bl::before{background:#2563EB;}
+.kpi-lbl{font-size:11px;color:#999;margin-bottom:8px;letter-spacing:.3px;}
+.kpi-num{font-size:28px;font-weight:900;color:#1A1A1A;letter-spacing:-1px;line-height:1;}
+.kpi-sub{font-size:11px;color:#BBB;margin-top:5px;}
+.fbar{background:#fff;border:1px solid #E0E0DA;border-radius:3px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.srch{display:flex;align-items:center;gap:7px;border:1px solid #CCC;border-radius:3px;padding:8px 11px;flex:1;min-width:160px;background:#FAFAF8;}
+.srch:focus-within{border-color:#1B3A2D;}
+.srch input{border:none;outline:none;font-family:inherit;font-size:13px;width:100%;background:transparent;color:#1A1A1A;}
+.srch input::placeholder{color:#CCC;}
+.fsel{border:1px solid #CCC;border-radius:3px;padding:8px 26px 8px 10px;font-family:inherit;font-size:13px;color:#555;background:#FAFAF8 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 8px center;-webkit-appearance:none;cursor:pointer;}
+.fsel:focus{outline:none;border-color:#1B3A2D;}
+.tbl-wrap{background:#fff;border:1px solid #E0E0DA;border-radius:3px;overflow:hidden;}
+.tbl-hd{padding:13px 18px;border-bottom:1px solid #EBEBEB;display:flex;align-items:center;justify-content:space-between;}
+.tbl-hd b{font-size:14px;font-weight:700;color:#1A1A1A;}
+table{width:100%;border-collapse:collapse;}
+th{background:#F5F5F0;padding:10px 13px;font-size:11px;font-weight:700;color:#999;text-align:left;letter-spacing:.3px;border-bottom:1px solid #EBEBEB;white-space:nowrap;}
+td{padding:12px 13px;font-size:13px;color:#333;border-bottom:1px solid #F0F0EB;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#FAFAF8;}
+.badge{display:inline-block;padding:2px 9px;border-radius:2px;font-size:11px;font-weight:700;}
+.b-접수{background:#EEF4F0;color:#1B3A2D;}
+.b-검토중{background:#FEF9EC;color:#8A6D10;}
+.b-승인{background:#EEF3FE;color:#2563EB;}
+.b-소송진행{background:#F0EEF8;color:#5B21B6;}
+.b-완료{background:#F0F0EB;color:#888;}
+.b-온라인{background:#EEF4F0;color:#1B3A2D;font-size:10px;}
+.b-우편{background:#FEF9EC;color:#8A6D10;font-size:10px;}
+.dbar{display:flex;align-items:center;gap:5px;}
+.dok{color:#1B3A2D;font-weight:700;font-size:12px;}
+.dng{color:#C0392B;font-weight:700;font-size:12px;}
+.dmini{width:40px;height:3px;background:#E0E0DA;border-radius:2px;overflow:hidden;}
+.dmini-fill{height:100%;background:#1B3A2D;border-radius:2px;}
+.av{width:24px;height:24px;border-radius:50%;background:#E8F0EB;color:#1B3A2D;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.lchip{font-size:10px;font-weight:700;padding:2px 7px;border-radius:2px;background:#FEF9EC;color:#8A6D10;}
+/* 모달 */
+.mbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center;}
+.mbg.op{display:flex;}
+.modal{background:#fff;border-radius:4px;width:100%;max-width:500px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);}
+.m-hd{padding:18px 22px;border-bottom:1px solid #EBEBEB;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;}
+.m-hd b{font-size:15px;font-weight:700;}
+.m-close{background:#F5F5F0;border:none;border-radius:3px;width:28px;height:28px;cursor:pointer;font-size:14px;color:#999;}
+.m-body{padding:22px;}
+.mrow{display:flex;gap:8px;margin-bottom:10px;font-size:13px;}
+.mkey{color:#999;width:80px;flex-shrink:0;}
+.mval{font-weight:600;flex:1;}
+.mdiv{height:1px;background:#EBEBEB;margin:14px 0;}
+.step-track{display:flex;align-items:flex-start;margin:12px 0;}
+.step-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.step-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;}
+.sd-done{background:#E8F0EB;color:#1B3A2D;border:1.5px solid #1B3A2D;}
+.sd-on{background:#1B3A2D;color:#fff;}
+.sd-idle{background:#F5F5F0;color:#CCC;border:1.5px solid #E0E0DA;}
+.step-lbl{font-size:10px;color:#999;text-align:center;}
+.step-line{height:1px;flex:1;margin-top:11px;}
+.sl-done{background:#1B3A2D;opacity:.25;}
+.sl-idle{background:#E0E0DA;}
+@media(max-width:800px){
+  .dash{grid-template-columns:1fr;}.sb{display:none;}
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .dm{padding:20px 14px;}
+  .hm{display:none;}
+}
+</style>
+<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+</head>
+<body>
+
+<!-- 공단 팝업 -->
+<div class="popup-bg" id="klacPopup">
+  <div class="popup">
+    <div class="popup-hd">
+      <h3>⚠️ 대한법률구조공단 신청 안내</h3>
+      <p>중요한 안내사항을 확인해주세요</p>
+    </div>
+    <div class="popup-body">
+      <div class="popup-alert">
+        <b>기준 중위소득 125% 이하이신 경우</b>
+        <p>민사소송 및 신청사건은 <strong>대한법률구조공단</strong>에서 <strong>무료</strong>로 진행해드립니다.<br>비용 부담 없이 동일한 법률 지원을 받으실 수 있습니다.</p>
+      </div>
+      <div class="popup-tel">
+        <div class="popup-tel-num">☎ 132</div>
+        <div class="popup-tel-info">대한법률구조공단<br>전국 어디서나 무료 연결<br>평일 09:00~18:00 · klac.or.kr</div>
+      </div>
+      <div class="popup-btns">
+        <button class="btn-cancel" onclick="closePopup()">취소 (다시 선택)</button>
+        <button class="btn-ok" onclick="proceedAnyway()">그래도 여기서 신청</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 헤더 -->
+<div class="header">
+  <a onclick="goHome()" style="cursor:pointer;">
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAB+8AAAEPCAMAAAC0pnY+AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyJpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNiAoV2luZG93cykiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6MEIxQzQ4MDNBNzZGMTFFODkyRDJGOEE0RjI2NzAxRDUiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6MEIxQzQ4MDRBNzZGMTFFODkyRDJGOEE0RjI2NzAxRDUiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDowQjFDNDgwMUE3NkYxMUU4OTJEMkY4QTRGMjY3MDFENSIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDowQjFDNDgwMkE3NkYxMUU4OTJEMkY4QTRGMjY3MDFENSIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/Pk+vtQEAAAMAUExURf///7a5u/7p6rPa7u3t7vNqTXVyc/n8/qvW7er1+7vd8LG1tj46O2y3373AwvX6/RmOzbWVjFuu2+Hw+KGlpkpGR/709Pj7/JbL6MbIytBNMDme1OXy+aWqrEGi1tLU1fJbStTV1f39/aGmqPr6+nG54MHg8fz+/tbY2aLR6ymW0CgkJenq6nm94snk81Gq2YjE5e32+yGRzvb299ns9x6Rztrc3VNMSqitriMfILi8vaywsoXD5M3m9OomKWGx3VVSU4SCgtbr9haMzNvd3vD4/Pj5+dDS06qusOPk5Z2bm+Hi48THyIuJis/R0i6Y0d7v+Ofo6Uyn2NPp9TGa0uXm5/T09Z+kpqPS6/P5/JrN6Y3H5paVlW1ra/Lz857P6vDx8RKKyyaV0LO3uPaTId7g4D6g1czO0PeTl/eTHq6trc7NzTed0/WFiUak1+Pi4iaUz4LC5K6ytOvs7OTk5PJVW06o2PR7TO0cJPR4fbu/wPBCSb/Cw/NrcTAsLdTW1/CMIe8zOvFLUpPK5+86QfiipfN0TUqm18PCwxGKy+0fJ2dkZZ96T8WtlG9RR6Wpq7q5ubKcl/3euveVIryQhK2PhsPGx/7+/hSLzIfE5cnMzV6w3Pf4+O/3/M/o9c/S09jb2ySTzzSb08vOz93f4Mvl9Nzu9/eRHqSoqsHExeTl5kOj1vP09FSr2les2ubn6MjLzPHy8qSpq8LFxsrMzcrNzs3Q0fSPH2643/X29uDh4sK6tOPj5Kyrq3a84a7X7WWz3fm6vPzf4NHT1GVjY4DB4/T19aXT6/zX2P/8/KDQ6vmuseHg4I/I56uvsf/6+ufm5/rExmhlZmpnaNDPz8jHx8XExHh1dqerrfv7/KKnqbe1tkE+P+rr65GPj+7v7/WQH5ODf9TT02NgYWi13rWYkKmnqMrJyreWjvJfZMDDxLqck7KRiJ+envb19TczNDs4OPJhZvSASXp4eLOysp92Te4uNaGfoM2livHx8e/w8OLh4ajU7M7Q0ZGPkP///7Ew7LgAAAEAdFJOU////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////wBT9wclAAAlWklEQVR42uzde/zeZV3H8WuNmNtEFowYMSA2xiY4zkPGoSkwFMEhB/sJM5BRmLkMpKhoQUWFy0zTgsE2TgJyEMETKqFY6laUVNphI4lHRifLsnOkdQkMftz37z58r/P1ua7r9f5v+933976+1/X5Xs/7e7yVJiRw1POhSUU3rYCWKbY2woRm/jYGk9hXmulsLGUrUUpem+S3rbWWyZ0MmaYTVFRJE5rrFkAhEY9KM61Fz81Emcd6AQK3XP+meXdYtJbJ7TMt93ABxzFSVlSCCS3iBqAEeP/ed217d7DcVUttDfmH67Iyl5phLTblvenCVYy2BfFeJe81FaDTdDlbUvktq3InZrCQ/Iotxti5bptJqui973vXRLi8pHLv7eZpx7kgyr5j1d4rjza36r1Pn6nEfSb/Cg+hk1kVLRlbUMrbexWpJER6/973vQXvZXkfYl4syPsAPth/P0jXNrne+/eZSu69OFhFX5wo6qIOkd5HGTrB3j/NfSveG06v2b33qcDWvTd8m/EHVuy99Zsy9pmKHJ1iLNM2LNrOq0c/yfM+ypc1Jdf7Z7jHe4HeO1Yg3hu9G++L6jMl1nsl2ntxF6xL8z7OVS9yvX+W+4Dev/qu0/De03uvAuxskmrJe4crBgJtudG9V7G89+6z8N4rvC/8VINfS1Qa74ONk1jvd3AfyvuLrnpKS04Z3vsVXJveK7yX471qyHsl2XulxHRcxAb4NE615f1z3AfxfvaSLVp4Qnpv9ZEpNlJTOuXxpfA+h/cK7/E+UfuUTO9VW94/z72/9wuv3UnLD97jveXr8R7vS/VeifFeyfQ+Vj8omd5Pcu/r/babNmmN90G8V7G9l/h8PS3W+5jPjvGdTxN7n7PPOH8vlHuVvSXa4wrkeP0g0PsXuPfzfttV23WJGdn9tXs/6mV5+ZLqvXfbonnv2bKi+gzv8d5+3svnveNulUrCvY/3H7mpTO0r9d600CTyFed4YcRj2QK892hZUX3WLKt4v+NTuhoQcOMJ1w+C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" alt="대한변협법률구조재단">
+  </a>
+  <div class="hnav">
+    <button id="btn_form" class="on" onclick="sw('form','btn_form')">소송구조 신청</button>
+    <button id="btn_dash" onclick="sw('dash','btn_dash')">접수 관리 <span class="nbadge" id="nb">0</span></button>
+  </div>
+</div>
+
+<!-- ══ 신청 폼 ══ -->
+<div id="tab_form" class="tab on">
+<div class="wrap">
+  <div class="page-hd">
+    <h1>전세피해 소송구조 신청서</h1>
+    <p>대한변협법률구조재단에서 전세 피해 회복을 위한 법률 지원을 도와드립니다.</p>
+  </div>
+
+  <div class="prog" id="prog">
+    <div class="ps on" id="ps0"><b>1</b>소득확인</div>
+    <div class="ps" id="ps1"><b>2</b>접수방법</div>
+    <div class="ps" id="ps2"><b>3</b>기본정보</div>
+    <div class="ps" id="ps3"><b>4</b>사건정보</div>
+    <div class="ps" id="ps4"><b>5</b>서류확인</div>
+    <div class="ps" id="ps5"><b>6</b>파일첨부</div>
+    <div class="ps" id="ps6"><b>7</b>최종확인</div>
+  </div>
+
+  <!-- S0 소득확인 -->
+  <div id="s0" class="sec on">
+    <div class="sec-h">소득 기준을 먼저 확인해주세요</div>
+    <div class="sec-d">신청 유형에 따라 지원 기관이 달라집니다.</div>
+
+    <div class="ins-box">
+      <div class="ins-box-title">📋 2025년 기준 중위소득 125% 기준표</div>
+      <table class="ins-table">
+        <thead><tr><th>가구원</th><th>직장가입자 이하</th><th>지역가입자 이하</th></tr></thead>
+        <tbody>
+          <tr><td>1인</td><td class="hl">88,344원</td><td class="hl">86,595원</td></tr>
+          <tr><td>2인</td><td class="hl">144,993원</td><td class="hl">142,541원</td></tr>
+          <tr><td>3인</td><td class="hl">193,746원</td><td class="hl">194,082원</td></tr>
+          <tr><td>4인</td><td class="hl">234,091원</td><td class="hl">238,825원</td></tr>
+          <tr><td>5인</td><td class="hl">272,614원</td><td class="hl">286,539원</td></tr>
+          <tr><td>6인</td><td class="hl">306,556원</td><td class="hl">325,084원</td></tr>
+        </tbody>
+      </table>
+      <p class="ins-note">※ 매년 1월 업데이트 · 가구원 2인 이상 납부 시 합산 기준 · 피부양자 포함<br>※ 기준표 업데이트: HTML 파일 내 INS_EMP, INS_LOC 숫자 변경</p>
+
+      <div class="calc-box">
+        <div class="calc-title">🔢 건강보험료로 직접 확인하기</div>
+        <div class="calc-row">
+          <div class="calc-field">
+            <span>가구원 수</span>
+            <select id="c_size" style="width:90px;">
+              <option value="">선택</option>
+              <option value="1">1인</option><option value="2">2인</option>
+              <option value="3">3인</option><option value="4">4인</option>
+              <option value="5">5인</option><option value="6">6인</option>
+            </select>
+          </div>
+          <div class="calc-field">
+            <span>가입유형</span>
+            <select id="c_type" onchange="onTypeChange()" style="width:140px;">
+              <option value="emp">직장가입자</option>
+              <option value="loc">지역가입자</option>
+              <option value="mix">혼합(직장+지역)</option>
+            </select>
+          </div>
+          <div class="calc-field" id="c_f1">
+            <span id="c_lbl1">보험료 본인부담금(원)</span>
+            <input type="number" id="c_a1" placeholder="예: 150000" style="width:160px;">
+          </div>
+          <div class="calc-field" id="c_f2" style="display:none;">
+            <span>지역가입자 납부금(원)</span>
+            <input type="number" id="c_a2" placeholder="예: 80000" style="width:160px;">
+          </div>
+          <button class="calc-btn" id="calcBtn" type="button">확인하기</button>
+        </div>
+        <div id="c_result" style="display:none;"></div>
+      </div>
+    </div>
+
+    <div style="font-size:13px;font-weight:700;color:#333;margin-bottom:12px;">귀하의 소득 기준을 선택해주세요</div>
+    <div class="ichoice-list">
+      <div class="ichoice" id="ic_low" onclick="pickIncome('low')">
+        <div class="ichoice-dot" id="id_low"></div>
+        <div>
+          <div class="ichoice-title">기준 중위소득 125% 이하</div>
+          <div class="ichoice-desc">전세사기피해자 결정문·HUG확인서 보유 시 → 본 재단 신청 가능<br>민사·신청사건 → 대한법률구조공단(132) 무료소송 이용 권장</div>
+        </div>
+      </div>
+      <div class="ichoice" id="ic_high" onclick="pickIncome('high')">
+        <div class="ichoice-dot" id="id_high"></div>
+        <div>
+          <div class="ichoice-title">기준 중위소득 125% 초과 (전세사기피해자)</div>
+          <div class="ichoice-desc">전세사기피해자 결정문 또는 HUG 피해확인서 보유 시 → 본 재단 신청 가능</div>
+        </div>
+      </div>
+      <div class="ichoice" id="ic_unk" onclick="pickIncome('unk')">
+        <div class="ichoice-dot" id="id_unk"></div>
+        <div>
+          <div class="ichoice-title">잘 모르겠습니다</div>
+          <div class="ichoice-desc">위 계산기로 확인 후 다시 선택해주세요</div>
+        </div>
+      </div>
+    </div>
+    <div id="unk_msg" style="display:none;margin-top:10px;background:#FEF9EC;border:1px solid #F5D78A;border-left:3px solid #C8891A;border-radius:3px;padding:13px;font-size:12px;color:#7A5010;line-height:1.7;">
+      ⚠️ 건강보험공단(nhis.or.kr) 또는 주민센터에서 건강보험료 납부확인서를 발급받아 위 계산기로 확인해주세요.
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="inc_next" style="display:none;" onclick="go(1)">다음 단계 →</button>
+    </div>
+  </div>
+
+  <!-- S1 접수방법 -->
+  <div id="s1" class="sec">
+    <div class="sec-h">접수 방법을 선택해주세요</div>
+    <div class="sec-d">온라인으로 직접 신청하시거나, 서류를 우편으로 발송 후 접수 등록하실 수 있습니다.</div>
+    <div class="rchoice-list">
+      <div class="rchoice" id="rc_online" onclick="pickRecv('online')">
+        <div class="rchoice-ico">💻</div>
+        <div><div class="rchoice-title">온라인 직접 신청</div><div class="rchoice-desc">지금 바로 모든 내용을 입력하고 제출</div></div>
+      </div>
+      <div class="rchoice" id="rc_post" onclick="pickRecv('post')">
+        <div class="rchoice-ico">📮</div>
+        <div><div class="rchoice-title">우편 신청</div><div class="rchoice-desc">서류 우편 발송 후 접수 사실만 등록</div></div>
+      </div>
+    </div>
+    <div class="post-box" id="post_box">
+      <b>📮 우편 발송 주소</b>
+      <p>신청서 작성 후 아래 주소로 우편 발송해주세요.<br>다음 단계에서 이름·연락처·발송일만 입력하시면 됩니다.<br>서류 도착 시 담당자가 스캔하여 시스템에 등록합니다.</p>
+      <div class="post-addr">📍 서울특별시 종로구 새문안로5길 13<br>변호사회관빌딩 11층 1102호<br><strong>대한변협법률구조재단 전세피해지원팀</strong> (우: 03182)</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-sec" onclick="go(0)">← 이전</button>
+      <button class="btn btn-primary" onclick="go(2)">다음 단계 →</button>
+    </div>
+  </div>
+
+  <!-- S2 기본정보 -->
+  <div id="s2" class="sec">
+    <div class="sec-h">기본 정보</div>
+    <div class="sec-d">신청자 본인의 정보를 정확히 입력해주세요.</div>
+    <div class="frow">
+      <div class="fg"><label>이름 <span class="req">*</span></label><input id="f_name" placeholder="홍길동"></div>
+      <div class="fg"><label>생년월일 <span class="req">*</span></label><input id="f_birth" placeholder="1990-01-01"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>연락처 <span class="req">*</span></label><input id="f_phone" placeholder="010-0000-0000" type="tel"></div>
+      <div class="fg"><label>이메일</label><input id="f_email" placeholder="example@email.com" type="email"></div>
+    </div>
+    <div class="fg">
+  <label>임차 주소 <span class="req">*</span></label>
+  <div style="display:flex;gap:8px;margin-bottom:6px;">
+    <input id="f_addr" placeholder="주소 검색 버튼을 눌러주세요" style="flex:1;border:1px solid #CCC;border-radius:3px;padding:11px 13px;font-family:inherit;font-size:14px;outline:none;background:#FAFAF8;" readonly onclick="searchAddr()">
+    <button type="button" onclick="searchAddr()" style="background:#1B3A2D;color:#fff;border:none;border-radius:3px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;">🔍 주소 검색</button>
+  </div>
+  <input id="f_addr_detail" placeholder="상세주소 입력 (동·호수 등)" style="border:1px solid #DDD;border-radius:3px;padding:10px 13px;font-family:inherit;font-size:13px;width:100%;outline:none;color:#555;" oninput="mergeAddr()">
+  <div id="f_addr_zip" style="font-size:11px;color:#999;margin-top:5px;"></div>
+</div>
+    <div id="post_fields" style="display:none;">
+      <div class="fg"><label>우편 발송일 <span class="req">*</span></label><input id="f_postdate" type="date"></div>
+      <div class="fg"><label>메모</label><input id="f_memo" placeholder="등기우편 / 일반우편 등"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-sec" onclick="go(1)">← 이전</button>
+      <button class="btn btn-primary" onclick="goStep3()">다음 단계 →</button>
+    </div>
+  </div>
+
+  <!-- S3 사건정보 -->
+  <div id="s3" class="sec">
+    <div class="sec-h">지원 유형 선택</div>
+    <div class="sec-d">해당하는 유형을 모두 선택해주세요. 유형별로 신청서가 별도 생성됩니다.</div>
+    <div class="type-notice">
+      ✅ <strong>최대 2개</strong>까지 선택 가능 · 유형별 신청서 별도 생성<br>
+      ⚠️ 임차권등기명령은 본안사건 부대신청만 가능 (단독 신청 불가)
+    </div>
+    <div class="tchoice-list">
+      <div class="tchoice" id="tc_criminal" onclick="pickType('criminal')">
+        <div class="tchoice-chk" id="tck_criminal"></div>
+        <div>
+          <div class="tchoice-title">🔴 형사사건</div>
+          <div class="tchoice-desc">전세사기피해자 결정문 또는 HUG 전세피해확인서 보유 시 신청</div>
+        </div>
+      </div>
+      <div class="tchoice" id="tc_civil" onclick="pickType('civil')">
+        <div class="tchoice-chk" id="tck_civil"></div>
+        <div>
+          <div class="tchoice-title">⚖️ 소송구조 본안 (민사)</div>
+          <div class="tchoice-desc">임차권등기명령(부대신청), 전세사기 관련 민사 본안 사건</div>
+          <div class="tchoice-warn" id="tw_civil">※ 중위소득 125% 이하 → 공단(132) 무료소송 이용 권장</div>
+        </div>
+      </div>
+      <div class="tchoice" id="tc_apply" onclick="pickType('apply')">
+        <div class="tchoice-chk" id="tck_apply"></div>
+        <div>
+          <div class="tchoice-title">📋 신청사건</div>
+          <div class="tchoice-desc">가처분, 가압류 등 신청사건 (임차권등기명령 단독 신청 불가)</div>
+          <div class="tchoice-warn" id="tw_apply">※ 중위소득 125% 이하 → 공단(132) 무료소송 이용 권장</div>
+        </div>
+      </div>
+    </div>
+    <div class="sel-count" id="sel_count">선택된 유형: 0개</div>
+    <div style="margin-top:22px;">
+      <div class="frow">
+        <div class="fg"><label>보증금액 <span class="req">*</span></label><input id="f_amt" placeholder="예: 1억 5000만원"></div>
+        <div class="fg"><label>계약 기간</label><input id="f_period" placeholder="2022-03 ~ 2024-02"></div>
+      </div>
+      <div class="fg"><label>전세피해확인서 / 결정문 보유 여부</label>
+        <select id="f_hug">
+          <option value="">선택해주세요</option>
+          <option>전세피해확인서 보유 (HUG 발급)</option>
+          <option>전세사기피해자 결정문 보유</option>
+          <option>둘 다 보유</option>
+          <option>미보유 (준비 중)</option>
+        </select>
+      </div>
+      <div class="fg"><label>피해 상황 설명</label><textarea id="f_desc" placeholder="피해 경위를 간략히 설명해주세요."></textarea></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-sec" onclick="go(2)">← 이전</button>
+      <button class="btn btn-primary" onclick="goStep4()">다음 단계 →</button>
+    </div>
+  </div>
+
+  <!-- S4 서류확인 -->
+  <div id="s4" class="sec">
+    <div class="sec-h">서류 체크리스트</div>
+    <div class="sec-d">보유하신 서류에 체크해주세요.</div>
+    <div class="doc-list">
+      <div class="doc-item" onclick="togDoc(this)"><div class="doc-ck"></div><div style="flex:1"><div class="doc-name">확정일자부 임대차계약서</div><div class="doc-where">📍 본인 보관 (원본)</div></div><span class="doc-badge b-req">필수</span></div>
+      <div class="doc-item" onclick="togDoc(this)"><div class="doc-ck"></div><div style="flex:1"><div class="doc-name">등기부등본</div><div class="doc-where">📍 인터넷등기소 iros.go.kr</div></div><span class="doc-badge b-req">필수</span></div>
+      <div class="doc-item" onclick="togDoc(this)"><div class="doc-ck"></div><div style="flex:1"><div class="doc-name">주민등록등본 (주소변동 포함)</div><div class="doc-where">📍 정부24 또는 주민센터</div></div><span class="doc-badge b-req">필수</span></div>
+      <div class="doc-item" onclick="togDoc(this)"><div class="doc-ck"></div><div style="flex:1"><div class="doc-name">주민등록초본</div><div class="doc-where">📍 정부24 또는 주민센터</div></div><span class="doc-badge b-req">필수</span></div>
+      <div class="doc-item" onclick="togDoc(this)"><div class="doc-ck"></div><div style="flex:1"><div class="doc-name">전세피해확인서 또는 전세사기피해자 결정문</div><div class="doc-where">📍 HUG 또는 국토교통부 (해당자)</div></div><span class="doc-badge b-req">해당자필수</span></div>
+      <div class="doc-item" onclick="togDoc(this)"><div class="doc-ck"></div><div style="flex:1"><div class="doc-name">소득 증빙 (건강보험료 납부확인서)</div><div class="doc-where">📍 nhis.or.kr</div></div><span class="doc-badge b-req">필수</span></div>
+      <div class="doc-item" onclick="togDoc(this)"><div class="doc-ck"></div><div style="flex:1"><div class="doc-name">임차권 등기 납부영수증</div><div class="doc-where">📍 해당 법원</div></div><span class="doc-badge b-opt">해당자</span></div>
+      <div class="doc-item" onclick="togDoc(this)"><div class="doc-ck"></div><div style="flex:1"><div class="doc-name">기타 증빙 (카톡내역, 내용증명 등)</div><div class="doc-where">📍 본인 보관</div></div><span class="doc-badge b-opt">선택</span></div>
+    </div>
+    <div class="prog-bar"><div class="prog-fill" id="pf"></div></div>
+    <div class="prog-txt" id="pt">0 / 8 체크됨</div>
+    <div class="btn-row">
+      <button class="btn btn-sec" onclick="go(3)">← 이전</button>
+      <button class="btn btn-primary" onclick="go(5)">다음 단계 →</button>
+    </div>
+  </div>
+
+  <!-- S5 파일첨부 -->
+  <div id="s5" class="sec">
+    <div class="sec-h">파일 첨부</div>
+    <div class="sec-d">준비하신 서류 파일을 첨부해주세요. (PDF 10MB · JPG/PNG 5MB · 최대 20개)</div>
+    <div class="upload-zone" onclick="document.getElementById('ufi').click()">
+      <input type="file" id="ufi" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="addFile(this)">
+      <div style="font-size:32px;margin-bottom:8px;">📁</div>
+      <p>클릭하여 파일 선택</p>
+      <span>PDF(10MB), JPG·PNG(5MB) · 최대 20개</span>
+    </div>
+    <div class="file-list" id="flist"></div>
+    <div class="btn-row">
+      <button class="btn btn-sec" onclick="go(4)">← 이전</button>
+      <button class="btn btn-primary" onclick="go(6)">다음 단계 →</button>
+    </div>
+  </div>
+
+  <!-- S6 최종확인 -->
+  <div id="s6" class="sec">
+    <div class="sec-h">최종 확인</div>
+    <div class="sec-d">신청서 내용을 확인하신 후 제출해주세요. 유형별로 별도 접수됩니다.</div>
+    <div class="doc-recheck" id="doc_recheck"><b>📋 제출 전 서류 최종 확인</b><div id="doc_recheck_list"></div></div>
+    <div class="apps-wrap" id="apps_wrap"></div>
+    <div class="info-box">✅ 제출 후 1~2 영업일 내 담당자가 연락드립니다<br>✅ 서류 미비 시 추가 안내 연락드립니다<br>✅ 문의: 1661-6579 (대한변협법률구조재단)</div>
+    <div class="btn-row">
+      <button class="btn btn-sec" onclick="go(5)">← 이전</button>
+      <button class="btn btn-sub" onclick="doSubmit()">📨 신청서 제출하기</button>
+    </div>
+  </div>
+
+  <!-- 완료 -->
+  <div class="done" id="done_wrap">
+    <div class="done-ico">🌱</div>
+    <div class="done-title">신청이 완료되었습니다</div>
+    <div class="done-desc">담당자가 1~2 영업일 내 연락드립니다.<br>함께 해결해 나가겠습니다.</div>
+    <div class="done-receipts" id="done_receipts"></div>
+    <button class="btn btn-primary" style="max-width:180px;margin:0 auto;" onclick="goHome()">새 신청서 작성</button>
+  </div>
+</div>
+</div>
+
+<!-- ══ 대시보드 ══ -->
+<div id="tab_dash" class="tab">
+  <div class="dash">
+    <div class="sb">
+      <div class="sb-sec">
+        <div class="sb-lbl">신청 관리</div>
+        <button class="sb-item on">📋 전체 신청 <span class="sb-badge" id="sb_total">0</span></button>
+        <button class="sb-item">⚠️ 서류 미비 <span class="sb-badge">0</span></button>
+        <button class="sb-item">📮 우편 접수</button>
+        <button class="sb-item">✅ 완료</button>
+      </div>
+      <div class="sb-sec">
+        <div class="sb-lbl">유형별</div>
+        <button class="sb-item">🔴 형사사건</button>
+        <button class="sb-item">⚖️ 소송구조 본안</button>
+        <button class="sb-item">📋 신청사건</button>
+      </div>
+      <div class="sb-sec">
+        <div class="sb-lbl">담당자</div>
+        <button class="sb-item">김민준</button>
+        <button class="sb-item">이서연</button>
+        <button class="sb-item">박지훈</button>
+        <button class="sb-item">최유진</button>
+      </div>
+    </div>
+    <div class="dm">
+      <div class="dm-hd">
+        <div><div class="dm-title">소송구조 접수 관리</div><div class="dm-date" id="dm_date"></div></div>
+        <button class="btn btn-primary" style="padding:9px 16px;font-size:13px;" onclick="sw('form','btn_form')">+ 신규 접수</button>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi"><div class="kpi-lbl">전체 신청</div><div class="kpi-num" id="kpi_total">0</div><div class="kpi-sub" id="kpi_sub">-</div></div>
+        <div class="kpi or"><div class="kpi-lbl">검토 중</div><div class="kpi-num" id="kpi_review">0</div><div class="kpi-sub">평균 2일</div></div>
+        <div class="kpi rd"><div class="kpi-lbl">서류 미비</div><div class="kpi-num" id="kpi_missing">0</div><div class="kpi-sub">연락 필요</div></div>
+        <div class="kpi bl"><div class="kpi-lbl">소송 진행</div><div class="kpi-num" id="kpi_suit">0</div><div class="kpi-sub">진행 중</div></div>
+      </div>
+      <div class="fbar">
+        <div class="srch"><span style="color:#CCC;">🔍</span><input placeholder="이름, 주소, 접수번호..." oninput="filterTable()"></div>
+        <select class="fsel" id="f_st" onchange="filterTable()"><option value="">전체 상태</option><option>접수</option><option>검토중</option><option>승인</option><option>소송진행</option><option>완료</option></select>
+        <select class="fsel" id="f_tp" onchange="filterTable()"><option value="">전체 유형</option><option>형사사건</option><option>소송구조 본안</option><option>신청사건</option></select>
+        <select class="fsel" id="f_rv" onchange="filterTable()"><option value="">전체 접수</option><option>온라인</option><option>우편</option></select>
+      </div>
+      <div class="tbl-wrap">
+        <div class="tbl-hd"><b>신청 목록</b><span style="font-size:12px;color:#999;" id="tbl_count">0건</span></div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr>
+              <th>접수번호</th><th>이름</th><th>접수</th><th>유형</th>
+              <th class="hm">한도</th><th>서류</th><th>상태</th>
+              <th class="hm">담당자</th><th>접수일</th><th></th>
+            </tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 상세 모달 -->
+<div class="mbg" id="modal_bg" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="m-hd"><b id="m_title">상세보기</b><button class="m-close" onclick="closeModal()">✕</button></div>
+    <div class="m-body" id="m_body"></div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════
+// 상태 변수
+// ════════════════════════════════
+var cur = 0;
+var recvType = 'online';
+var incomeLevel = '';
+var selTypes = [];
+var pendingType = null;
+
+// 건강보험료 기준 — 매년 1월 업데이트
+// 업데이트 방법: 아래 숫자를 국민건강보험공단 기준표에 맞게 변경
+var INS_EMP = {1:88344, 2:144993, 3:193746, 4:234091, 5:272614, 6:306556};
+var INS_LOC = {1:86595, 2:142541, 3:194082, 4:238825, 5:286539, 6:325084};
+var INS_YEAR = 2025; // 기준연도
+
+// ════════════════════════════════
+// 탭 전환
+// ════════════════════════════════
+function sw(tabId, btnId) {
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('on'); });
+  document.querySelectorAll('.hnav button').forEach(function(b){ b.classList.remove('on'); });
+  document.getElementById('tab_' + tabId).classList.add('on');
+  document.getElementById(btnId).classList.add('on');
+  if (tabId === 'dash') renderTable();
+}
+
+// ════════════════════════════════
+// 첫 화면으로
+// ════════════════════════════════
+function goHome() {
+  sw('form', 'btn_form');
+  for (var i = 0; i <= 6; i++) {
+    var s = document.getElementById('s' + i);
+    var p = document.getElementById('ps' + i);
+    if (s) { s.classList.remove('on'); s.style.display = ''; }
+    if (p) { p.classList.remove('on', 'done'); }
+  }
+  cur = 0;
+  document.getElementById('s0').classList.add('on');
+  document.getElementById('ps0').classList.add('on');
+  document.getElementById('prog').style.display = '';
+  document.getElementById('done_wrap').style.display = 'none';
+  window.scrollTo(0, 0);
+}
+
+// ════════════════════════════════
+// 스텝 이동
+// ════════════════════════════════
+function go(n) {
+  document.getElementById('s' + cur).classList.remove('on');
+  document.getElementById('ps' + cur).classList.remove('on');
+  document.getElementById('ps' + cur).classList.add('done');
+  cur = n;
+  document.getElementById('s' + n).classList.add('on');
+  document.getElementById('ps' + n).classList.remove('done');
+  document.getElementById('ps' + n).classList.add('on');
+  if (n === 6) buildConfirm();
+  window.scrollTo(0, 0);
+}
+
+function goStep3() {
+  if (recvType === 'post') { go(6); return; }
+  go(3);
+}
+
+function goStep4() {
+  if (selTypes.length === 0) { alert('유형을 최소 1개 이상 선택해주세요.'); return; }
+  go(4);
+}
+
+// ════════════════════════════════
+// 건강보험료 계산기
+// ════════════════════════════════
+function onTypeChange() {
+  var t = document.getElementById('c_type').value;
+  var f2 = document.getElementById('c_f2');
+  var lbl = document.getElementById('c_lbl1');
+  if (t === 'mix') {
+    f2.style.display = 'flex';
+    lbl.textContent = '직장가입자 납부금(원)';
+  } else if (t === 'loc') {
+    f2.style.display = 'none';
+    lbl.textContent = '지역가입자 납부금(원)';
+  } else {
+    f2.style.display = 'none';
+    lbl.textContent = '보험료 본인부담금(원)';
+  }
+  document.getElementById('c_result').style.display = 'none';
+}
+
+document.getElementById('calcBtn').addEventListener('click', function() {
+  var size = parseInt(document.getElementById('c_size').value);
+  var type = document.getElementById('c_type').value;
+  var a1 = parseFloat(document.getElementById('c_a1').value || '0');
+  var res = document.getElementById('c_result');
+
+  if (!size) { alert('가구원 수를 선택해주세요.'); return; }
+  if (!a1 || a1 <= 0) { alert('보험료를 입력해주세요.'); return; }
+
+  var total = a1;
+  if (type === 'mix') {
+    var a2 = parseFloat(document.getElementById('c_a2').value || '0');
+    if (!a2 || a2 <= 0) { alert('지역가입자 납부금도 입력해주세요.'); return; }
+    total = a1 + a2;
+  }
+
+  var limit = (type === 'loc') ? INS_LOC[size] : INS_EMP[size];
+  var isLow = total <= limit;
+  var mixTxt = (type === 'mix') ? ' (합계 ' + total.toLocaleString() + '원)' : '';
+
+  res.style.display = 'block';
+  if (isLow) {
+    res.className = 'res-low';
+    res.innerHTML = '✅ <strong>기준 중위소득 125% 이하</strong>' + mixTxt +
+      '<br><small>납부금 ' + total.toLocaleString() + '원 ≤ 기준 ' + limit.toLocaleString() + '원 &nbsp;|&nbsp; 민사·신청은 공단(☎132) 무료소송 이용 권장</small>';
+  } else {
+    res.className = 'res-high';
+    res.innerHTML = '📋 <strong>기준 중위소득 125% 초과</strong>' + mixTxt +
+      '<br><small>납부금 ' + total.toLocaleString() + '원 &gt; 기준 ' + limit.toLocaleString() + '원 &nbsp;|&nbsp; 전세사기피해자 결정문/확인서 보유 시 신청 가능</small>';
+  }
+});
+
+// ════════════════════════════════
+// 소득 선택
+// ════════════════════════════════
+function pickIncome(val) {
+  incomeLevel = val;
+  ['low','high','unk'].forEach(function(id) {
+    var box = document.getElementById('ic_' + id);
+    var dot = document.getElementById('id_' + id);
+    if (id === val) {
+      box.classList.add('sel');
+      dot.innerHTML = '<span style="color:#fff;font-size:10px;font-weight:900;">✓</span>';
+    } else {
+      box.classList.remove('sel');
+      dot.innerHTML = '';
+    }
+  });
+  document.getElementById('unk_msg').style.display = val === 'unk' ? 'block' : 'none';
+  document.getElementById('inc_next').style.display = val !== 'unk' ? 'block' : 'none';
+  // 경고 업데이트
+  updateTypeWarns();
+}
+
+// ════════════════════════════════
+// 접수방법 선택
+// ════════════════════════════════
+function pickRecv(val) {
+  recvType = val;
+  ['online','post'].forEach(function(id) {
+    document.getElementById('rc_' + id).classList.toggle('sel', id === val);
+  });
+  document.getElementById('post_box').classList.toggle('show', val === 'post');
+  document.getElementById('post_fields').style.display = val === 'post' ? 'block' : 'none';
+}
+
+// ════════════════════════════════
+// 유형 선택 (복수, 최대 2개)
+// ════════════════════════════════
+var TYPE_NAMES = {criminal:'형사사건', civil:'소송구조 본안', apply:'신청사건'};
+var TYPE_LIMITS = {criminal:'250만원', civil:'100만원', apply:'50만원'};
+
+function pickType(type) {
+  var isSelected = selTypes.indexOf(type) >= 0;
+  if (!isSelected) {
+    if (selTypes.length >= 2) { alert('최대 2개까지만 선택하실 수 있습니다.'); return; }
+    if (incomeLevel === 'low' && (type === 'civil' || type === 'apply')) {
+      pendingType = type;
+      document.getElementById('klacPopup').classList.add('open');
+      return;
+    }
+    selTypes.push(type);
+  } else {
+    selTypes = selTypes.filter(function(t){ return t !== type; });
+  }
+  updateTypeUI();
+}
+
+function updateTypeUI() {
+  ['criminal','civil','apply'].forEach(function(type) {
+    var box = document.getElementById('tc_' + type);
+    var chk = document.getElementById('tck_' + type);
+    var sel = selTypes.indexOf(type) >= 0;
+    box.classList.toggle('sel', sel);
+    box.classList.toggle('disabled', !sel && selTypes.length >= 2);
+    chk.innerHTML = sel ? '✓' : '';
+  });
+  var cnt = selTypes.length;
+  var names = selTypes.map(function(t){ return {criminal:'형사',civil:'민사',apply:'신청'}[t]; });
+  document.getElementById('sel_count').textContent = '선택된 유형: ' + cnt + '개' + (cnt > 0 ? ' (' + names.join(', ') + ')' : '');
+  updateTypeWarns();
+}
+
+function updateTypeWarns() {
+  ['civil','apply'].forEach(function(type) {
+    var warn = document.getElementById('tw_' + type);
+    if (warn) warn.style.display = (incomeLevel === 'low' && selTypes.indexOf(type) >= 0) ? 'block' : 'none';
+  });
+}
+
+function closePopup() {
+  document.getElementById('klacPopup').classList.remove('open');
+  pendingType = null;
+}
+
+function proceedAnyway() {
+  document.getElementById('klacPopup').classList.remove('open');
+  if (pendingType) {
+    selTypes.push(pendingType);
+    pendingType = null;
+    updateTypeUI();
+  }
+}
+
+// ════════════════════════════════
+// 서류 체크
+// ════════════════════════════════
+function togDoc(el) {
+  el.classList.toggle('ck');
+  var ck = el.querySelector('.doc-ck');
+  ck.innerHTML = el.classList.contains('ck') ? '✓' : '';
+  var items = document.querySelectorAll('.doc-item');
+  var done = document.querySelectorAll('.doc-item.ck').length;
+  document.getElementById('pf').style.width = Math.round(done/items.length*100) + '%';
+  document.getElementById('pt').textContent = done + ' / ' + items.length + ' 체크됨';
+}
+
+// ════════════════════════════════
+// 파일 첨부
+// ════════════════════════════════
+var FILE_MAX = {
+  'application/pdf': {size: 10*1024*1024, label:'PDF 10MB'},
+  'image/jpeg': {size: 5*1024*1024, label:'JPG 5MB'},
+  'image/png': {size: 5*1024*1024, label:'PNG 5MB'}
+};
+
+function addFile(inp) {
+  var list = document.getElementById('flist');
+  var existing = list.querySelectorAll('.file-chip').length;
+  var errors = [];
+  Array.prototype.forEach.call(inp.files, function(f) {
+    if (existing >= 20) { errors.push('최대 20개까지 첨부 가능합니다.'); return; }
+    if (!FILE_MAX[f.type]) { errors.push(f.name + ': PDF, JPG, PNG만 가능합니다.'); return; }
+    if (f.size > FILE_MAX[f.type].size) { errors.push(f.name + ': ' + FILE_MAX[f.type].label + ' 이하만 가능합니다.'); return; }
+    var sz = f.size > 1024*1024 ? (f.size/1024/1024).toFixed(1)+'MB' : (f.size/1024).toFixed(0)+'KB';
+    var ico = f.type === 'application/pdf' ? '📕' : '🖼️';
+    var chip = document.createElement('div');
+    chip.className = 'file-chip';
+    chip.innerHTML = ico + ' <span>' + f.name + '</span> <span style="color:#BBB;font-size:11px;">' + sz + '</span><span class="file-rm" onclick="this.parentNode.remove()">✕</span>';
+    list.appendChild(chip);
+    existing++;
+  });
+  if (errors.length) alert('⚠️ 파일 오류\n\n' + errors.join('\n'));
+  inp.value = '';
+}
+
+// ════════════════════════════════
+// 최종 확인 빌드
+// ════════════════════════════════
+function buildConfirm() {
+  // 서류 재확인
+  var rcList = document.getElementById('doc_recheck_list');
+  rcList.innerHTML = '';
+  document.querySelectorAll('.doc-item').forEach(function(item) {
+    var checked = item.classList.contains('ck');
+    var name = item.querySelector('.doc-name').textContent;
+    var isReq = item.querySelector('.b-req') !== null;
+    var ico = checked ? '✅' : (isReq ? '❌' : '⬜');
+    var color = checked ? '#2D5A3D' : (isReq ? '#C0392B' : '#888');
+    var div = document.createElement('div');
+    div.className = 'doc-recheck-item';
+    div.style.color = color;
+    div.innerHTML = ico + ' ' + name + ((!checked && isReq) ? ' <span style="margin-left:auto;font-size:10px;font-weight:700;color:#C0392B;">미제출</span>' : '');
+    rcList.appendChild(div);
+  });
+
+  // 신청서 요약
+  var wrap = document.getElementById('apps_wrap');
+  wrap.innerHTML = '';
+  var types = selTypes.length > 0 ? selTypes : ['civil'];
+  var name = document.getElementById('f_name').value || '-';
+  var phone = document.getElementById('f_phone').value || '-';
+  var addr = document.getElementById('f_addr').value || '-';
+  var amt = document.getElementById('f_amt').value || '-';
+  var docs = document.querySelectorAll('.doc-item.ck').length;
+  var files = document.querySelectorAll('.file-chip').length;
+
+  types.forEach(function(type, i) {
+    var card = document.createElement('div');
+    card.className = 'app-card';
+    card.innerHTML =
+      '<div class="app-card-hd"><b>신청서 ' + (i+1) + ' — ' + TYPE_NAMES[type] + '</b><span>한도: ' + TYPE_LIMITS[type] + '</span></div>' +
+      '<table class="conf-table">' +
+      '<tr><td>접수방법</td><td>' + (recvType==='post'?'우편':'온라인') + '</td></tr>' +
+      '<tr><td>이름</td><td>' + name + '</td></tr>' +
+      '<tr><td>연락처</td><td>' + phone + '</td></tr>' +
+      '<tr><td>주소</td><td>' + addr + '</td></tr>' +
+      '<tr><td>보증금액</td><td>' + amt + '</td></tr>' +
+      '<tr><td>서류체크</td><td>' + docs + ' / 8</td></tr>' +
+      '<tr><td>첨부파일</td><td>' + files + '개</td></tr>' +
+      '</table>';
+    wrap.appendChild(card);
+  });
+}
+
+
+// ════════════════════════════════
+// 주소 검색 (카카오 우편번호 서비스)
+// ════════════════════════════════
+var addrBase = '';
+
+function searchAddr() {
+  new daum.Postcode({
+    oncomplete: function(data) {
+      var addr = data.roadAddress || data.jibunAddress;
+      addrBase = addr;
+      document.getElementById('f_addr').value = addr;
+      document.getElementById('f_addr_zip').textContent = '📮 우편번호: ' + data.zonecode;
+      document.getElementById('f_addr_detail').value = '';
+      document.getElementById('f_addr_detail').focus();
+    }
+  }).open();
+}
+
+function mergeAddr() {
+  var detail = document.getElementById('f_addr_detail').value.trim();
+  document.getElementById('f_addr').value = detail ? addrBase + ' ' + detail : addrBase;
+}
+
+// ════════════════════════════════
+// 제출
+// ════════════════════════════════
+var dbData = [];
+
+function doSubmit() {
+  var now = new Date();
+  var receipts = document.getElementById('done_receipts');
+  receipts.innerHTML = '';
+  var types = selTypes.length > 0 ? selTypes : ['civil'];
+
+  types.forEach(function(type, i) {
+    var no = 'HUG-' + now.getFullYear() + '-' + String(Math.floor(Math.random()*9000)+1000);
+    // DB에 추가
+    dbData.unshift({
+      no: no,
+      name: document.getElementById('f_name').value || '신청자',
+      phone: document.getElementById('f_phone').value || '-',
+      addr: document.getElementById('f_addr').value || '-',
+      type: TYPE_NAMES[type],
+      recv: recvType === 'post' ? '우편' : '온라인',
+      limit: TYPE_LIMITS[type],
+      amount: document.getElementById('f_amt').value || '-',
+      docs: document.querySelectorAll('.doc-item.ck').length,
+      total: 8,
+      status: '접수',
+      staff: '미배정',
+      date: now.toISOString().slice(0,10)
+    });
+
+    // 영수증
+    var r = document.createElement('div');
+    r.className = 'receipt';
+    r.innerHTML =
+      '<div class="receipt-hd"><b>' + no + '</b><span>신청서 '+(i+1)+' — '+TYPE_NAMES[type]+'</span></div>' +
+      '<div class="receipt-body">' +
+      '<div class="receipt-row"><span>접수일시</span><span>' + now.toLocaleString('ko-KR') + '</span></div>' +
+      '<div class="receipt-row"><span>담당부서</span><span>전세피해지원팀</span></div>' +
+      '<div class="receipt-row"><span>문의</span><span>1661-6579</span></div>' +
+      '</div>';
+    receipts.appendChild(r);
+  });
+
+  // 뱃지 업데이트
+  document.getElementById('nb').textContent = dbData.length;
+  document.getElementById('sb_total').textContent = dbData.length;
+
+  // 완료 화면
+  document.getElementById('prog').style.display = 'none';
+  for (var i = 0; i <= 6; i++) {
+    var s = document.getElementById('s' + i);
+    if (s) s.style.display = 'none';
+  }
+  document.getElementById('done_wrap').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+
+// ════════════════════════════════
+// 대시보드
+// ════════════════════════════════
+var SL = ['접수','검토중','승인','소송진행','완료'];
+var STAFF = ['김민준','이서연','박지훈','최유진','정다은','오승우'];
+
+function updateKpi() {
+  document.getElementById('kpi_total').textContent = dbData.length;
+  document.getElementById('kpi_sub').textContent = '총 ' + dbData.length + '건';
+  document.getElementById('kpi_review').textContent = dbData.filter(function(d){ return d.status==='검토중'; }).length;
+  document.getElementById('kpi_missing').textContent = dbData.filter(function(d){ return d.docs < 6; }).length;
+  document.getElementById('kpi_suit').textContent = dbData.filter(function(d){ return d.status==='소송진행'; }).length;
+  document.getElementById('tbl_count').textContent = dbData.length + '건';
+}
+
+function filterTable() {
+  var q = document.querySelector('.srch input').value;
+  var st = document.getElementById('f_st').value;
+  var tp = document.getElementById('f_tp').value;
+  var rv = document.getElementById('f_rv').value;
+  var rows = dbData.filter(function(d) {
+    return (!q || d.name.includes(q) || d.no.includes(q) || d.addr.includes(q)) &&
+           (!st || d.status === st) && (!tp || d.type === tp) && (!rv || d.recv === rv);
+  });
+  var tbody = document.getElementById('tbody');
+  tbody.innerHTML = rows.map(function(d) {
+    var ok = d.docs >= 6;
+    var pct = Math.round(d.docs/d.total*100);
+    return '<tr>' +
+      '<td style="font-size:11px;color:#999;font-weight:600;">' + d.no + '</td>' +
+      '<td style="font-weight:700;">' + d.name + '</td>' +
+      '<td><span class="badge b-' + d.recv + '">' + d.recv + '</span></td>' +
+      '<td style="font-size:12px;">' + d.type + '</td>' +
+      '<td class="hm"><span class="lchip">' + d.limit + '</span></td>' +
+      '<td><div class="dbar"><span class="' + (ok?'dok':'dng') + '">' + (ok?'완비':'미비') + '</span><div class="dmini"><div class="dmini-fill" style="width:'+pct+'%;"></div></div></div></td>' +
+      '<td><span class="badge b-' + d.status + '">' + d.status + '</span></td>' +
+      '<td class="hm"><div style="display:flex;align-items:center;gap:6px;"><div class="av">' + d.staff[0] + '</div><span style="font-size:12px;">' + d.staff + '</span></div></td>' +
+      '<td style="font-size:12px;color:#999;">' + d.date + '</td>' +
+      '<td><button class="btn btn-sec" style="padding:5px 10px;font-size:12px;" onclick="openModal(' + dbData.indexOf(d) + ')">상세</button></td>' +
+      '</tr>';
+  }).join('');
+  document.getElementById('tbl_count').textContent = rows.length + '건';
+}
+
+function renderTable() {
+  updateKpi();
+  filterTable();
+}
+
+// ════════════════════════════════
+// 모달
+// ════════════════════════════════
+function openModal(idx) {
+  var d = dbData[idx];
+  var ci = SL.indexOf(d.status);
+  var track = '<div class="step-track">';
+  SL.forEach(function(s, i) {
+    var cls = i < ci ? 'sd-done' : (i === ci ? 'sd-on' : 'sd-idle');
+    track += '<div class="step-item"><div class="step-dot ' + cls + '">' + (i < ci ? '✓' : i+1) + '</div><div class="step-lbl">' + s + '</div></div>';
+    if (i < SL.length-1) track += '<div class="step-line ' + (i < ci ? 'sl-done' : 'sl-idle') + '"></div>';
+  });
+  track += '</div>';
+
+  document.getElementById('m_title').textContent = d.name + ' 님 신청 상세';
+  document.getElementById('m_body').innerHTML =
+    track +
+    '<div class="mdiv"></div>' +
+    '<div class="mrow"><span class="mkey">접수번호</span><span class="mval" style="color:#1B3A2D;font-size:12px;">' + d.no + '</span></div>' +
+    '<div class="mrow"><span class="mkey">접수방법</span><span class="mval"><span class="badge b-' + d.recv + '">' + d.recv + '</span></span></div>' +
+    '<div class="mrow"><span class="mkey">이름</span><span class="mval">' + d.name + '</span></div>' +
+    '<div class="mrow"><span class="mkey">연락처</span><span class="mval">' + d.phone + '</span></div>' +
+    '<div class="mrow"><span class="mkey">주소</span><span class="mval">' + d.addr + '</span></div>' +
+    '<div class="mrow"><span class="mkey">지원유형</span><span class="mval">' + d.type + '</span></div>' +
+    '<div class="mrow"><span class="mkey">지원한도</span><span class="mval" style="color:#8A6D10;">' + d.limit + '</span></div>' +
+    '<div class="mrow"><span class="mkey">보증금</span><span class="mval">' + d.amount + '</span></div>' +
+    '<div class="mrow"><span class="mkey">서류</span><span class="mval">' + d.docs + '/' + d.total + ' 완비</span></div>' +
+    '<div class="mrow"><span class="mkey">담당자</span><span class="mval">' + d.staff + '</span></div>' +
+    '<div class="mrow"><span class="mkey">접수일</span><span class="mval">' + d.date + '</span></div>' +
+    '<div class="mdiv"></div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#333;display:block;margin-bottom:6px;">상태 변경</label>' +
+    '<select style="width:100%;border:1px solid #CCC;border-radius:3px;padding:10px 12px;font-family:inherit;font-size:13px;" onchange="dbData['+idx+'].status=this.value;">' +
+    SL.map(function(s){ return '<option' + (s===d.status?' selected':'') + '>' + s + '</option>'; }).join('') +
+    '</select></div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#333;display:block;margin-bottom:6px;">담당자 배정</label>' +
+    '<select style="width:100%;border:1px solid #CCC;border-radius:3px;padding:10px 12px;font-family:inherit;font-size:13px;" onchange="dbData['+idx+'].staff=this.value;">' +
+    STAFF.map(function(s){ return '<option' + (s===d.staff?' selected':'') + '>' + s + '</option>'; }).join('') +
+    '</select></div>' +
+    '<div style="background:#F5F5F0;border-radius:3px;padding:11px 13px;font-size:12px;color:#888;margin-bottom:16px;">📎 우편 서류 도착 시 스캔 후 파일 등록</div>' +
+    '<div style="display:flex;gap:10px;">' +
+    '<button class="btn btn-sec" onclick="closeModal()">닫기</button>' +
+    '<button class="btn btn-primary" onclick="renderTable();closeModal();alert(\'저장되었습니다.\')">💾 저장</button>' +
+    '</div>';
+
+  document.getElementById('modal_bg').classList.add('op');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal_bg')) {
+    document.getElementById('modal_bg').classList.remove('op');
+    renderTable();
+  }
+}
+
+// 날짜
+document.getElementById('dm_date').textContent = new Date().toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric',weekday:'long'});
+</script>
+</body>
+</html>
