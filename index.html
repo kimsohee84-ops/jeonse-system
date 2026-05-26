@@ -320,7 +320,7 @@ tr:hover td{background:#FAFAF8;}
   </a>
   <div class="hnav">
     <button id="btn_form" class="on" onclick="sw('form','btn_form')">소송구조 신청</button>
-    <button id="btn_dash" onclick="sw('dash','btn_dash')">접수 관리 <span class="nbadge" id="nb">0</span></button>
+    
   </div>
 </div>
 
@@ -603,65 +603,6 @@ tr:hover td{background:#FAFAF8;}
 </div>
 </div>
 
-<!-- ══ 대시보드 ══ -->
-<div id="tab_dash" class="tab">
-  <div class="dash">
-    <div class="sb">
-      <div class="sb-sec">
-        <div class="sb-lbl">신청 관리</div>
-        <button class="sb-item on">📋 전체 신청 <span class="sb-badge" id="sb_total">0</span></button>
-        <button class="sb-item">⚠️ 서류 미비 <span class="sb-badge">0</span></button>
-        <button class="sb-item">📮 우편 접수</button>
-        <button class="sb-item">✅ 완료</button>
-      </div>
-      <div class="sb-sec">
-        <div class="sb-lbl">유형별</div>
-        <button class="sb-item">🔴 형사사건</button>
-        <button class="sb-item">⚖️ 소송구조 본안</button>
-        <button class="sb-item">📋 신청사건</button>
-      </div>
-      <div class="sb-sec">
-        <div class="sb-lbl">담당자</div>
-        <button class="sb-item">김민준</button>
-        <button class="sb-item">이서연</button>
-        <button class="sb-item">박지훈</button>
-        <button class="sb-item">최유진</button>
-      </div>
-    </div>
-    <div class="dm">
-      <div class="dm-hd">
-        <div><div class="dm-title">소송구조 접수 관리</div><div class="dm-date" id="dm_date"></div></div>
-        <button class="btn btn-primary" style="padding:9px 16px;font-size:13px;" onclick="sw('form','btn_form')">+ 신규 접수</button>
-      </div>
-      <div class="kpi-row">
-        <div class="kpi"><div class="kpi-lbl">전체 신청</div><div class="kpi-num" id="kpi_total">0</div><div class="kpi-sub" id="kpi_sub">-</div></div>
-        <div class="kpi or"><div class="kpi-lbl">검토 중</div><div class="kpi-num" id="kpi_review">0</div><div class="kpi-sub">평균 2일</div></div>
-        <div class="kpi rd"><div class="kpi-lbl">서류 미비</div><div class="kpi-num" id="kpi_missing">0</div><div class="kpi-sub">연락 필요</div></div>
-        <div class="kpi bl"><div class="kpi-lbl">소송 진행</div><div class="kpi-num" id="kpi_suit">0</div><div class="kpi-sub">진행 중</div></div>
-      </div>
-      <div class="fbar">
-        <div class="srch"><span style="color:#CCC;">🔍</span><input placeholder="이름, 주소, 접수번호..." oninput="filterTable()"></div>
-        <select class="fsel" id="f_st" onchange="filterTable()"><option value="">전체 상태</option><option>접수</option><option>검토중</option><option>승인</option><option>소송진행</option><option>완료</option></select>
-        <select class="fsel" id="f_tp" onchange="filterTable()"><option value="">전체 유형</option><option>형사사건</option><option>소송구조 본안</option><option>신청사건</option></select>
-        <select class="fsel" id="f_rv" onchange="filterTable()"><option value="">전체 접수</option><option>온라인</option><option>우편</option></select>
-      </div>
-      <div class="tbl-wrap">
-        <div class="tbl-hd"><b>신청 목록</b><span style="font-size:12px;color:#999;" id="tbl_count">0건</span></div>
-        <div style="overflow-x:auto;">
-          <table>
-            <thead><tr>
-              <th>접수번호</th><th>이름</th><th>접수</th><th>유형</th>
-              <th class="hm">한도</th><th>서류</th><th>상태</th>
-              <th class="hm">담당자</th><th>접수일</th><th></th>
-            </tr></thead>
-            <tbody id="tbody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- 상세 모달 -->
 <div class="mbg" id="modal_bg" onclick="closeModal(event)">
   <div class="modal">
@@ -694,7 +635,7 @@ function sw(tabId, btnId) {
   document.querySelectorAll('.hnav button').forEach(function(b){ b.classList.remove('on'); });
   document.getElementById('tab_' + tabId).classList.add('on');
   document.getElementById(btnId).classList.add('on');
-  if (tabId === 'dash') renderTable();
+  // dash tab removed
 }
 
 // ════════════════════════════════
@@ -1043,8 +984,11 @@ function doSubmit() {
     receipts.appendChild(r);
   });
 
+  // localStorage에 저장 (admin.html에서 조회)
+  localStorage.setItem('jeonse_applications', JSON.stringify(dbData));
+
   // 뱃지 업데이트
-  document.getElementById('nb').textContent = dbData.length;
+  // (대시보드 분리됨)
   document.getElementById('sb_total').textContent = dbData.length;
 
   // 완료 화면
