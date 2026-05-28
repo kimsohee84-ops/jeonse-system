@@ -203,6 +203,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
     <aside class="sidenav">
       <div class="nav-section">업무</div>
       <div class="nav-item active" onclick="showView('dashboard')"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> 대시보드</div>
+      <div class="nav-item" onclick="showView('scan')"><i class="ti ti-scan" aria-hidden="true"></i> 청구서 등록</div>
       <div class="nav-item" onclick="showView('input')"><i class="ti ti-edit" aria-hidden="true"></i> 비용 입력</div>
       <div class="nav-item" onclick="showView('resol')"><i class="ti ti-clipboard-list" aria-hidden="true"></i> 지출결의서</div>
       <div class="nav-item" onclick="showView('list')"><i class="ti ti-list" aria-hidden="true"></i> 지출 목록</div>
@@ -227,6 +228,150 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
           <div class="card">
             <div class="card-title"><i class="ti ti-chart-pie" aria-hidden="true"></i> 예산 집행</div>
             <div id="dash-budget"></div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- 청구서 등록 -->
+      <div class="view" id="view-scan">
+        <p class="page-title">비용청구서 등록</p>
+        <p class="page-sub">PDF 스캔 파일을 업로드하면 내용을 자동으로 읽어 등록합니다</p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+
+          <!-- 왼쪽: 업로드 + 미리보기 -->
+          <div>
+            <div class="card">
+              <div class="card-title"><i class="ti ti-upload" aria-hidden="true"></i> PDF 업로드</div>
+              <div id="scan-dropzone"
+                style="border:2px dashed var(--border);border-radius:var(--radius-lg);padding:2rem;text-align:center;cursor:pointer;background:var(--light);transition:all .15s"
+                onclick="document.getElementById('scan-file').click()"
+                ondragover="event.preventDefault();this.style.borderColor='#2E75B6';this.style.background='#EFF6FF'"
+                ondragleave="this.style.borderColor='';this.style.background='var(--light)'"
+                ondrop="handleScanDrop(event)">
+                <i class="ti ti-file-type-pdf" style="font-size:44px;color:var(--muted);display:block;margin-bottom:.75rem" aria-hidden="true"></i>
+                <div style="font-size:14px;font-weight:500;margin-bottom:4px">PDF 파일을 여기에 드래그하거나 클릭</div>
+                <div style="font-size:12px;color:var(--muted)">소송비용청구서 · 전자세금계산서 · 영수증</div>
+              </div>
+              <input type="file" id="scan-file" accept=".pdf,image/*" style="display:none" onchange="handleScanFile(event)">
+              <div id="scan-file-info" style="display:none;margin-top:10px;padding:8px 12px;background:var(--light);border-radius:var(--radius);font-size:12px;display:none;align-items:center;gap:8px">
+                <i class="ti ti-file" style="color:var(--navy)" aria-hidden="true"></i>
+                <span id="scan-file-name"></span>
+                <span id="scan-file-size" style="color:var(--muted)"></span>
+              </div>
+            </div>
+
+            <!-- PDF 미리보기 -->
+            <div class="card" id="scan-preview-card" style="display:none">
+              <div class="card-title"><i class="ti ti-eye" aria-hidden="true"></i> 파일 미리보기</div>
+              <div id="scan-preview-wrap" style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:#f0f0f0;text-align:center;min-height:200px;display:flex;align-items:center;justify-content:center">
+                <div style="color:var(--muted);font-size:13px">미리보기 로딩 중...</div>
+              </div>
+              <div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center">스캔 이미지를 확인하고 아래 내용을 수정하세요</div>
+            </div>
+          </div>
+
+          <!-- 오른쪽: 분석 결과 입력 -->
+          <div>
+            <div class="card">
+              <div class="card-title"><i class="ti ti-forms" aria-hidden="true"></i> 청구서 내용 확인 · 수정</div>
+
+              <div id="scan-empty" style="text-align:center;padding:2.5rem;color:var(--muted)">
+                <i class="ti ti-file-search" style="font-size:40px;display:block;margin-bottom:.75rem;opacity:.35" aria-hidden="true"></i>
+                <div style="font-size:13px">PDF를 업로드하면 내용이 여기에 채워집니다</div>
+                <div style="font-size:11px;margin-top:4px">수동으로 직접 입력도 가능합니다</div>
+                <button class="btn btn-sm" style="margin-top:1rem" onclick="showScanForm()">
+                  <i class="ti ti-pencil" aria-hidden="true"></i> 직접 입력하기
+                </button>
+              </div>
+
+              <!-- 분석 중 -->
+              <div id="scan-loading" style="display:none;text-align:center;padding:2rem">
+                <div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto .75rem"></div>
+                <div style="font-size:13px;color:var(--muted)">청구서 내용을 읽는 중...</div>
+              </div>
+
+              <!-- 입력 폼 -->
+              <div id="scan-form" style="display:none">
+                <div style="background:var(--green-bg);border-radius:var(--radius);padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--green-txt);display:flex;align-items:center;gap:6px" id="scan-status-bar">
+                  <i class="ti ti-circle-check" aria-hidden="true"></i> 내용을 확인하고 필요 시 수정하세요
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+                  <div class="field">
+                    <label>재단 접수번호 <span style="color:#DC2626">*</span></label>
+                    <input class="form-input" id="sc-num" placeholder="예: 26-110">
+                  </div>
+                  <div class="field">
+                    <label>서류 유형</label>
+                    <select class="form-select" id="sc-doctype">
+                      <option>소송비용청구서</option>
+                      <option>전자세금계산서</option>
+                      <option>인지대 영수증</option>
+                      <option>송달료 영수증</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>변호사 <span style="color:#DC2626">*</span></label>
+                    <input class="form-input" id="sc-lawyer" placeholder="변호사 성명">
+                  </div>
+                  <div class="field">
+                    <label>법무법인/사무소</label>
+                    <input class="form-input" id="sc-firm" placeholder="법무법인명">
+                  </div>
+                  <div class="field">
+                    <label>의뢰인 <span style="color:#DC2626">*</span></label>
+                    <input class="form-input" id="sc-client" placeholder="의뢰인 성명">
+                  </div>
+                  <div class="field">
+                    <label>상대방</label>
+                    <input class="form-input" id="sc-opponent" placeholder="상대방">
+                  </div>
+                  <div class="field" style="grid-column:1/-1">
+                    <label>사건명</label>
+                    <input class="form-input" id="sc-case" placeholder="예: 임대차보증금반환소송">
+                  </div>
+                  <div class="field">
+                    <label>청구 금액 (원) <span style="color:#DC2626">*</span></label>
+                    <input class="form-input mono" id="sc-amt" placeholder="1,000,000" oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',')">
+                  </div>
+                  <div class="field">
+                    <label>수령일자</label>
+                    <input class="form-input" type="date" id="sc-date">
+                  </div>
+                  <div class="field">
+                    <label>입금 계좌</label>
+                    <input class="form-input mono" id="sc-acct" placeholder="은행 계좌번호">
+                  </div>
+                  <div class="field">
+                    <label>세금서류</label>
+                    <select class="form-select" id="sc-tax">
+                      <option>전자세금계산서</option>
+                      <option>사업소득</option>
+                      <option>미수령</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style="display:flex;gap:6px">
+                  <button class="btn" onclick="resetScan()"><i class="ti ti-refresh" aria-hidden="true"></i> 초기화</button>
+                  <button class="btn btn-primary" onclick="saveScanEntry()" style="flex:1;justify-content:center">
+                    <i class="ti ti-circle-plus" aria-hidden="true"></i> 등록 완료 — 지출목록에 반영
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 등록 완료 현황 -->
+            <div class="card" id="scan-done-card" style="display:none">
+              <div class="card-title"><i class="ti ti-circle-check" aria-hidden="true"></i> 이번 세션 등록 현황</div>
+              <div id="scan-done-list" style="display:flex;flex-direction:column;gap:6px"></div>
+              <div style="margin-top:10px;display:flex;gap:6px">
+                <button class="btn btn-sm" onclick="showView('list')"><i class="ti ti-list" aria-hidden="true"></i> 지출목록 확인</button>
+                <button class="btn btn-sm btn-primary" onclick="showView('input')"><i class="ti ti-edit" aria-hidden="true"></i> 결의서 작성</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -587,7 +732,7 @@ function showView(name) {
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
   document.getElementById("view-"+name).classList.add("active");
-  const map = {dashboard:0,input:1,resol:2,list:3,budget:4,exec:5,lawyer:6};
+  const map = {dashboard:0,scan:1,input:2,resol:3,list:4,budget:5,exec:6,lawyer:7};
   document.querySelectorAll(".nav-item")[map[name]]?.classList.add("active");
   if(name==="resol") renderResolList();
   if(name==="exec") renderExecHistory();
