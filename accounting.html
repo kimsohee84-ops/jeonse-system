@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -362,7 +363,8 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
             <div class="card-title" style="margin-bottom:0"><i class="ti ti-clipboard-list" aria-hidden="true"></i> <span id="resol-list-title">결의서 목록</span></div>
             <div style="display:flex;gap:6px">
-              <button class="btn btn-sm" onclick="printBatchCheckList()"><i class="ti ti-printer" aria-hidden="true"></i> 담당자 확인표 일괄출력</button>
+              <button class="btn btn-sm" onclick="printBatchCheckList()"><i class="ti ti-printer" aria-hidden="true"></i> 확인표 인쇄</button>
+              <button class="btn btn-sm btn-success" onclick="downloadBatchExcel()"><i class="ti ti-download" aria-hidden="true"></i> 엑셀 일괄저장</button>
               <button class="btn btn-primary btn-sm" onclick="showView('input')"><i class="ti ti-plus" aria-hidden="true"></i> 새 결의서</button>
             </div>
           </div>
