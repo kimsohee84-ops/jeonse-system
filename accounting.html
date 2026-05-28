@@ -10,7 +10,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --navy:#1F4E79;--blue:#2E75B6;--teal:#0F6E56;--white:#fff;
+  --navy:#1F4E79;--blue:#2E75B6;--teal:#0F6E56;
   --bg:#F5F7FA;--surface:#fff;--border:#E2E8F0;
   --text:#1A202C;--muted:#64748B;--light:#F8FAFC;
   --green-bg:#E6F9F0;--green-txt:#0F6E56;
@@ -18,436 +18,349 @@
   --red-bg:#FEE2E2;--red-txt:#991B1B;
   --blue-bg:#EFF6FF;--blue-txt:#1D4ED8;
   --radius:10px;--radius-lg:14px;
-  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
-  --shadow-md:0 4px 6px rgba(0,0,0,.07),0 2px 4px rgba(0,0,0,.06);
+  --shadow:0 1px 3px rgba(0,0,0,.08);
+  --shadow-md:0 4px 6px rgba(0,0,0,.07);
 }
-body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-.mono{font-family:'IBM Plex Mono',monospace}
+body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.mono{font-family:"IBM Plex Mono",monospace}
 
-/* ── 로그인 ── */
+/* 로그인 */
 .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
-.login-card{background:var(--surface);border-radius:var(--radius-lg);padding:2.5rem;width:100%;max-width:400px;box-shadow:var(--shadow-md);border:1px solid var(--border)}
+.login-card{background:var(--surface);border-radius:var(--radius-lg);padding:2.5rem;width:100%;max-width:380px;box-shadow:var(--shadow-md);border:1px solid var(--border)}
 .login-logo{text-align:center;margin-bottom:2rem}
-.login-logo-icon{width:52px;height:52px;background:var(--navy);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:22px;margin-bottom:.75rem}
-.login-logo h1{font-size:17px;font-weight:600;color:var(--navy)}
-.login-logo p{font-size:13px;color:var(--muted);margin-top:3px}
+.login-icon{width:52px;height:52px;background:var(--navy);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:22px;margin-bottom:.75rem}
+.login-logo h1{font-size:16px;font-weight:600;color:var(--navy)}
+.login-logo p{font-size:12px;color:var(--muted);margin-top:3px}
 .form-group{margin-bottom:1rem}
-.form-label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
-.form-input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none;transition:border-color .15s;color:var(--text);background:var(--surface)}
+.form-label{display:block;font-size:13px;font-weight:500;margin-bottom:5px}
+.form-input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:"Noto Sans KR",sans-serif;outline:none;transition:border-color .15s;background:var(--surface);color:var(--text)}
 .form-input:focus{border-color:var(--blue)}
-.btn-login{width:100%;padding:10px;background:var(--navy);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;font-family:'Noto Sans KR',sans-serif;cursor:pointer;margin-top:.5rem;transition:background .15s}
+.form-select{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:"Noto Sans KR",sans-serif;outline:none;background:var(--surface);color:var(--text);cursor:pointer}
+.form-select:focus{border-color:var(--blue)}
+.btn-login{width:100%;padding:10px;background:var(--navy);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;font-family:"Noto Sans KR",sans-serif;cursor:pointer;margin-top:.5rem}
 .btn-login:hover{background:var(--blue)}
 .login-error{font-size:12px;color:#DC2626;margin-top:.5rem;text-align:center;display:none}
-.login-hint{font-size:11px;color:var(--muted);text-align:center;margin-top:1rem}
+.login-hint{font-size:11px;color:var(--muted);text-align:center;margin-top:1rem;line-height:1.6}
 
-/* ── 앱 레이아웃 ── */
+/* 앱 */
 .app{display:none;min-height:100vh;flex-direction:column}
 .app.visible{display:flex}
-.topnav{background:var(--navy);color:#fff;padding:0 1.5rem;height:54px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.topnav-left{display:flex;align-items:center;gap:12px}
+.topnav{background:var(--navy);color:#fff;padding:0 1.5rem;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .topnav-logo{font-size:15px;font-weight:600}
-.topnav-sub{font-size:11px;opacity:.7}
-.topnav-right{display:flex;align-items:center;gap:10px;font-size:13px}
-.user-badge{background:rgba(255,255,255,.15);padding:4px 10px;border-radius:20px;font-size:12px}
-.btn-logout{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 10px;border-radius:var(--radius);font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif}
-.btn-logout:hover{background:rgba(255,255,255,.1)}
-.sidenav-main{display:flex;flex:1;overflow:hidden}
-.sidenav{width:200px;background:var(--surface);border-right:1px solid var(--border);padding:1rem 0;flex-shrink:0}
-.nav-section-label{font-size:10px;font-weight:600;color:var(--muted);padding:8px 16px 4px;letter-spacing:.06em;text-transform:uppercase}
-.nav-item{display:flex;align-items:center;gap:8px;padding:8px 16px;font-size:13px;color:var(--muted);cursor:pointer;border-left:3px solid transparent;transition:all .12s}
+.topnav-right{display:flex;align-items:center;gap:10px}
+.user-badge{background:rgba(255,255,255,.15);padding:3px 10px;border-radius:20px;font-size:12px}
+.btn-out{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;padding:3px 10px;border-radius:var(--radius);font-size:12px;cursor:pointer;font-family:"Noto Sans KR",sans-serif}
+
+/* 사업 탭 */
+.biz-tabs{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;gap:0;flex-shrink:0}
+.biz-tab{padding:13px 20px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.biz-tab:hover{color:var(--text)}
+.biz-tab.active{color:var(--navy);border-bottom-color:var(--navy)}
+.biz-tab i{font-size:15px}
+
+/* 레이아웃 */
+.layout{display:grid;grid-template-columns:190px 1fr;flex:1;overflow:hidden}
+.sidenav{background:var(--surface);border-right:1px solid var(--border);padding:1rem 0;overflow-y:auto}
+.nav-section{font-size:10px;font-weight:600;color:var(--muted);padding:8px 14px 4px;letter-spacing:.06em;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:13px;color:var(--muted);cursor:pointer;border-left:3px solid transparent}
 .nav-item:hover{background:var(--light);color:var(--text)}
 .nav-item.active{background:#EBF3FC;color:var(--navy);font-weight:500;border-left-color:var(--navy)}
-.nav-item i{font-size:16px}
-.main-content{flex:1;overflow-y:auto;padding:1.5rem}
+.nav-item i{font-size:15px}
+.main{overflow-y:auto;padding:1.5rem}
 
-/* ── 뷰 ── */
+/* 뷰 */
 .view{display:none}
 .view.active{display:block}
-.page-title{font-size:18px;font-weight:600;color:var(--navy);margin-bottom:4px}
-.page-sub{font-size:13px;color:var(--muted);margin-bottom:1.5rem}
+.page-title{font-size:17px;font-weight:600;color:var(--navy);margin-bottom:3px}
+.page-sub{font-size:12px;color:var(--muted);margin-bottom:1.25rem}
 
-/* ── 카드 ── */
-.card{background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border);padding:1.25rem;box-shadow:var(--shadow)}
-.card-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:1rem;display:flex;align-items:center;gap:6px}
-.card-title i{font-size:16px;color:var(--navy)}
+/* 카드 */
+.card{background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border);padding:1.25rem;box-shadow:var(--shadow);margin-bottom:1rem}
+.card-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:1rem;display:flex;align-items:center;gap:6px}
+.card-title i{font-size:15px;color:var(--navy)}
 
-/* ── 배지 ── */
+/* 배지 */
 .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
-.badge-green{background:var(--green-bg);color:var(--green-txt)}
-.badge-amber{background:var(--amber-bg);color:var(--amber-txt)}
-.badge-red{background:var(--red-bg);color:var(--red-txt)}
-.badge-blue{background:var(--blue-bg);color:var(--blue-txt)}
-.badge-navy{background:#EBF3FC;color:var(--navy)}
+.bg{background:var(--green-bg);color:var(--green-txt)}
+.ba{background:var(--amber-bg);color:var(--amber-txt)}
+.br{background:var(--red-bg);color:var(--red-txt)}
+.bb{background:var(--blue-bg);color:var(--blue-txt)}
+.bn{background:#EBF3FC;color:var(--navy)}
 
-/* ── 버튼 ── */
-.btn{padding:7px 14px;border-radius:var(--radius);font-size:13px;font-weight:500;font-family:'Noto Sans KR',sans-serif;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .12s}
+/* 버튼 */
+.btn{padding:7px 14px;border-radius:var(--radius);font-size:13px;font-weight:500;font-family:"Noto Sans KR",sans-serif;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
 .btn:hover{background:var(--light)}
 .btn-primary{background:var(--navy);color:#fff;border-color:var(--navy)}
 .btn-primary:hover{background:var(--blue)}
 .btn-success{background:var(--teal);color:#fff;border-color:var(--teal)}
 .btn-sm{padding:4px 10px;font-size:12px}
 
-/* ── 업로드 영역 ── */
-.upload-zone{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:2.5rem;text-align:center;cursor:pointer;transition:all .15s;background:var(--light)}
-.upload-zone:hover,.upload-zone.dragover{border-color:var(--blue);background:#EFF6FF}
-.upload-zone i{font-size:40px;color:var(--muted);margin-bottom:.75rem;display:block}
-.upload-zone h3{font-size:15px;font-weight:500;margin-bottom:.5rem;color:var(--text)}
-.upload-zone p{font-size:12px;color:var(--muted)}
-#file-input{display:none}
+/* 통계 */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.9rem 1.1rem}
+.stat-val{font-size:20px;font-weight:600;color:var(--navy);margin-bottom:2px}
+.stat-label{font-size:11px;color:var(--muted)}
 
-/* ── 파싱 결과 ── */
-.parse-result{display:none;margin-top:1.5rem}
-.parse-header{display:flex;align-items:center;gap:8px;margin-bottom:1rem}
-.parse-status{font-size:13px;font-weight:500}
-.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem}
-.field-item{background:var(--light);border-radius:var(--radius);padding:10px 12px;border:1px solid var(--border)}
-.field-label{font-size:11px;color:var(--muted);margin-bottom:3px}
-.field-value{font-size:13px;font-weight:500;color:var(--text)}
-.field-value.editable{background:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 8px;width:100%;font-family:'Noto Sans KR',sans-serif;font-size:13px;outline:none}
-.field-value.editable:focus{border-color:var(--blue)}
+/* 입력 폼 */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:1rem}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;font-weight:500;color:var(--muted)}
+.field-full{grid-column:1/-1}
 
-/* ── 지출결의서 미리보기 ── */
-.resol-preview{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.5rem;display:none}
-.resol-header{background:var(--navy);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
-.resol-header h3{font-size:14px;font-weight:600}
-.resol-body{padding:1.25rem}
-.resol-title{text-align:center;font-size:18px;font-weight:600;color:var(--navy);margin-bottom:4px;letter-spacing:.05em}
-.resol-sub{text-align:center;font-size:12px;color:var(--muted);margin-bottom:1.25rem}
-.resol-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem}
-.resol-meta-item{font-size:12px;display:flex;gap:6px}
-.resol-meta-label{color:var(--muted);min-width:72px;font-weight:500}
-.resol-meta-value{color:var(--text)}
-.approval-row{display:flex;gap:8px;margin-bottom:1.25rem}
-.approval-box{flex:1;border:1px solid var(--border);border-radius:var(--radius);padding:8px;text-align:center}
-.approval-role{font-size:10px;color:var(--muted);margin-bottom:4px}
-.approval-name{font-size:12px;font-weight:500;color:var(--text)}
-.approval-stamp{font-size:10px;margin-top:4px}
-.stamp-done{color:var(--green-txt)}
-.stamp-wait{color:var(--muted)}
-.resol-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:1rem}
-.resol-table th{background:#F0F4F8;padding:7px 8px;text-align:center;font-weight:600;color:var(--navy);border:1px solid var(--border)}
-.resol-table td{padding:7px 8px;border:1px solid var(--border);color:var(--text)}
+/* 결의서 미리보기 */
+.resol-wrap{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1rem;display:none}
+.resol-bar{background:var(--navy);color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
+.resol-bar h3{font-size:13px;font-weight:600}
+.resol-doc{padding:1.5rem;font-size:12px}
+.resol-doc-title{text-align:center;font-size:20px;font-weight:700;color:var(--navy);letter-spacing:.1em;margin-bottom:6px}
+.resol-doc-sub{text-align:center;font-size:12px;color:var(--muted);margin-bottom:1.25rem}
+.resol-approval{display:flex;gap:8px;margin-bottom:1.25rem}
+.ap-box{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center}
+.ap-role{font-size:10px;color:var(--muted);margin-bottom:3px}
+.ap-name{font-size:12px;font-weight:500}
+.ap-stamp{font-size:10px;margin-top:3px}
+.ap-done{color:var(--green-txt)}
+.ap-wait{color:var(--muted)}
+.resol-meta{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:1rem;font-size:12px}
+.rm-row{display:flex;gap:6px}
+.rm-label{color:var(--muted);min-width:70px;font-weight:500}
+.resol-table{width:100%;border-collapse:collapse;margin-bottom:.75rem}
+.resol-table th{background:#F0F4F8;padding:7px 8px;text-align:center;font-weight:600;color:var(--navy);border:1px solid var(--border);font-size:11px}
+.resol-table td{padding:7px 8px;border:1px solid var(--border);font-size:12px}
 .resol-table tr:nth-child(even) td{background:var(--light)}
-.resol-total{display:flex;justify-content:flex-end;gap:16px;font-size:13px;font-weight:600;padding:8px 0;border-top:2px solid var(--navy);color:var(--navy)}
+.resol-total-row{display:flex;justify-content:flex-end;gap:20px;font-size:13px;font-weight:700;color:var(--navy);padding:8px 0;border-top:2px solid var(--navy)}
 
-/* ── 목록 테이블 ── */
-.list-table{width:100%;border-collapse:collapse;font-size:12px}
-.list-table th{background:#F0F4F8;padding:8px 10px;text-align:left;font-weight:600;color:var(--navy);border-bottom:2px solid var(--border)}
-.list-table td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
-.list-table tr:hover td{background:var(--light)}
-.list-table tr.row-green td{background:#F0FDF4}
-.list-table tr.row-amber td{background:#FFFBEB}
-.list-table tr.row-red td{background:#FFF5F5}
+/* 목록 테이블 */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{background:#F0F4F8;padding:8px 10px;text-align:left;font-weight:600;color:var(--navy);border-bottom:2px solid var(--border)}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:hover td{background:var(--light)}
+.row-g td{background:#F0FDF4}
+.row-a td{background:#FFFBEB}
 
-/* ── 통계 카드 ── */
-.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;box-shadow:var(--shadow)}
-.stat-val{font-size:22px;font-weight:600;color:var(--navy);margin-bottom:3px}
-.stat-label{font-size:12px;color:var(--muted)}
-
-/* ── 스피너 ── */
-.spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loading-bar{height:3px;background:var(--light);border-radius:2px;overflow:hidden;margin:1rem 0;display:none}
-.loading-bar-fill{height:100%;background:var(--blue);border-radius:2px;animation:load 1.8s ease-in-out infinite}
-@keyframes load{0%{width:0;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0;margin-left:100%}}
-.loading-text{font-size:13px;color:var(--muted);text-align:center;display:none}
-
-/* ── 토스트 ── */
-.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 16px;border-radius:var(--radius);font-size:13px;font-weight:500;box-shadow:var(--shadow-md);transform:translateY(80px);opacity:0;transition:all .25s;z-index:9999;display:flex;align-items:center;gap:8px}
+/* 토스트 */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--navy);color:#fff;padding:10px 16px;border-radius:var(--radius);font-size:13px;font-weight:500;box-shadow:var(--shadow-md);transform:translateY(60px);opacity:0;transition:all .25s;z-index:9999;display:flex;align-items:center;gap:7px}
 .toast.show{transform:translateY(0);opacity:1}
 
-/* ── 2열 그리드 ── */
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-
-/* ── 진행 단계 ── */
-.step-bar{display:flex;align-items:center;gap:0;margin-bottom:1.5rem}
-.step-item{flex:1;text-align:center;font-size:11px;padding:7px 4px;color:var(--muted);border-bottom:2px solid var(--border);position:relative}
-.step-item.done{color:var(--green-txt);border-color:var(--teal)}
-.step-item.cur{color:var(--navy);border-color:var(--navy);font-weight:600}
-
-/* ── 반응형 ── */
-@media(max-width:640px){
-  .stat-grid{grid-template-columns:1fr 1fr}
-  .field-grid{grid-template-columns:1fr}
-  .sidenav{display:none}
-}
+/* 구분선 */
+.divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
 </style>
 </head>
 <body>
 
-<!-- ══ 로그인 ══ -->
+<!-- 로그인 -->
 <div class="login-wrap" id="login-screen">
   <div class="login-card">
     <div class="login-logo">
-      <div class="login-logo-icon"><i class="ti ti-scale" aria-hidden="true"></i></div>
-      <h1>법률구조재단</h1>
-      <p>전세피해자 소송구조 회계시스템</p>
+      <div class="login-icon"><i class="ti ti-scale" aria-hidden="true"></i></div>
+      <h1>법률구조재단 회계시스템</h1>
+      <p>전세피해자 소송구조</p>
     </div>
     <div class="form-group">
       <label class="form-label">아이디</label>
-      <input class="form-input" type="text" id="login-id" placeholder="아이디를 입력하세요" autocomplete="username">
+      <input class="form-input" type="text" id="lid" placeholder="아이디 입력" autocomplete="username">
     </div>
     <div class="form-group">
       <label class="form-label">비밀번호</label>
-      <input class="form-input" type="password" id="login-pw" placeholder="비밀번호를 입력하세요" autocomplete="current-password">
+      <input class="form-input" type="password" id="lpw" placeholder="비밀번호 입력" autocomplete="current-password">
     </div>
-    <p class="login-error" id="login-error"><i class="ti ti-alert-circle" aria-hidden="true"></i> 아이디 또는 비밀번호가 올바르지 않습니다</p>
-    <button class="btn-login" id="btn-login" onclick="doLogin()">로그인</button>
-    <p class="login-hint">테스트 계정: admin / 1234 &nbsp;|&nbsp; user1 / 1234 &nbsp;|&nbsp; finance / 1234</p>
+    <p class="login-error" id="lerr"><i class="ti ti-alert-circle" aria-hidden="true"></i> 아이디 또는 비밀번호 오류</p>
+    <button class="btn-login" onclick="doLogin()">로그인</button>
+    <p class="login-hint">
+      admin / 1234 (관리자)<br>
+      user1 / 1234 (담당자)<br>
+      finance / 1234 (재무이사)
+    </p>
   </div>
 </div>
 
-<!-- ══ 앱 ══ -->
+<!-- 앱 -->
 <div class="app" id="app">
   <nav class="topnav">
-    <div class="topnav-left">
-      <i class="ti ti-scale" style="font-size:20px" aria-hidden="true"></i>
-      <div>
-        <div class="topnav-logo">전세피해자 소송구조 회계시스템</div>
-        <div class="topnav-sub">국토부 2026년 사업</div>
-      </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <i class="ti ti-scale" style="font-size:19px" aria-hidden="true"></i>
+      <span class="topnav-logo">전세피해자 소송구조 회계시스템</span>
     </div>
     <div class="topnav-right">
-      <span class="user-badge" id="user-badge"></span>
-      <button class="btn-logout" onclick="doLogout()"><i class="ti ti-logout" aria-hidden="true"></i> 로그아웃</button>
+      <span class="user-badge" id="ubadge"></span>
+      <button class="btn-out" onclick="doLogout()"><i class="ti ti-logout" aria-hidden="true"></i> 로그아웃</button>
     </div>
   </nav>
 
-  <div class="sidenav-main">
+  <!-- 사업 탭 -->
+  <div class="biz-tabs">
+    <div class="biz-tab active" id="tab-kt" onclick="setBiz('kt')">
+      <i class="ti ti-building-bank" aria-hidden="true"></i> 전세피해자 소송구조 (국토부)
+    </div>
+    <div class="biz-tab" id="tab-sf" onclick="setBiz('sf')">
+      <i class="ti ti-coin" aria-hidden="true"></i> 전세피해자 소송구조 (서민금융재단)
+    </div>
+  </div>
+
+  <div class="layout">
     <aside class="sidenav">
-      <div class="nav-section-label">업무</div>
+      <div class="nav-section">업무</div>
       <div class="nav-item active" onclick="showView('dashboard')"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> 대시보드</div>
-      <div class="nav-item" onclick="showView('upload')"><i class="ti ti-upload" aria-hidden="true"></i> 청구서 업로드</div>
+      <div class="nav-item" onclick="showView('input')"><i class="ti ti-edit" aria-hidden="true"></i> 비용 입력</div>
       <div class="nav-item" onclick="showView('resol')"><i class="ti ti-clipboard-list" aria-hidden="true"></i> 지출결의서</div>
       <div class="nav-item" onclick="showView('list')"><i class="ti ti-list" aria-hidden="true"></i> 지출 목록</div>
-      <div class="nav-section-label" style="margin-top:8px">회계</div>
-      <div class="nav-item" onclick="showView('account')"><i class="ti ti-chart-bar" aria-hidden="true"></i> 집행 현황</div>
+      <div class="nav-section" style="margin-top:8px">회계</div>
+      <div class="nav-item" onclick="showView('budget')"><i class="ti ti-chart-bar" aria-hidden="true"></i> 집행 현황</div>
       <div class="nav-item" onclick="showView('lawyer')"><i class="ti ti-user-check" aria-hidden="true"></i> 변호사 계좌</div>
     </aside>
 
-    <main class="main-content">
+    <main class="main">
 
       <!-- 대시보드 -->
       <div class="view active" id="view-dashboard">
-        <p class="page-title">대시보드</p>
-        <p class="page-sub">2026년 5월 · 전세피해자 소송구조 (국토부)</p>
-        <div class="stat-grid">
-          <div class="stat-card"><div class="stat-val">28</div><div class="stat-label">전체 사건</div></div>
-          <div class="stat-card"><div class="stat-val" style="color:var(--green-txt)">18</div><div class="stat-label">계산서 수령완료</div></div>
-          <div class="stat-card"><div class="stat-val" style="color:#B45309">10</div><div class="stat-label">계산서 미수령</div></div>
-          <div class="stat-card"><div class="stat-val">28,480,000</div><div class="stat-label">이달 지급예정 (원)</div></div>
-        </div>
-        <div class="grid-2" style="margin-bottom:1rem">
+        <p class="page-title" id="dash-title">대시보드</p>
+        <p class="page-sub" id="dash-sub">2026년 · 전세피해자 소송구조</p>
+        <div class="stat-grid" id="dash-stats"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
           <div class="card">
-            <div class="card-title"><i class="ti ti-alert-triangle" aria-hidden="true"></i> 처리 필요 항목</div>
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--amber-bg);border-radius:var(--radius);font-size:13px">
-                <span style="color:var(--amber-txt);font-weight:500"><i class="ti ti-file-alert" aria-hidden="true"></i> 계산서 미수령</span>
-                <span class="badge badge-amber">10건</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--blue-bg);border-radius:var(--radius);font-size:13px">
-                <span style="color:var(--blue-txt);font-weight:500"><i class="ti ti-clipboard" aria-hidden="true"></i> 결의서 작성 대기</span>
-                <span class="badge badge-blue">5건</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--green-bg);border-radius:var(--radius);font-size:13px">
-                <span style="color:var(--green-txt);font-weight:500"><i class="ti ti-circle-check" aria-hidden="true"></i> 입금 준비 완료</span>
-                <span class="badge badge-green">13건</span>
-              </div>
-            </div>
+            <div class="card-title"><i class="ti ti-alert-triangle" aria-hidden="true"></i> 처리 필요</div>
+            <div id="dash-alerts"></div>
           </div>
           <div class="card">
-            <div class="card-title"><i class="ti ti-chart-pie" aria-hidden="true"></i> 예산 집행 현황</div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:6px">사업비 배정액</div>
-            <div style="font-size:20px;font-weight:600;color:var(--navy);margin-bottom:10px">432,000,000 원</div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px">
-              <span>기집행: 112,580,000원</span><span>집행률 26%</span>
-            </div>
-            <div style="height:8px;background:var(--light);border-radius:4px;overflow:hidden;margin-bottom:8px">
-              <div style="height:100%;width:26%;background:var(--navy);border-radius:4px"></div>
-            </div>
-            <div style="font-size:12px;color:var(--muted)">잔액: <strong style="color:var(--text)">319,420,000 원</strong></div>
+            <div class="card-title"><i class="ti ti-chart-pie" aria-hidden="true"></i> 예산 집행</div>
+            <div id="dash-budget"></div>
           </div>
-        </div>
-        <div class="card">
-          <div class="card-title"><i class="ti ti-clock" aria-hidden="true"></i> 최근 처리 내역</div>
-          <table class="list-table">
-            <thead><tr><th>접수번호</th><th>변호사</th><th>의뢰인</th><th>금액</th><th>상태</th><th>처리일</th></tr></thead>
-            <tbody>
-              <tr class="row-green"><td class="mono" style="font-size:11px">국부 26-110</td><td>권우상</td><td>강은지</td><td class="mono">100,000</td><td><span class="badge badge-green">계산서수령</span></td><td style="color:var(--muted);font-size:11px">2026-04-22</td></tr>
-              <tr class="row-green"><td class="mono" style="font-size:11px">국부 26-154</td><td>김동창</td><td>신서영</td><td class="mono">500,000</td><td><span class="badge badge-green">계산서수령</span></td><td style="color:var(--muted);font-size:11px">2026-04-28</td></tr>
-              <tr class="row-amber"><td class="mono" style="font-size:11px">국부 26-153</td><td>김동창</td><td>안가람</td><td class="mono">1,000,000</td><td><span class="badge badge-amber">미수령</span></td><td style="color:var(--muted);font-size:11px">2026-05-02</td></tr>
-              <tr class="row-amber"><td class="mono" style="font-size:11px">국부 26-105</td><td>김명철</td><td>이예나</td><td class="mono">500,000</td><td><span class="badge badge-amber">미수령</span></td><td style="color:var(--muted);font-size:11px">2026-04-15</td></tr>
-            </tbody>
-          </table>
         </div>
       </div>
 
-      <!-- 청구서 업로드 -->
-      <div class="view" id="view-upload">
-        <p class="page-title">비용청구서 업로드</p>
-        <p class="page-sub">청구서 PDF를 업로드하면 AI가 자동으로 내용을 읽어 지출결의서를 작성합니다</p>
+      <!-- 비용 입력 -->
+      <div class="view" id="view-input">
+        <p class="page-title">비용 입력</p>
+        <p class="page-sub" id="input-sub">비용청구서 내용을 입력하면 지출결의서가 자동 생성됩니다</p>
 
-        <div class="step-bar">
-          <div class="step-item cur" id="step1">① 파일 업로드</div>
-          <div class="step-item" id="step2">② AI 분석</div>
-          <div class="step-item" id="step3">③ 내용 확인</div>
-          <div class="step-item" id="step4">④ 결의서 생성</div>
+        <div class="card">
+          <div class="card-title"><i class="ti ti-forms" aria-hidden="true"></i> 기본 정보</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>재단 접수번호</label>
+              <input class="form-input" id="f-num" placeholder="예: 26-110">
+            </div>
+            <div class="field">
+              <label>담당 변호사</label>
+              <select class="form-select" id="f-lawyer" onchange="fillAccount()">
+                <option value="">-- 선택 --</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>의뢰인</label>
+              <input class="form-input" id="f-client" placeholder="의뢰인 성명">
+            </div>
+            <div class="field">
+              <label>상대방</label>
+              <input class="form-input" id="f-opponent" placeholder="상대방">
+            </div>
+            <div class="field field-full">
+              <label>사건명</label>
+              <input class="form-input" id="f-case" placeholder="예: 임대차보증금반환소송">
+            </div>
+          </div>
+          <div class="form-grid-3">
+            <div class="field">
+              <label>사건 유형</label>
+              <select class="form-select" id="f-type">
+                <option>민사</option>
+                <option>형사</option>
+                <option>신청</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>세금서류</label>
+              <select class="form-select" id="f-tax">
+                <option>전자세금계산서</option>
+                <option>사업소득</option>
+                <option>미수령</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>청구일자</label>
+              <input class="form-input" type="date" id="f-date">
+            </div>
+          </div>
         </div>
 
-        <div class="grid-2">
-          <div>
-            <div class="card" style="margin-bottom:1rem">
-              <div class="card-title"><i class="ti ti-upload" aria-hidden="true"></i> 파일 선택</div>
-              <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()"
-                   ondragover="event.preventDefault();this.classList.add('dragover')"
-                   ondragleave="this.classList.remove('dragover')"
-                   ondrop="handleDrop(event)">
-                <i class="ti ti-file-type-pdf" aria-hidden="true"></i>
-                <h3>PDF 파일을 여기에 드래그하거나 클릭하세요</h3>
-                <p>소송비용청구서 · 전자세금계산서 · 영수증 모두 가능</p>
-              </div>
-              <input type="file" id="file-input" accept=".pdf,image/*" onchange="handleFileSelect(event)">
-              <div id="file-info" style="margin-top:10px;font-size:13px;color:var(--muted);display:none">
-                <i class="ti ti-file" aria-hidden="true"></i> <span id="file-name"></span>
-              </div>
+        <div class="card">
+          <div class="card-title"><i class="ti ti-coins" aria-hidden="true"></i> 비용 내역</div>
+          <div class="form-grid-3">
+            <div class="field">
+              <label>변호사 보수 (원)</label>
+              <input class="form-input mono" id="f-fee" placeholder="1,000,000" oninput="calcTotal()">
             </div>
-
-            <div class="card">
-              <div class="card-title"><i class="ti ti-info-circle" aria-hidden="true"></i> 인식 가능한 서류</div>
-              <div style="display:flex;flex-direction:column;gap:6px">
-                <div style="display:flex;align-items:center;gap:6px;font-size:12px"><i class="ti ti-check" style="color:var(--green-txt)" aria-hidden="true"></i> 소송비용청구서 (제4호 서식)</div>
-                <div style="display:flex;align-items:center;gap:6px;font-size:12px"><i class="ti ti-check" style="color:var(--green-txt)" aria-hidden="true"></i> 전자세금계산서</div>
-                <div style="display:flex;align-items:center;gap:6px;font-size:12px"><i class="ti ti-check" style="color:var(--green-txt)" aria-hidden="true"></i> 인지대 납부영수증</div>
-                <div style="display:flex;align-items:center;gap:6px;font-size:12px"><i class="ti ti-check" style="color:var(--green-txt)" aria-hidden="true"></i> 송달료 납부영수증</div>
-              </div>
+            <div class="field">
+              <label>인지대 (원)</label>
+              <input class="form-input mono" id="f-stamp" placeholder="0" oninput="calcTotal()">
+            </div>
+            <div class="field">
+              <label>송달료 (원)</label>
+              <input class="form-input mono" id="f-delivery" placeholder="0" oninput="calcTotal()">
             </div>
           </div>
+          <div style="display:flex;justify-content:flex-end;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--border)">
+            <span style="font-size:12px;color:var(--muted)">합계</span>
+            <span class="mono" id="f-total" style="font-size:18px;font-weight:600;color:var(--navy)">0 원</span>
+          </div>
+        </div>
 
-          <div>
-            <div class="card">
-              <div class="card-title"><i class="ti ti-cpu" aria-hidden="true"></i> AI 분석 결과</div>
-              <div id="parse-empty" style="text-align:center;padding:2rem;color:var(--muted);font-size:13px">
-                <i class="ti ti-file-search" style="font-size:36px;display:block;margin-bottom:.75rem;opacity:.4" aria-hidden="true"></i>
-                파일을 업로드하면 AI가 자동으로 내용을 분석합니다
-              </div>
-
-              <div class="loading-bar" id="loading-bar"><div class="loading-bar-fill"></div></div>
-              <div class="loading-text" id="loading-text"><i class="ti ti-sparkles" aria-hidden="true"></i> AI가 청구서 내용을 분석하고 있습니다...</div>
-
-              <div class="parse-result" id="parse-result">
-                <div class="parse-header">
-                  <i class="ti ti-circle-check" style="color:var(--green-txt);font-size:18px" aria-hidden="true"></i>
-                  <span class="parse-status" style="color:var(--green-txt)">분석 완료 — 내용을 확인하고 수정하세요</span>
-                </div>
-                <div class="field-grid">
-                  <div class="field-item">
-                    <div class="field-label">재단 접수번호</div>
-                    <input class="field-value editable" id="f-accnum" value="국부 26-110">
-                  </div>
-                  <div class="field-item">
-                    <div class="field-label">서류 유형</div>
-                    <input class="field-value editable" id="f-doctype" value="소송비용청구서">
-                  </div>
-                  <div class="field-item">
-                    <div class="field-label">변호사</div>
-                    <input class="field-value editable" id="f-lawyer" value="권우상">
-                  </div>
-                  <div class="field-item">
-                    <div class="field-label">법무법인</div>
-                    <input class="field-value editable" id="f-firm" value="법무법인 동북아">
-                  </div>
-                  <div class="field-item">
-                    <div class="field-label">의뢰인</div>
-                    <input class="field-value editable" id="f-client" value="강은지">
-                  </div>
-                  <div class="field-item">
-                    <div class="field-label">상대방</div>
-                    <input class="field-value editable" id="f-opponent" value="서광">
-                  </div>
-                  <div class="field-item">
-                    <div class="field-label">사건명</div>
-                    <input class="field-value editable" id="f-casename" value="승계집행문 부여">
-                  </div>
-                  <div class="field-item">
-                    <div class="field-label">사건번호</div>
-                    <input class="field-value editable" id="f-casenum" value="">
-                  </div>
-                  <div class="field-item">
-                    <div class="field-label">착수금 (변호사 보수)</div>
-                    <input class="field-value editable mono" id="f-fee" value="100,000">
-                  </div>
-                  <div class="field-item">
-                    <div class="field-label">입금 계좌</div>
-                    <input class="field-value editable mono" id="f-account" value="신한 140-014-761436">
-                  </div>
-                  <div class="field-item">
-                    <div class="field-label">청구일자</div>
-                    <input class="field-value editable" id="f-date" value="2026-04-21">
-                  </div>
-                  <div class="field-item">
-                    <div class="field-label">세금서류</div>
-                    <select class="field-value editable" id="f-taxtype" style="cursor:pointer">
-                      <option>전자세금계산서</option>
-                      <option>사업소득</option>
-                      <option>미수령</option>
-                    </select>
-                  </div>
-                </div>
-                <div style="display:flex;gap:8px">
-                  <button class="btn" onclick="resetUpload()"><i class="ti ti-refresh" aria-hidden="true"></i> 다시 업로드</button>
-                  <button class="btn btn-primary" onclick="generateResolution()"><i class="ti ti-clipboard-list" aria-hidden="true"></i> 지출결의서 생성</button>
-                </div>
-              </div>
+        <div class="card">
+          <div class="card-title"><i class="ti ti-building-bank" aria-hidden="true"></i> 입금 계좌</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>은행</label>
+              <input class="form-input" id="f-bank" placeholder="은행명" readonly style="background:var(--light)">
+            </div>
+            <div class="field">
+              <label>계좌번호</label>
+              <input class="form-input mono" id="f-acct" placeholder="계좌번호" readonly style="background:var(--light)">
+            </div>
+            <div class="field">
+              <label>예금주</label>
+              <input class="form-input" id="f-owner" placeholder="예금주" readonly style="background:var(--light)">
+            </div>
+            <div class="field">
+              <label>비고</label>
+              <input class="form-input" id="f-note" placeholder="비고">
             </div>
           </div>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn" onclick="resetForm()"><i class="ti ti-refresh" aria-hidden="true"></i> 초기화</button>
+          <button class="btn btn-primary" onclick="genResol()"><i class="ti ti-clipboard-list" aria-hidden="true"></i> 지출결의서 생성</button>
         </div>
 
         <!-- 지출결의서 미리보기 -->
-        <div class="resol-preview" id="resol-preview">
-          <div class="resol-header">
-            <h3><i class="ti ti-clipboard-list" aria-hidden="true"></i> 지출결의서 생성 완료</h3>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3)" onclick="addToList()"><i class="ti ti-plus" aria-hidden="true"></i> 목록에 추가</button>
-              <button class="btn btn-sm btn-success" onclick="showToast('지출결의서가 저장되었습니다')"><i class="ti ti-device-floppy" aria-hidden="true"></i> 저장</button>
+        <div class="resol-wrap" id="resol-wrap">
+          <div class="resol-bar">
+            <h3><i class="ti ti-clipboard-check" aria-hidden="true"></i> 지출결의서 생성 완료</h3>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3)" onclick="saveResol()">
+                <i class="ti ti-device-floppy" aria-hidden="true"></i> 저장
+              </button>
+              <button class="btn btn-sm btn-success" onclick="downloadExcel()">
+                <i class="ti ti-download" aria-hidden="true"></i> 엑셀 다운로드
+              </button>
             </div>
           </div>
-          <div class="resol-body">
-            <div class="resol-title">지   출   결   의   서</div>
-            <div class="resol-sub">2026년 소송구조(국토부) / 전세피해자</div>
-            <div class="resol-meta">
-              <div class="resol-meta-item"><span class="resol-meta-label">작성일자</span><span class="resol-meta-value" id="rv-writedate">2026년 5월 28일</span></div>
-              <div class="resol-meta-item"><span class="resol-meta-label">결재일자</span><span class="resol-meta-value">2026년 5월 __일</span></div>
-              <div class="resol-meta-item"><span class="resol-meta-label">계정과목</span><span class="resol-meta-value">법률구조사업비 전세피해자사업비</span></div>
-              <div class="resol-meta-item"><span class="resol-meta-label">결제방식</span><span class="resol-meta-value">계좌이체 (영수증)</span></div>
-            </div>
-            <div class="approval-row">
-              <div class="approval-box"><div class="approval-role">담당</div><div class="approval-name" id="rv-staff"></div><div class="approval-stamp stamp-done">✓ 작성완료</div></div>
-              <div class="approval-box"><div class="approval-role">사무총장</div><div class="approval-name">사무총장</div><div class="approval-stamp stamp-wait">결재 대기</div></div>
-              <div class="approval-box"><div class="approval-role">재무이사</div><div class="approval-name">재무이사</div><div class="approval-stamp stamp-wait">결재 대기</div></div>
-            </div>
-            <table class="resol-table">
-              <thead>
-                <tr><th style="width:40px">순번</th><th>계정과목</th><th>적  요</th><th style="width:100px">금액</th><th style="width:60px">비고</th></tr>
-              </thead>
-              <tbody id="rv-tbody"></tbody>
-            </table>
-            <div class="resol-total"><span>합  계</span><span id="rv-total" class="mono"></span></div>
-          </div>
+          <div class="resol-doc" id="resol-doc"></div>
         </div>
       </div>
 
       <!-- 지출결의서 목록 -->
       <div class="view" id="view-resol">
-        <p class="page-title">지출결의서 관리</p>
-        <p class="page-sub">사업별 지출결의서 목록 및 결재 현황</p>
+        <p class="page-title">지출결의서 목록</p>
+        <p class="page-sub" id="resol-sub">사업별 결의서 목록 및 결재 현황</p>
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-            <div class="card-title" style="margin-bottom:0"><i class="ti ti-clipboard-list" aria-hidden="true"></i> 2026년 5월 결의서 목록</div>
-            <button class="btn btn-primary btn-sm" onclick="showView('upload')"><i class="ti ti-plus" aria-hidden="true"></i> 새 결의서</button>
+            <div class="card-title" style="margin-bottom:0"><i class="ti ti-clipboard-list" aria-hidden="true"></i> <span id="resol-list-title">결의서 목록</span></div>
+            <button class="btn btn-primary btn-sm" onclick="showView('input')"><i class="ti ti-plus" aria-hidden="true"></i> 새 결의서</button>
           </div>
-          <table class="list-table" id="resol-list-table">
-            <thead><tr><th>접수번호</th><th>변호사</th><th>의뢰인</th><th>사건명</th><th>금액</th><th>계산서</th><th>결재상태</th><th>작성일</th></tr></thead>
+          <table class="tbl">
+            <thead><tr><th>접수번호</th><th>변호사</th><th>의뢰인</th><th>사건명</th><th>금액</th><th>세금서류</th><th>결재</th><th>작성일</th><th></th></tr></thead>
             <tbody id="resol-tbody"></tbody>
           </table>
         </div>
@@ -456,15 +369,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
       <!-- 지출 목록 -->
       <div class="view" id="view-list">
         <p class="page-title">지출 목록</p>
-        <p class="page-sub">전체 사건 현황 — 색상으로 계산서 수령 상태 표시</p>
-        <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
-          <span style="font-size:12px;color:var(--muted);padding:4px 0">범례:</span>
-          <span class="badge badge-green">계산서 수령완료</span>
-          <span class="badge badge-amber">계산서 미수령</span>
-          <span class="badge badge-blue">결의서 작성완료</span>
+        <p class="page-sub">계산서 수령 상태별 색상 표시</p>
+        <div style="display:flex;gap:8px;margin-bottom:1rem;align-items:center;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--muted)">범례</span>
+          <span class="badge bg">계산서 수령완료</span>
+          <span class="badge ba">계산서 미수령</span>
         </div>
         <div class="card">
-          <table class="list-table">
+          <table class="tbl">
             <thead><tr><th>접수번호</th><th>변호사</th><th>의뢰인</th><th>사건명</th><th>유형</th><th>금액</th><th>계산서</th><th>결의서</th></tr></thead>
             <tbody id="list-tbody"></tbody>
           </table>
@@ -472,26 +384,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
       </div>
 
       <!-- 집행현황 -->
-      <div class="view" id="view-account">
+      <div class="view" id="view-budget">
         <p class="page-title">집행 현황</p>
-        <p class="page-sub">국토부 사업비 예산 대비 집행 현황</p>
-        <div class="stat-grid">
-          <div class="stat-card"><div class="stat-val">432,000,000</div><div class="stat-label">배정 예산 (원)</div></div>
-          <div class="stat-card"><div class="stat-val">112,580,000</div><div class="stat-label">기집행액 (원)</div></div>
-          <div class="stat-card"><div class="stat-val" style="color:var(--green-txt)">319,420,000</div><div class="stat-label">잔여 예산 (원)</div></div>
-          <div class="stat-card"><div class="stat-val">26%</div><div class="stat-label">집행률</div></div>
-        </div>
+        <p class="page-sub" id="budget-sub">예산 대비 집행 현황</p>
+        <div class="stat-grid" id="budget-stats"></div>
         <div class="card">
           <div class="card-title"><i class="ti ti-table" aria-hidden="true"></i> 월별 집행 내역</div>
-          <table class="list-table">
+          <table class="tbl" id="budget-tbl">
             <thead><tr><th>월</th><th>지급건수</th><th>지급금액</th><th>수입</th><th>잔액</th><th>비고</th></tr></thead>
-            <tbody>
-              <tr><td>3월</td><td>47건</td><td class="mono">37,500,000</td><td class="mono">37,500,000 (가지급)</td><td class="mono">0</td><td style="font-size:11px;color:var(--muted)">서민금융재단</td></tr>
-              <tr><td>4월</td><td>33건</td><td class="mono">26,600,000</td><td class="mono">26,600,000 (가지급)</td><td class="mono">0</td><td style="font-size:11px;color:var(--muted)">서민금융재단</td></tr>
-              <tr><td>4월</td><td>—</td><td class="mono">-64,100,000</td><td class="mono">(가수금 반납)</td><td class="mono">—</td><td style="font-size:11px;color:var(--muted)">반납</td></tr>
-              <tr><td>4월</td><td>—</td><td>—</td><td class="mono">195,000,000 (선금)</td><td class="mono">195,000,000</td><td style="font-size:11px;color:var(--muted)">국토부</td></tr>
-              <tr style="background:#F0F4F8"><td><strong>5월 (예정)</strong></td><td><strong>28건</strong></td><td class="mono"><strong>28,480,000</strong></td><td>—</td><td class="mono"><strong>166,520,000</strong></td><td style="font-size:11px;color:var(--muted)">말일 입금예정</td></tr>
-            </tbody>
+            <tbody id="budget-tbody"></tbody>
           </table>
         </div>
       </div>
@@ -499,19 +400,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
       <!-- 변호사 계좌 -->
       <div class="view" id="view-lawyer">
         <p class="page-title">변호사 계좌 정보</p>
-        <p class="page-sub">입금 처리를 위한 변호사별 계좌 관리 — 노란 배경은 확인 필요</p>
+        <p class="page-sub">입금 처리용 계좌 관리</p>
         <div class="card">
-          <table class="list-table">
+          <table class="tbl">
             <thead><tr><th>변호사</th><th>은행</th><th>계좌번호</th><th>예금주</th><th>이메일</th><th>계산서유형</th><th>상태</th></tr></thead>
-            <tbody>
-              <tr class="row-green"><td>권우상</td><td>신한</td><td class="mono" style="font-size:11px">140-014-761436</td><td style="font-size:11px">법무법인 동북아</td><td style="font-size:11px">jbnfa123@naver.com</td><td><span class="badge badge-green">전자계산서</span></td><td><span class="badge badge-green">확인완료</span></td></tr>
-              <tr class="row-green"><td>김동창</td><td>기업</td><td class="mono" style="font-size:11px">547-062599-04-011</td><td style="font-size:11px">법무법인 지름길</td><td style="font-size:11px">chang2law@naver.com</td><td><span class="badge badge-green">전자계산서</span></td><td><span class="badge badge-green">확인완료</span></td></tr>
-              <tr class="row-amber"><td>김명철</td><td>신한</td><td style="background:#FFFBEB;color:#92400E;font-size:11px">확인 필요</td><td>—</td><td>—</td><td><span class="badge badge-amber">미확인</span></td><td><span class="badge badge-amber">확인필요</span></td></tr>
-              <tr class="row-amber"><td>김주형</td><td>신한</td><td style="background:#FFFBEB;color:#92400E;font-size:11px">확인 필요</td><td>—</td><td>—</td><td><span class="badge badge-amber">미확인</span></td><td><span class="badge badge-amber">확인필요</span></td></tr>
-              <tr class="row-amber"><td>류병욱</td><td>신한</td><td style="background:#FFFBEB;color:#92400E;font-size:11px">확인 필요</td><td>—</td><td>—</td><td><span class="badge badge-amber">미확인</span></td><td><span class="badge badge-amber">확인필요</span></td></tr>
-              <tr class="row-green"><td>우원상</td><td>신한</td><td class="mono" style="font-size:11px">110-XXXXX</td><td style="font-size:11px">법무법인 지율</td><td>—</td><td><span class="badge badge-green">전자계산서</span></td><td><span class="badge badge-green">확인완료</span></td></tr>
-              <tr class="row-amber"><td>육심원</td><td>신한</td><td style="background:#FFFBEB;color:#92400E;font-size:11px">확인 필요</td><td>—</td><td>—</td><td><span class="badge badge-amber">미확인</span></td><td><span class="badge badge-amber">확인필요</span></td></tr>
-            </tbody>
+            <tbody id="lawyer-tbody"></tbody>
           </table>
         </div>
       </div>
@@ -520,230 +413,463 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   </div>
 </div>
 
-<!-- 토스트 -->
 <div class="toast" id="toast"></div>
 
 <script>
 const USERS = {
-  'admin':   {pw:'1234', name:'관리자 (홍길동)', role:'admin'},
-  'user1':   {pw:'1234', name:'담당자 (김소희)', role:'staff'},
-  'finance': {pw:'1234', name:'재무이사', role:'finance'},
+  admin:   {pw:"1234", name:"관리자 (홍길동)"},
+  user1:   {pw:"1234", name:"담당자 (김소희)"},
+  finance: {pw:"1234", name:"재무이사"},
 };
 
-let currentUser = null;
-const resolList = [];
-const caseList = [
-  {num:'국부 26-110',lawyer:'권우상',client:'강은지',case:'승계집행문 부여',type:'신청',amt:100000,tax:'수령',resol:'완료'},
-  {num:'국부 26-153',lawyer:'김동창',client:'안가람',case:'임대차보증금반환소송',type:'민사',amt:1000000,tax:'미수령',resol:'대기'},
-  {num:'국부 26-154',lawyer:'김동창',client:'신서영',case:'이의신청(불송치)',type:'형사',amt:500000,tax:'수령',resol:'완료'},
-  {num:'국부 26-165',lawyer:'김동창',client:'신서영',case:'채권압류추심명령',type:'신청',amt:500000,tax:'미수령',resol:'대기'},
-  {num:'국부 26-105',lawyer:'김명철',client:'이예나',case:'임대차보증금반환소송',type:'민사',amt:500000,tax:'미수령',resol:'대기'},
-  {num:'국부 26-171',lawyer:'김명철',client:'김수현',case:'임대차보증금반환소송',type:'민사',amt:1000000,tax:'수령',resol:'완료'},
-  {num:'국부 26-170',lawyer:'김주형',client:'권준희',case:'임대차보증금반환소송',type:'민사',amt:1000000,tax:'수령',resol:'완료'},
-  {num:'국부 26-173',lawyer:'김주형',client:'권태영',case:'임대차보증금반환소송',type:'민사',amt:1000000,tax:'수령',resol:'완료'},
-  {num:'국부 26-119',lawyer:'류병욱',client:'하서인',case:'임대차보증금반환소송',type:'민사',amt:1000000,tax:'미수령',resol:'대기'},
-  {num:'국부 26-211',lawyer:'류원용',client:'이경아',case:'임대차보증금반환소송',type:'민사',amt:1200000,tax:'수령',resol:'완료'},
-  {num:'국부 26-163',lawyer:'류제성',client:'강민경',case:'손해배상(중개인)',type:'민사',amt:1000000,tax:'수령',resol:'완료'},
-  {num:'국부 26-159',lawyer:'신도성',client:'이경희',case:'사기',type:'형사',amt:100000,tax:'미수령',resol:'대기'},
-  {num:'국부 26-129',lawyer:'우원상',client:'김정연',case:'손해배상(중개인)',type:'민사',amt:100000,tax:'미수령',resol:'대기'},
-  {num:'국부 26-106',lawyer:'육심원',client:'이지연',case:'손해배상(공제금) 상3',type:'민사',amt:1400000,tax:'수령',resol:'완료'},
-  {num:'국부 26-157',lawyer:'육심원',client:'금종민',case:'손해배상(공제금) 상2',type:'민사',amt:1200000,tax:'수령',resol:'완료'},
-  {num:'국부 26-182',lawyer:'육심원',client:'김나연',case:'손해배상(공제금) 상2',type:'민사',amt:1200000,tax:'미수령',resol:'대기'},
-  {num:'국부 26-168',lawyer:'윤종렬',client:'류지희 외4',case:'사기 상2',type:'형사',amt:2000000,tax:'수령',resol:'완료'},
-  {num:'국부 26-149',lawyer:'이보연',client:'정서인',case:'손해배상(중개인) 상3',type:'민사',amt:1400000,tax:'수령',resol:'완료'},
-];
+// ── 사업별 데이터 ──
+const BIZ = {
+  kt: {
+    name: "전세피해자 소송구조 (국토부)",
+    short: "국토부",
+    prefix: "국부",
+    budget: 432000000,
+    executed: 112580000,
+    payMethod: "은행 직접 이체",
+    lawyers: [
+      {name:"권우상", bank:"신한", acct:"140-014-761436", owner:"법무법인 동북아", email:"jbnfa123@naver.com", tax:"전자계산서"},
+      {name:"김동창", bank:"기업", acct:"547-062599-04-011", owner:"법무법인 지름길", email:"chang2law@naver.com", tax:"전자계산서"},
+      {name:"김명철", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"김주형", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"류병욱", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"류원용", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"류제성", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"우원상", bank:"신한", acct:"110-XXXXX", owner:"법무법인 지율", email:"", tax:"전자계산서"},
+      {name:"육심원", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"윤종렬", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"이보연", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"이희석", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"이희우", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"임정훈", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"조경원", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"조재민", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"최인해", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"하재섭", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"홍성호", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+    ],
+    cases: [
+      {num:"국부 26-110",lawyer:"권우상",client:"강은지",case:"승계집행문 부여",type:"신청",fee:100000,stamp:0,delivery:0,tax:"수령",resol:"완료",date:"2026-05-14"},
+      {num:"국부 26-153",lawyer:"김동창",client:"안가람",case:"임대차보증금반환소송",type:"민사",fee:1000000,stamp:0,delivery:0,tax:"미수령",resol:"대기",date:"2026-05-14"},
+      {num:"국부 26-154",lawyer:"김동창",client:"신서영",case:"이의신청(불송치)",type:"형사",fee:500000,stamp:0,delivery:0,tax:"수령",resol:"완료",date:"2026-05-14"},
+      {num:"국부 26-105",lawyer:"김명철",client:"이예나",case:"임대차보증금반환소송",type:"민사",fee:500000,stamp:0,delivery:0,tax:"미수령",resol:"대기",date:"2026-05-14"},
+      {num:"국부 26-170",lawyer:"김주형",client:"권준희",case:"임대차보증금반환소송",type:"민사",fee:1000000,stamp:0,delivery:0,tax:"수령",resol:"완료",date:"2026-05-14"},
+      {num:"국부 26-163",lawyer:"류제성",client:"강민경",case:"손해배상(중개인)",type:"민사",fee:1000000,stamp:0,delivery:0,tax:"수령",resol:"완료",date:"2026-05-14"},
+      {num:"국부 26-168",lawyer:"윤종렬",client:"류지희 외4",case:"사기 상2",type:"형사",fee:2000000,stamp:0,delivery:0,tax:"수령",resol:"완료",date:"2026-05-14"},
+      {num:"국부 26-106",lawyer:"육심원",client:"이지연",case:"손해배상(공제금) 상3",type:"민사",fee:1400000,stamp:0,delivery:0,tax:"수령",resol:"완료",date:"2026-05-14"},
+    ],
+    monthly: [
+      {month:"3월", count:"47건", paid:"37,500,000", income:"37,500,000 (가지급)", balance:"0", note:"서민금융재단"},
+      {month:"4월", count:"33건", paid:"26,600,000", income:"195,000,000 (국토부 선금)", balance:"195,000,000", note:"국토부"},
+      {month:"5월", count:"28건 (예정)", paid:"28,480,000", income:"—", balance:"166,520,000", note:"말일 입금예정"},
+    ]
+  },
+  sf: {
+    name: "전세피해자 소송구조 (서민금융재단)",
+    short: "서민금융",
+    prefix: "서금",
+    budget: 181577312,
+    executed: 75000000,
+    payMethod: "e-나라도움",
+    lawyers: [
+      {name:"고민지", bank:"신한", acct:"100024998256", owner:"법무법인 봄", email:"mjko@springlaw.kr", tax:"전자계산서"},
+      {name:"공성록", bank:"신한", acct:"확인필요", owner:"새고양법률사무소", email:"", tax:"전자계산서"},
+      {name:"김동창", bank:"기업", acct:"547-062599-04-011", owner:"법무법인 지름길", email:"chang2law@naver.com", tax:"전자계산서"},
+      {name:"김민욱", bank:"신한", acct:"110285121948", owner:"김민욱", email:"aria0816@naver.com", tax:"전자계산서"},
+      {name:"문준홍", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"민관식", bank:"신한", acct:"확인필요", owner:"법무법인 주원", email:"", tax:"전자계산서"},
+      {name:"박대영", bank:"신한", acct:"확인필요", owner:"법무법인 삼승", email:"", tax:"전자계산서"},
+      {name:"우원상", bank:"신한", acct:"110-XXXXX", owner:"법무법인 지율", email:"", tax:"전자계산서"},
+      {name:"육심원", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"윤종렬", bank:"신한", acct:"확인필요", owner:"확인필요", email:"", tax:"전자계산서"},
+      {name:"이고은", bank:"신한", acct:"확인필요", owner:"법률사무소 소리", email:"", tax:"전자계산서"},
+      {name:"이건민", bank:"신한", acct:"확인필요", owner:"오송변호사", email:"", tax:"전자계산서"},
+      {name:"이새나", bank:"신한", acct:"확인필요", owner:"법무법인 시민", email:"", tax:"전자계산서"},
+    ],
+    cases: [
+      {num:"서금 25-745",lawyer:"공성록",client:"현주희",case:"임대차보증금반환소송",type:"민사",fee:1000000,stamp:0,delivery:0,tax:"수령",resol:"완료",date:"2026-03-17"},
+      {num:"서금 25-797",lawyer:"공성록",client:"사재덕",case:"임대차보증금반환소송 상2",type:"민사",fee:1200000,stamp:0,delivery:0,tax:"수령",resol:"완료",date:"2026-03-17"},
+      {num:"서금 26-1",lawyer:"김동창",client:"유혁진",case:"임대차보증금반환소송",type:"민사",fee:1000000,stamp:0,delivery:0,tax:"수령",resol:"완료",date:"2026-03-17"},
+      {num:"서금 25-820",lawyer:"김민욱",client:"김시온",case:"임대차보증금반환소송",type:"민사",fee:1000000,stamp:0,delivery:0,tax:"미수령",resol:"대기",date:"2026-03-17"},
+      {num:"서금 26-9",lawyer:"우원상",client:"송승훈",case:"임대차보증금반환소송",type:"민사",fee:1000000,stamp:0,delivery:0,tax:"수령",resol:"완료",date:"2026-03-17"},
+      {num:"서금 25-800",lawyer:"우원상",client:"배지현",case:"임대차보증금반환소송",type:"민사",fee:1000000,stamp:0,delivery:0,tax:"미수령",resol:"대기",date:"2026-03-17"},
+    ],
+    monthly: [
+      {month:"전년도", count:"—", paid:"—", income:"181,542,617 (이월금)", balance:"181,542,617", note:"전년도 이월"},
+      {month:"3월", count:"—", paid:"—", income:"37,500,000 (가지급)", balance:"219,042,617", note:"국토부"},
+      {month:"4월", count:"—", paid:"75,000,000", income:"26,600,000 (가지급)", balance:"170,642,617", note:"국토부"},
+      {month:"5월", count:"예정", paid:"예정", income:"—", balance:"—", note:"진행중"},
+    ]
+  }
+};
+
+let curBiz = "kt";
+let curUser = null;
+let resolList = {kt:[], sf:[]};
 
 function doLogin() {
-  const id = document.getElementById('login-id').value.trim();
-  const pw = document.getElementById('login-pw').value;
-  const err = document.getElementById('login-error');
+  const id = document.getElementById("lid").value.trim();
+  const pw = document.getElementById("lpw").value;
   if (USERS[id] && USERS[id].pw === pw) {
-    currentUser = {...USERS[id], id};
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app').classList.add('visible');
-    document.getElementById('user-badge').textContent = currentUser.name;
-    renderList();
-    renderResolList();
+    curUser = {id, ...USERS[id]};
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app").classList.add("visible");
+    document.getElementById("ubadge").textContent = curUser.name;
+    init();
   } else {
-    err.style.display = 'block';
-    setTimeout(()=> err.style.display='none', 3000);
+    const e = document.getElementById("lerr");
+    e.style.display = "block";
+    setTimeout(()=> e.style.display="none", 3000);
   }
 }
-
-document.getElementById('login-pw').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
-document.getElementById('login-id').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('login-pw').focus(); });
+document.addEventListener("DOMContentLoaded", ()=>{
+  document.getElementById("lpw").addEventListener("keydown", e=>{ if(e.key==="Enter") doLogin(); });
+  document.getElementById("lid").addEventListener("keydown", e=>{ if(e.key==="Enter") document.getElementById("lpw").focus(); });
+  document.getElementById("f-date").value = new Date().toISOString().slice(0,10);
+});
 
 function doLogout() {
-  currentUser = null;
-  document.getElementById('app').classList.remove('visible');
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('login-id').value='';
-  document.getElementById('login-pw').value='';
+  curUser = null;
+  document.getElementById("app").classList.remove("visible");
+  document.getElementById("login-screen").style.display = "flex";
+  document.getElementById("lid").value = "";
+  document.getElementById("lpw").value = "";
+}
+
+function init() {
+  setBiz(curBiz);
+}
+
+function setBiz(biz) {
+  curBiz = biz;
+  document.getElementById("tab-kt").classList.toggle("active", biz==="kt");
+  document.getElementById("tab-sf").classList.toggle("active", biz==="sf");
+  renderDashboard();
+  renderLawyerSelect();
+  renderResolList();
+  renderCaseList();
+  renderBudget();
+  renderLawyers();
 }
 
 function showView(name) {
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('view-'+name).classList.add('active');
-  const map={dashboard:0,upload:1,resol:2,list:3,account:4,lawyer:5};
-  document.querySelectorAll('.nav-item')[map[name]]?.classList.add('active');
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
+  document.getElementById("view-"+name).classList.add("active");
+  const map = {dashboard:0,input:1,resol:2,list:3,budget:4,lawyer:5};
+  document.querySelectorAll(".nav-item")[map[name]]?.classList.add("active");
+  if(name==="resol") renderResolList();
+  if(name==="list") renderCaseList();
+  if(name==="budget") renderBudget();
+  if(name==="lawyer") renderLawyers();
 }
 
-function handleFileSelect(e) {
-  const file = e.target.files[0];
-  if (file) processFile(file);
+function renderDashboard() {
+  const b = BIZ[curBiz];
+  const allCases = [...b.cases, ...resolList[curBiz]];
+  const recv = allCases.filter(c=>c.tax==="수령").length;
+  const noRecv = allCases.filter(c=>c.tax==="미수령").length;
+  const total = allCases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0);
+
+  document.getElementById("dash-title").textContent = "대시보드 — " + b.short;
+  document.getElementById("dash-sub").textContent = "2026년 · " + b.name;
+
+  document.getElementById("dash-stats").innerHTML = `
+    <div class="stat-card"><div class="stat-val">${allCases.length}</div><div class="stat-label">전체 사건</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--green-txt)">${recv}</div><div class="stat-label">계산서 수령</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#B45309">${noRecv}</div><div class="stat-label">계산서 미수령</div></div>
+    <div class="stat-card"><div class="stat-val">${total.toLocaleString()}</div><div class="stat-label">총 지급액 (원)</div></div>
+  `;
+
+  const pct = Math.round(b.executed/b.budget*100);
+  document.getElementById("dash-budget").innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">배정 예산</div>
+    <div style="font-size:18px;font-weight:600;color:var(--navy);margin-bottom:8px">${b.budget.toLocaleString()} 원</div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+      <span>기집행: ${b.executed.toLocaleString()}원</span><span>${pct}%</span>
+    </div>
+    <div style="height:7px;background:var(--light);border-radius:4px;overflow:hidden;margin-bottom:6px">
+      <div style="height:100%;width:${pct}%;background:var(--navy);border-radius:4px"></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted)">잔액: <strong style="color:var(--text)">${(b.budget-b.executed).toLocaleString()} 원</strong></div>
+  `;
+
+  document.getElementById("dash-alerts").innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:7px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--amber-bg);border-radius:var(--radius);font-size:12px">
+        <span style="color:var(--amber-txt);font-weight:500"><i class="ti ti-file-alert" aria-hidden="true"></i> 계산서 미수령</span>
+        <span class="badge ba">${noRecv}건</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--blue-bg);border-radius:var(--radius);font-size:12px">
+        <span style="color:var(--blue-txt);font-weight:500"><i class="ti ti-clipboard" aria-hidden="true"></i> 결의서 대기</span>
+        <span class="badge bb">${allCases.filter(c=>c.resol==="대기").length}건</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--green-bg);border-radius:var(--radius);font-size:12px">
+        <span style="color:var(--green-txt);font-weight:500"><i class="ti ti-circle-check" aria-hidden="true"></i> 결의서 완료</span>
+        <span class="badge bg">${allCases.filter(c=>c.resol==="완료").length}건</span>
+      </div>
+    </div>
+  `;
 }
 
-function handleDrop(e) {
-  e.preventDefault();
-  document.getElementById('upload-zone').classList.remove('dragover');
-  const file = e.dataTransfer.files[0];
-  if (file) processFile(file);
+function renderLawyerSelect() {
+  const sel = document.getElementById("f-lawyer");
+  sel.innerHTML = '<option value="">-- 선택 --</option>';
+  BIZ[curBiz].lawyers.forEach(l=>{
+    const opt = document.createElement("option");
+    opt.value = l.name;
+    opt.textContent = l.name;
+    sel.appendChild(opt);
+  });
 }
 
-function processFile(file) {
-  document.getElementById('file-info').style.display = 'block';
-  document.getElementById('file-name').textContent = file.name;
-  document.getElementById('parse-empty').style.display = 'none';
-  document.getElementById('loading-bar').style.display = 'block';
-  document.getElementById('loading-text').style.display = 'block';
-  document.getElementById('parse-result').style.display = 'none';
-  document.getElementById('resol-preview').style.display = 'none';
-
-  setStep(2);
-
-  // 실제로는 Claude API로 PDF 분석
-  // 여기서는 업로드된 파일명으로 샘플 데이터 시뮬레이션
-  setTimeout(() => {
-    document.getElementById('loading-bar').style.display = 'none';
-    document.getElementById('loading-text').style.display = 'none';
-    document.getElementById('parse-result').style.display = 'block';
-    setStep(3);
-    showToast('청구서 분석이 완료되었습니다');
-  }, 2200);
+function fillAccount() {
+  const name = document.getElementById("f-lawyer").value;
+  const l = BIZ[curBiz].lawyers.find(x=>x.name===name);
+  document.getElementById("f-bank").value = l ? l.bank : "";
+  document.getElementById("f-acct").value = l ? l.acct : "";
+  document.getElementById("f-owner").value = l ? l.owner : "";
+  if(l) document.getElementById("f-tax").value = l.tax==="전자계산서" ? "전자세금계산서" : "사업소득";
 }
 
-function setStep(n) {
-  for(let i=1;i<=4;i++){
-    const el = document.getElementById('step'+i);
-    el.className = 'step-item' + (i<n?' done':i===n?' cur':'');
+function calcTotal() {
+  const fee = parseInt(document.getElementById("f-fee").value.replace(/,/g,""))||0;
+  const stamp = parseInt(document.getElementById("f-stamp").value.replace(/,/g,""))||0;
+  const delivery = parseInt(document.getElementById("f-delivery").value.replace(/,/g,""))||0;
+  document.getElementById("f-total").textContent = (fee+stamp+delivery).toLocaleString() + " 원";
+}
+
+function resetForm() {
+  ["f-num","f-client","f-opponent","f-case","f-fee","f-stamp","f-delivery","f-note"].forEach(id=>{
+    document.getElementById(id).value = "";
+  });
+  document.getElementById("f-lawyer").value = "";
+  document.getElementById("f-bank").value = "";
+  document.getElementById("f-acct").value = "";
+  document.getElementById("f-owner").value = "";
+  document.getElementById("f-total").textContent = "0 원";
+  document.getElementById("resol-wrap").style.display = "none";
+}
+
+function genResol() {
+  const num = document.getElementById("f-num").value.trim();
+  const lawyer = document.getElementById("f-lawyer").value;
+  const client = document.getElementById("f-client").value.trim();
+  const caseName = document.getElementById("f-case").value.trim();
+  const fee = parseInt(document.getElementById("f-fee").value.replace(/,/g,""))||0;
+  const stamp = parseInt(document.getElementById("f-stamp").value.replace(/,/g,""))||0;
+  const delivery = parseInt(document.getElementById("f-delivery").value.replace(/,/g,""))||0;
+  const tax = document.getElementById("f-tax").value;
+  const type = document.getElementById("f-type").value;
+  const bank = document.getElementById("f-bank").value;
+  const acct = document.getElementById("f-acct").value;
+  const total = fee+stamp+delivery;
+
+  if (!num||!lawyer||!client||!caseName||!fee) {
+    showToast("접수번호, 변호사, 의뢰인, 사건명, 보수는 필수입니다");
+    return;
   }
-}
 
-function generateResolution() {
-  const accnum = document.getElementById('f-accnum').value;
-  const lawyer = document.getElementById('f-lawyer').value;
-  const client = document.getElementById('f-client').value;
-  const casename = document.getElementById('f-casename').value;
-  const fee = document.getElementById('f-fee').value.replace(/,/g,'');
-  const taxtype = document.getElementById('f-taxtype').value;
-
+  const b = BIZ[curBiz];
   const today = new Date();
-  const dateStr = `${today.getFullYear()}년 ${today.getMonth()+1}월 ${today.getDate()}일`;
-  document.getElementById('rv-writedate').textContent = dateStr;
-  document.getElementById('rv-staff').textContent = currentUser?.name || '담당자';
+  const dateStr = today.getFullYear()+"년 "+(today.getMonth()+1)+"월 "+today.getDate()+"일";
+  const prefix = b.prefix;
 
-  const tbody = document.getElementById('rv-tbody');
-  tbody.innerHTML = `
+  const rows = [];
+  if (fee>0) rows.push({label:"변호사 보수", amt:fee});
+  if (stamp>0) rows.push({label:"인지대", amt:stamp});
+  if (delivery>0) rows.push({label:"송달료", amt:delivery});
+
+  let tbl = rows.map((r,i)=>`
     <tr>
-      <td style="text-align:center">1</td>
-      <td style="font-size:11px">법률구조사업비 전세피해자사업비</td>
-      <td style="font-size:12px">${lawyer} 弁 ${accnum.replace('국부 ','')}호 ${client} ${casename}</td>
-      <td class="mono" style="text-align:right">${parseInt(fee).toLocaleString()}</td>
-      <td style="text-align:center;font-size:11px">${taxtype==='전자세금계산서'?'계산서':'사업소득'}</td>
-    </tr>`;
-  document.getElementById('rv-total').textContent = parseInt(fee).toLocaleString() + ' 원';
+      <td style="text-align:center">${i+1}</td>
+      <td style="font-size:11px">법률구조사업비  전세피해자사업비</td>
+      <td>${lawyer} 弁 ${num}호 ${client} ${caseName}</td>
+      <td class="mono" style="text-align:right">${r.amt.toLocaleString()}</td>
+      <td style="text-align:center;font-size:11px">${r.label}</td>
+    </tr>`).join("");
 
-  document.getElementById('resol-preview').style.display = 'block';
-  document.getElementById('resol-preview').scrollIntoView({behavior:'smooth',block:'start'});
-  setStep(4);
-  showToast('지출결의서가 생성되었습니다');
-}
+  document.getElementById("resol-doc").innerHTML = `
+    <div class="resol-doc-title">지   출   결   의   서</div>
+    <div class="resol-doc-sub">${b.name}</div>
+    <div class="resol-approval">
+      <div class="ap-box"><div class="ap-role">담당</div><div class="ap-name">${curUser.name}</div><div class="ap-stamp ap-done">✓ 작성완료</div></div>
+      <div class="ap-box"><div class="ap-role">사무총장</div><div class="ap-name">사무총장</div><div class="ap-stamp ap-wait">결재 대기</div></div>
+      <div class="ap-box"><div class="ap-role">재무이사</div><div class="ap-name">재무이사</div><div class="ap-stamp ap-wait">결재 대기</div></div>
+    </div>
+    <div class="resol-meta">
+      <div class="rm-row"><span class="rm-label">작성일자</span><span>${dateStr}</span></div>
+      <div class="rm-row"><span class="rm-label">결재일자</span><span>2026년 __월 __일</span></div>
+      <div class="rm-row"><span class="rm-label">계정과목</span><span>법률구조사업비 전세피해자사업비</span></div>
+      <div class="rm-row"><span class="rm-label">결제방식</span><span>계좌이체 (영수증) · ${b.payMethod}</span></div>
+      <div class="rm-row"><span class="rm-label">세금서류</span><span>${tax}</span></div>
+      <div class="rm-row"><span class="rm-label">입금계좌</span><span>${bank} ${acct}</span></div>
+    </div>
+    <table class="resol-table">
+      <thead><tr><th style="width:40px">순번</th><th>계정과목</th><th>적  요</th><th style="width:110px">금액</th><th style="width:70px">비고</th></tr></thead>
+      <tbody>${tbl}</tbody>
+    </table>
+    <div class="resol-total"><span>합  계</span><span class="mono">${total.toLocaleString()} 원</span></div>
+  `;
 
-function addToList() {
-  const item = {
-    num: document.getElementById('f-accnum').value,
-    lawyer: document.getElementById('f-lawyer').value,
-    client: document.getElementById('f-client').value,
-    casename: document.getElementById('f-casename').value,
-    fee: document.getElementById('f-fee').value,
-    tax: document.getElementById('f-taxtype').value,
-    status: '결재대기',
-    date: new Date().toISOString().slice(0,10),
+  document.getElementById("resol-wrap").style.display = "block";
+  document.getElementById("resol-wrap").scrollIntoView({behavior:"smooth",block:"start"});
+  showToast("지출결의서가 생성되었습니다");
+
+  window._pendingResol = {
+    num: prefix+" "+num, lawyer, client, caseName, type, fee, stamp, delivery, tax,
+    total, resol:"완료", date:today.toISOString().slice(0,10), biz:curBiz
   };
-  resolList.unshift(item);
-  renderResolList();
-  showView('resol');
-  showToast('지출결의서가 목록에 추가되었습니다');
 }
 
-function resetUpload() {
-  document.getElementById('file-input').value='';
-  document.getElementById('file-info').style.display='none';
-  document.getElementById('parse-result').style.display='none';
-  document.getElementById('resol-preview').style.display='none';
-  document.getElementById('parse-empty').style.display='block';
-  setStep(1);
+function saveResol() {
+  if (!window._pendingResol) return;
+  const r = window._pendingResol;
+  if (!resolList[r.biz]) resolList[r.biz] = [];
+  // 중복 방지
+  if (!resolList[r.biz].find(x=>x.num===r.num)) {
+    resolList[r.biz].push(r);
+    BIZ[r.biz].executed += r.total;
+  }
+  renderDashboard();
+  showToast("저장되었습니다");
 }
 
-function renderList() {
-  const tbody = document.getElementById('list-tbody');
-  tbody.innerHTML = caseList.map(c => {
-    const rowClass = c.tax==='수령' ? 'row-green' : 'row-amber';
-    const taxBadge = c.tax==='수령'
-      ? '<span class="badge badge-green">계산서수령</span>'
-      : '<span class="badge badge-amber">미수령</span>';
-    const resolBadge = c.resol==='완료'
-      ? '<span class="badge badge-blue">작성완료</span>'
-      : '<span class="badge" style="background:var(--light);color:var(--muted)">대기</span>';
-    const typeBadge = c.type==='민사'
-      ? '<span class="badge badge-navy">민사</span>'
-      : c.type==='형사'
-      ? '<span class="badge badge-red" style="background:#FEE2E2;color:#991B1B">형사</span>'
-      : '<span class="badge" style="background:var(--light);color:var(--muted)">신청</span>';
-    return `<tr class="${rowClass}">
-      <td class="mono" style="font-size:11px">${c.num}</td>
-      <td>${c.lawyer}</td>
-      <td>${c.client}</td>
-      <td style="font-size:12px">${c.case}</td>
-      <td>${typeBadge}</td>
-      <td class="mono">${c.amt.toLocaleString()}</td>
-      <td>${taxBadge}</td>
-      <td>${resolBadge}</td>
-    </tr>`;
-  }).join('');
+function downloadExcel() {
+  if (!window._pendingResol) return;
+  const r = window._pendingResol;
+  const b = BIZ[r.biz];
+  const today = new Date();
+  const dateStr = today.getFullYear()+"년 "+(today.getMonth()+1)+"월 "+today.getDate()+"일";
+
+  let csv = "지출결의서\n";
+  csv += b.name+"\n";
+  csv += "작성일자,"+dateStr+"\n";
+  csv += "계정과목,법률구조사업비 전세피해자사업비\n";
+  csv += "결제방식,계좌이체 (영수증)\n\n";
+  csv += "순번,계정과목,적요,금액,비고\n";
+  let seq = 1;
+  if(r.fee>0) csv += seq+++",,"+r.lawyer+" 弁 "+r.num+"호 "+r.client+" "+r.caseName+","+r.fee+",변호사보수\n";
+  if(r.stamp>0) csv += seq+++",,인지대,"+r.stamp+",인지대\n";
+  if(r.delivery>0) csv += seq+++",,송달료,"+r.delivery+",송달료\n";
+  csv += "합계,,,"+r.total+"\n";
+
+  const blob = new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "지출결의서_"+r.num.replace(/ /g,"_")+".csv";
+  a.click();
+  showToast("엑셀(CSV) 다운로드 완료");
 }
 
 function renderResolList() {
-  const initialData = [
-    {num:'국부 26-110',lawyer:'권우상',client:'강은지',casename:'승계집행문 부여',fee:'100,000',tax:'전자세금계산서',status:'결재완료',date:'2026-05-14'},
-    {num:'국부 26-154',lawyer:'김동창',client:'신서영',casename:'이의신청(불송치)',fee:'500,000',tax:'전자세금계산서',status:'결재완료',date:'2026-05-14'},
-    {num:'국부 26-170',lawyer:'김주형',client:'권준희',casename:'임대차보증금반환소송',fee:'1,000,000',tax:'전자세금계산서',status:'결재완료',date:'2026-05-14'},
-  ];
-  const all = [...resolList, ...initialData];
-  const tbody = document.getElementById('resol-tbody');
-  tbody.innerHTML = all.map(r => {
-    const st = r.status==='결재완료'
-      ? '<span class="badge badge-green">결재완료</span>'
-      : '<span class="badge badge-amber">결재대기</span>';
+  const b = BIZ[curBiz];
+  document.getElementById("resol-sub").textContent = b.name;
+  document.getElementById("resol-list-title").textContent = b.short+" 결의서 목록";
+  const all = [...b.cases.filter(c=>c.resol==="완료"), ...resolList[curBiz]];
+  document.getElementById("resol-tbody").innerHTML = all.map(r=>{
+    const st = r.resol==="완료" ? '<span class="badge bg">결재완료</span>' : '<span class="badge ba">대기</span>';
+    const total = ((r.fee||0)+(r.stamp||0)+(r.delivery||0)).toLocaleString();
     return `<tr>
       <td class="mono" style="font-size:11px">${r.num}</td>
       <td>${r.lawyer}</td>
       <td>${r.client}</td>
-      <td style="font-size:12px">${r.casename}</td>
-      <td class="mono">${r.fee}</td>
-      <td><span class="badge badge-green">${r.tax}</span></td>
+      <td style="font-size:12px">${r.case||r.caseName}</td>
+      <td class="mono">${total}</td>
+      <td><span class="badge bg">${r.tax==="수령"||r.tax==="전자세금계산서"?"전자계산서":"미수령"}</span></td>
       <td>${st}</td>
       <td style="font-size:11px;color:var(--muted)">${r.date}</td>
+      <td><button class="btn btn-sm" onclick="viewResol(${JSON.stringify(r).replace(/"/g,'&quot;')})"><i class="ti ti-eye" aria-hidden="true"></i></button></td>
     </tr>`;
-  }).join('');
+  }).join("");
+}
+
+function viewResol(r) {
+  showView("input");
+  document.getElementById("f-num").value = r.num.split(" ").slice(-1)[0];
+  document.getElementById("f-client").value = r.client;
+  document.getElementById("f-case").value = r.case||r.caseName||"";
+  document.getElementById("f-fee").value = r.fee||0;
+  document.getElementById("f-stamp").value = r.stamp||0;
+  document.getElementById("f-delivery").value = r.delivery||0;
+  calcTotal();
+  const sel = document.getElementById("f-lawyer");
+  for(let i=0;i<sel.options.length;i++){
+    if(sel.options[i].value===r.lawyer){ sel.selectedIndex=i; break; }
+  }
+  fillAccount();
+  window._pendingResol = r;
+  genResol();
+}
+
+function renderCaseList() {
+  const b = BIZ[curBiz];
+  const all = [...b.cases, ...resolList[curBiz]];
+  document.getElementById("list-tbody").innerHTML = all.map(c=>{
+    const rowClass = c.tax==="수령"||c.tax==="전자세금계산서" ? "row-g" : "row-a";
+    const taxB = (c.tax==="수령"||c.tax==="전자세금계산서") ? '<span class="badge bg">수령완료</span>' : '<span class="badge ba">미수령</span>';
+    const resolB = c.resol==="완료" ? '<span class="badge bb">작성완료</span>' : '<span class="badge" style="background:var(--light);color:var(--muted)">대기</span>';
+    const typeMap = {민사:"bn",형사:"br",신청:"badge"};
+    const total = ((c.fee||0)+(c.stamp||0)+(c.delivery||0)).toLocaleString();
+    return `<tr class="${rowClass}">
+      <td class="mono" style="font-size:11px">${c.num}</td>
+      <td>${c.lawyer}</td>
+      <td>${c.client}</td>
+      <td style="font-size:11px">${c.case||c.caseName}</td>
+      <td><span class="badge ${typeMap[c.type]||"bn"}">${c.type}</span></td>
+      <td class="mono">${total}</td>
+      <td>${taxB}</td>
+      <td>${resolB}</td>
+    </tr>`;
+  }).join("");
+}
+
+function renderBudget() {
+  const b = BIZ[curBiz];
+  const pct = Math.round(b.executed/b.budget*100);
+  document.getElementById("budget-sub").textContent = b.name + " · 예산 집행 현황";
+  document.getElementById("budget-stats").innerHTML = `
+    <div class="stat-card"><div class="stat-val">${b.budget.toLocaleString()}</div><div class="stat-label">배정 예산 (원)</div></div>
+    <div class="stat-card"><div class="stat-val">${b.executed.toLocaleString()}</div><div class="stat-label">기집행액 (원)</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--green-txt)">${(b.budget-b.executed).toLocaleString()}</div><div class="stat-label">잔여 예산 (원)</div></div>
+    <div class="stat-card"><div class="stat-val">${pct}%</div><div class="stat-label">집행률</div></div>
+  `;
+  document.getElementById("budget-tbody").innerHTML = b.monthly.map(m=>`
+    <tr>
+      <td>${m.month}</td><td>${m.count}</td>
+      <td class="mono">${m.paid}</td>
+      <td class="mono" style="font-size:11px">${m.income}</td>
+      <td class="mono">${m.balance}</td>
+      <td style="font-size:11px;color:var(--muted)">${m.note}</td>
+    </tr>`).join("");
+}
+
+function renderLawyers() {
+  const b = BIZ[curBiz];
+  document.getElementById("lawyer-tbody").innerHTML = b.lawyers.map(l=>{
+    const need = l.acct==="확인필요";
+    const st = need ? '<span class="badge ba">확인필요</span>' : '<span class="badge bg">확인완료</span>';
+    const acctStyle = need ? "color:#92400E;background:#FFFBEB" : "";
+    return `<tr class="${need?"row-a":"row-g"}">
+      <td>${l.name}</td><td>${l.bank}</td>
+      <td class="mono" style="font-size:11px;${acctStyle}">${l.acct}</td>
+      <td style="font-size:11px">${l.owner}</td>
+      <td style="font-size:11px;color:var(--muted)">${l.email||"—"}</td>
+      <td><span class="badge bg">${l.tax}</span></td>
+      <td>${st}</td>
+    </tr>`;
+  }).join("");
 }
 
 function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.innerHTML = `<i class="ti ti-circle-check" aria-hidden="true"></i> ${msg}`;
-  t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 3000);
+  const t = document.getElementById("toast");
+  t.innerHTML = '<i class="ti ti-circle-check" aria-hidden="true"></i> '+msg;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 3000);
 }
 </script>
 </body>
