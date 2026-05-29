@@ -1411,6 +1411,233 @@ function printBatchCheckList() {
   </body></html>`);
   w.document.close();
 }
+
+// ═══════════════════════════════════
+// 청구서 등록 + 구글 드라이브 OCR
+// ═══════════════════════════════════
+const scanDoneList = [];
+
+function handleScanFile(e) {
+  const file = e.target.files[0];
+  if (file) processScanFile(file);
+}
+
+function handleScanDrop(e) {
+  e.preventDefault();
+  document.getElementById('scan-dropzone').style.borderColor='';
+  document.getElementById('scan-dropzone').style.background='var(--light)';
+  const file = e.dataTransfer.files[0];
+  if (file) processScanFile(file);
+}
+
+function processScanFile(file) {
+  const info = document.getElementById('scan-file-info');
+  info.style.display = 'flex';
+  document.getElementById('scan-file-name').textContent = file.name;
+  document.getElementById('scan-file-size').textContent = (file.size/1024).toFixed(1)+'KB';
+  document.getElementById('scan-empty').style.display = 'none';
+  document.getElementById('scan-loading').style.display = 'block';
+  document.getElementById('scan-form').style.display = 'none';
+
+  const previewCard = document.getElementById('scan-preview-card');
+  const previewWrap = document.getElementById('scan-preview-wrap');
+  previewCard.style.display = 'block';
+
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    if (file.type.startsWith('image/')) {
+      previewWrap.innerHTML = '<img src="'+ev.target.result+'" style="max-width:100%;max-height:320px;object-fit:contain">';
+    } else {
+      previewWrap.innerHTML = '<iframe src="'+ev.target.result+'" style="width:100%;height:320px;border:none"></iframe>';
+    }
+    if (window._googleJWT) {
+      ocrWithGoogleDrive(file, ev.target.result);
+    } else {
+      showManualInput(file.name);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function ocrWithGoogleDrive(file, base64Data) {
+  try {
+    const base64Content = base64Data.split(',')[1];
+    const mimeType = file.type || 'application/pdf';
+    const metadata = { name: file.name, mimeType: 'application/vnd.google-apps.document' };
+    const formData = new FormData();
+    formData.append('metadata', new Blob([JSON.stringify(metadata)], {type:'application/json'}));
+    const byteChars = atob(base64Content);
+    const byteArr = new Uint8Array(byteChars.length);
+    for(let i=0;i<byteChars.length;i++) byteArr[i]=byteChars.charCodeAt(i);
+    formData.append('file', new Blob([byteArr], {type:mimeType}));
+
+    const uploadRes = await fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+      { method:'POST', headers:{'Authorization':'Bearer '+window._googleJWT}, body:formData }
+    );
+    if (!uploadRes.ok) throw new Error('업로드 실패 '+uploadRes.status);
+    const { id: fileId } = await uploadRes.json();
+
+    const textRes = await fetch(
+      'https://www.googleapis.com/drive/v3/files/'+fileId+'/export?mimeType=text/plain',
+      { headers:{'Authorization':'Bearer '+window._googleJWT} }
+    );
+    const ocrText = await textRes.text();
+    await fetch('https://www.googleapis.com/drive/v3/files/'+fileId,
+      { method:'DELETE', headers:{'Authorization':'Bearer '+window._googleJWT} });
+    parseOCRText(ocrText);
+  } catch(err) {
+    console.error('OCR 오류:', err);
+    showManualInput(file.name);
+    showToast('OCR 오류 — 수동 입력 모드');
+  }
+}
+
+function parseOCRText(text) {
+  document.getElementById('scan-loading').style.display = 'none';
+  document.getElementById('scan-form').style.display = 'block';
+  const set = (id, val) => { if(val && document.getElementById(id)) document.getElementById(id).value = val.trim(); };
+  const numM = text.match(/(국부|서금)\s*([\d]{2}-[\d]+)/) || text.match(/[\d]{2}-[\d]+/);
+  if(numM) set('sc-num', numM[2]||numM[0]);
+  const caseM = text.match(/사건명[:\s]*([^\n]+)/);
+  if(caseM) set('sc-case', caseM[1]);
+  const clientM = text.match(/의\s*뢰\s*자[:\s]*([가-힣]+)/);
+  if(clientM) set('sc-client', clientM[1]);
+  const lawyerM = text.match(/변호사\s+([가-힣]{2,4})\s/);
+  if(lawyerM) set('sc-lawyer', lawyerM[1]);
+  const amtM = text.match(/착\s*수\s*금[:\s]*([\d,]+)/) || text.match(/합\s*계[:\s]*([\d,]+)/);
+  if(amtM) set('sc-amt', amtM[1]);
+  document.getElementById('sc-date').value = new Date().toISOString().slice(0,10);
+  matchExistingCase();
+  const bar = document.getElementById('scan-status-bar');
+  bar.innerHTML = '<i class="ti ti-sparkles" aria-hidden="true"></i> OCR 완료 — 내용을 확인하세요';
+  bar.style.background = 'var(--green-bg)';
+  bar.style.color = 'var(--green-txt)';
+  showToast('OCR 완료!');
+}
+
+function showManualInput(filename) {
+  document.getElementById('scan-loading').style.display = 'none';
+  document.getElementById('scan-form').style.display = 'block';
+  const m = filename && filename.match(/(\d{2}-\d+)/);
+  if(m) document.getElementById('sc-num').value = m[1];
+  document.getElementById('sc-date').value = new Date().toISOString().slice(0,10);
+  matchExistingCase();
+  showToast('파일 확인. 내용을 입력하세요');
+}
+
+function matchExistingCase() {
+  const num = document.getElementById('sc-num') && document.getElementById('sc-num').value;
+  if (!num) return;
+  const allCases = [...BIZ[curBiz].cases, ...resolList[curBiz]];
+  const matched = allCases.find(c => c.num && c.num.includes(num));
+  if (!matched) return;
+  const sc = id => document.getElementById(id);
+  if(!sc('sc-lawyer').value) sc('sc-lawyer').value = matched.lawyer||'';
+  if(!sc('sc-client').value) sc('sc-client').value = matched.client||'';
+  if(!sc('sc-case').value) sc('sc-case').value = matched.case||matched.caseName||'';
+  if(!sc('sc-amt').value) sc('sc-amt').value = (matched.fee||0).toLocaleString();
+  const bar = document.getElementById('scan-status-bar');
+  bar.innerHTML = '<i class="ti ti-database" aria-hidden="true"></i> 기존 사건 매칭됨';
+  bar.style.background = 'var(--blue-bg)';
+  bar.style.color = 'var(--blue-txt)';
+}
+
+function showScanForm() {
+  document.getElementById('scan-empty').style.display = 'none';
+  document.getElementById('scan-form').style.display = 'block';
+  document.getElementById('sc-date').value = new Date().toISOString().slice(0,10);
+}
+
+function resetScan() {
+  const fi = document.getElementById('scan-file');
+  if(fi) fi.value='';
+  ['scan-file-info','scan-preview-card','scan-form','scan-loading'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display='none';
+  });
+  const empty = document.getElementById('scan-empty');
+  if(empty) empty.style.display='block';
+  ['sc-num','sc-lawyer','sc-firm','sc-client','sc-opponent','sc-case','sc-amt','sc-acct'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+}
+
+function saveScanEntry() {
+  const get = id => document.getElementById(id) ? document.getElementById(id).value.trim() : '';
+  const num = get('sc-num'), lawyer = get('sc-lawyer'), client = get('sc-client');
+  const amt = parseInt(get('sc-amt').replace(/,/g,''))||0;
+  const tax = get('sc-tax'), date = get('sc-date'), doctype = get('sc-doctype');
+  if (!num||!lawyer||!client||!amt) { showToast('접수번호, 변호사, 의뢰인, 금액은 필수'); return; }
+  const fullNum = BIZ[curBiz].prefix+' '+num;
+  const idx = BIZ[curBiz].cases.findIndex(c=>c.num===fullNum||c.num.includes(num));
+  if (idx>=0) { BIZ[curBiz].cases[idx].tax='수령'; }
+  else { BIZ[curBiz].cases.push({num:fullNum,lawyer,client,case:get('sc-case'),type:'민사',fee:amt,stamp:0,delivery:0,tax:'수령',resol:'대기',date}); }
+  scanDoneList.unshift({num:fullNum,lawyer,client,amt,doctype,date,tax});
+  renderScanDone();
+  renderDashboard();
+  showToast('등록 완료!');
+  resetScan();
+  document.getElementById('scan-empty').style.display='none';
+  document.getElementById('scan-form').style.display='block';
+  document.getElementById('sc-date').value=new Date().toISOString().slice(0,10);
+}
+
+function renderScanDone() {
+  const card=document.getElementById('scan-done-card');
+  const list=document.getElementById('scan-done-list');
+  if(!scanDoneList.length){if(card)card.style.display='none';return;}
+  if(card)card.style.display='block';
+  if(list) list.innerHTML=scanDoneList.slice(0,5).map(d=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--green-bg);border-radius:var(--radius);font-size:12px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <i class="ti ti-circle-check" style="color:var(--green-txt)" aria-hidden="true"></i>
+        <span style="font-weight:500">${d.num}</span>
+        <span style="color:var(--muted)">${d.client} · ${d.lawyer}</span>
+      </div>
+      <span class="mono" style="color:var(--navy)">${d.amt.toLocaleString()}원</span>
+    </div>`).join('');
+}
+
+async function setupGoogleKey() {
+  const jsonStr = document.getElementById('key-json-input') ? document.getElementById('key-json-input').value.trim() : '';
+  if (!jsonStr) { showToast('JSON 내용을 붙여넣어 주세요'); return; }
+  try {
+    const keyData = JSON.parse(jsonStr);
+    const token = await getServiceAccountToken(keyData);
+    if (token) {
+      window._googleJWT = token;
+      const bar = document.getElementById('ocr-status-bar');
+      if(bar){ bar.style.background='var(--green-bg)'; }
+      const txt = document.getElementById('ocr-status-text');
+      if(txt){ txt.textContent='구글 드라이브 OCR 연결됨 — PDF 업로드 시 자동 파싱'; txt.style.color='var(--green-txt)'; }
+      const modal = document.getElementById('key-setup-modal');
+      if(modal) modal.style.display='none';
+      showToast('OCR 연결 완료!');
+    }
+  } catch(e) { showToast('키 오류: '+e.message); }
+}
+
+async function getServiceAccountToken(keyData) {
+  const now = Math.floor(Date.now()/1000);
+  const enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const sig = enc({alg:'RS256',typ:'JWT'})+'.'+enc({
+    iss:keyData.client_email, scope:'https://www.googleapis.com/auth/drive',
+    aud:'https://oauth2.googleapis.com/token', exp:now+3600, iat:now
+  });
+  const pem = keyData.private_key.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g,'').replace(/\n/g,'').trim();
+  const bin = Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
+  const ck = await crypto.subtle.importKey('pkcs8',bin,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+  const s = await crypto.subtle.sign('RSASSA-PKCS1-v1_5',ck,new TextEncoder().encode(sig));
+  const jwt = sig+'.'+btoa(String.fromCharCode(...new Uint8Array(s))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const res = await fetch('https://oauth2.googleapis.com/token',{
+    method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion='+jwt
+  });
+  const d = await res.json();
+  if(d.access_token) return d.access_token;
+  throw new Error(d.error_description||'토큰 발급 실패');
+}
+
 </script>
 
 </body>
