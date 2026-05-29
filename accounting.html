@@ -236,7 +236,41 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
       <!-- 청구서 등록 -->
       <div class="view" id="view-scan">
         <p class="page-title">비용청구서 등록</p>
-        <p class="page-sub">PDF 스캔 파일을 업로드하면 내용을 자동으로 읽어 등록합니다</p>
+        <p class="page-sub">PDF 스캔 파일을 업로드하면 구글 드라이브 OCR로 내용을 자동으로 읽어 등록합니다</p>
+
+        <!-- 구글 드라이브 OCR 연동 상태 -->
+        <div id="ocr-status-bar" style="display:flex;align-items:center;justify-content:space-between;background:var(--amber-bg);border-radius:var(--radius);padding:10px 14px;margin-bottom:1rem;font-size:12px">
+          <div style="display:flex;align-items:center;gap:8px;color:var(--amber-txt)">
+            <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+            <span id="ocr-status-text">구글 드라이브 OCR 미연결 — JSON 키 파일을 설정해야 자동 파싱이 됩니다</span>
+          </div>
+          <button class="btn btn-sm" onclick="document.getElementById('key-setup-modal').style.display='flex'">
+            <i class="ti ti-key" aria-hidden="true"></i> 키 설정
+          </button>
+        </div>
+
+        <!-- 키 설정 모달 -->
+        <div id="key-setup-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center">
+          <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:500px;max-width:90vw;box-shadow:var(--shadow-md)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+              <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-key" aria-hidden="true"></i> 구글 드라이브 OCR 키 설정</h3>
+              <button onclick="document.getElementById('key-setup-modal').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.7;background:var(--light);padding:10px;border-radius:var(--radius)">
+              <strong>JSON 키 파일 경로:</strong><br>
+              C:\Users\kimso\Desktop\composite-drive-497801-n8-7c96874ee5c7.json<br><br>
+              아래에 JSON 파일 내용을 붙여넣으세요.
+            </div>
+            <textarea id="key-json-input" placeholder="JSON 키 파일 내용을 붙여넣으세요..." 
+              style="width:100%;height:120px;padding:8px;border:1px solid var(--border);border-radius:var(--radius);font-family:monospace;font-size:11px;resize:none;outline:none;color:var(--text);background:var(--surface)"></textarea>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="btn" style="flex:1;justify-content:center" onclick="document.getElementById('key-setup-modal').style.display='none'">취소</button>
+              <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="setupGoogleKey()">
+                <i class="ti ti-check" aria-hidden="true"></i> 연결하기
+              </button>
+            </div>
+          </div>
+        </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
 
