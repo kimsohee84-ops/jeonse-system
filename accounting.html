@@ -239,14 +239,9 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
         <p class="page-sub">PDF 스캔 파일을 업로드하면 구글 드라이브 OCR로 내용을 자동으로 읽어 등록합니다</p>
 
         <!-- 구글 드라이브 OCR 연동 상태 -->
-        <div id="ocr-status-bar" style="display:flex;align-items:center;justify-content:space-between;background:var(--amber-bg);border-radius:var(--radius);padding:10px 14px;margin-bottom:1rem;font-size:12px">
-          <div style="display:flex;align-items:center;gap:8px;color:var(--amber-txt)">
-            <i class="ti ti-alert-triangle" aria-hidden="true"></i>
-            <span id="ocr-status-text">구글 드라이브 OCR 미연결 — JSON 키 파일을 설정해야 자동 파싱이 됩니다</span>
-          </div>
-          <button class="btn btn-sm" onclick="document.getElementById('key-setup-modal').style.display='flex'">
-            <i class="ti ti-key" aria-hidden="true"></i> 키 설정
-          </button>
+        <div id="ocr-status-bar" style="display:flex;align-items:center;gap:8px;background:var(--green-bg);border-radius:var(--radius);padding:10px 14px;margin-bottom:1rem;font-size:12px;color:var(--green-txt)">
+          <i class="ti ti-circle-check" aria-hidden="true"></i>
+          <span>구글 드라이브 OCR 연결됨 — PDF 업로드 시 자동으로 내용이 채워집니다</span>
         </div>
 
         <!-- 키 설정 모달 -->
@@ -1447,46 +1442,64 @@ function processScanFile(file) {
     } else {
       previewWrap.innerHTML = '<iframe src="'+ev.target.result+'" style="width:100%;height:320px;border:none"></iframe>';
     }
-    if (window._googleJWT) {
-      ocrWithGoogleDrive(file, ev.target.result);
-    } else {
-      showManualInput(file.name);
-    }
+    // Vercel 서버 API로 OCR 처리
+    ocrWithGoogleDrive(file, ev.target.result);
   };
   reader.readAsDataURL(file);
 }
 
 async function ocrWithGoogleDrive(file, base64Data) {
   try {
-    const base64Content = base64Data.split(',')[1];
-    const mimeType = file.type || 'application/pdf';
-    const metadata = { name: file.name, mimeType: 'application/vnd.google-apps.document' };
-    const formData = new FormData();
-    formData.append('metadata', new Blob([JSON.stringify(metadata)], {type:'application/json'}));
-    const byteChars = atob(base64Content);
-    const byteArr = new Uint8Array(byteChars.length);
-    for(let i=0;i<byteChars.length;i++) byteArr[i]=byteChars.charCodeAt(i);
-    formData.append('file', new Blob([byteArr], {type:mimeType}));
+    document.getElementById('scan-loading').style.display = 'block';
+    document.getElementById('scan-form').style.display = 'none';
 
-    const uploadRes = await fetch(
-      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
-      { method:'POST', headers:{'Authorization':'Bearer '+window._googleJWT}, body:formData }
-    );
-    if (!uploadRes.ok) throw new Error('업로드 실패 '+uploadRes.status);
-    const { id: fileId } = await uploadRes.json();
+    // Vercel 서버 API 호출
+    const res = await fetch('/api/ocr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileData: base64Data,
+        mimeType: file.type || 'application/pdf',
+        fileName: file.name
+      })
+    });
 
-    const textRes = await fetch(
-      'https://www.googleapis.com/drive/v3/files/'+fileId+'/export?mimeType=text/plain',
-      { headers:{'Authorization':'Bearer '+window._googleJWT} }
-    );
-    const ocrText = await textRes.text();
-    await fetch('https://www.googleapis.com/drive/v3/files/'+fileId,
-      { method:'DELETE', headers:{'Authorization':'Bearer '+window._googleJWT} });
-    parseOCRText(ocrText);
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'OCR 서버 오류');
+    }
+
+    const data = await res.json();
+    
+    if (data.parsed) {
+      // 파싱된 결과 자동 입력
+      const set = (id, val) => { if(val && document.getElementById(id)) document.getElementById(id).value = val; };
+      set('sc-num', data.parsed.accNum);
+      set('sc-lawyer', data.parsed.lawyer);
+      set('sc-client', data.parsed.client);
+      set('sc-opponent', data.parsed.opponent);
+      set('sc-case', data.parsed.caseName);
+      set('sc-acct', data.parsed.account);
+      if(data.parsed.amount) {
+        document.getElementById('sc-amt').value = parseInt(data.parsed.amount).toLocaleString();
+      }
+    }
+
+    document.getElementById('sc-date').value = new Date().toISOString().slice(0,10);
+    document.getElementById('scan-loading').style.display = 'none';
+    document.getElementById('scan-form').style.display = 'block';
+    matchExistingCase();
+
+    const bar = document.getElementById('scan-status-bar');
+    bar.innerHTML = '<i class="ti ti-sparkles" aria-hidden="true"></i> OCR 완료 — 내용을 확인하세요';
+    bar.style.background = 'var(--green-bg)';
+    bar.style.color = 'var(--green-txt)';
+    showToast('OCR 완료! 내용을 확인하세요');
+
   } catch(err) {
     console.error('OCR 오류:', err);
     showManualInput(file.name);
-    showToast('OCR 오류 — 수동 입력 모드');
+    showToast('OCR 오류: ' + err.message);
   }
 }
 
