@@ -10,65 +10,48 @@ export default async function handler(req, res) {
     const { fileData, mimeType, fileName } = req.body;
     if (!fileData) return res.status(400).json({ error: '파일 없음' });
 
-    // 서비스 계정 키로 JWT 토큰 생성
+    // 서비스 계정으로 액세스 토큰 발급
     const keyData = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
     const token = await getAccessToken(keyData);
 
-    // 구글 드라이브 업로드 (OCR)
+    // base64 추출
     const base64Content = fileData.includes(',') ? fileData.split(',')[1] : fileData;
-    const fileBuffer = Buffer.from(base64Content, 'base64');
-    
-    const boundary = 'foo_bar_baz';
-    const metaJson = JSON.stringify({
-      name: fileName || 'ocr.pdf',
-      mimeType: 'application/vnd.google-apps.document'
-    });
 
-    const bodyParts = [
-      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metaJson}\r\n`,
-      `--${boundary}\r\nContent-Type: ${mimeType || 'application/pdf'}\r\n\r\n`,
-    ];
-
-    const bodyBuffer = Buffer.concat([
-      Buffer.from(bodyParts[0]),
-      Buffer.from(bodyParts[1]),
-      fileBuffer,
-      Buffer.from(`\r\n--${boundary}--`)
-    ]);
-
-    const uploadRes = await fetch(
-      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+    // Cloud Vision API 호출 (드라이브 저장 없이 바로 OCR)
+    const visionRes = await fetch(
+      'https://vision.googleapis.com/v1/images:annotate',
       {
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + token,
-          'Content-Type': `multipart/related; boundary=${boundary}`,
+          'Content-Type': 'application/json'
         },
-        body: bodyBuffer
+        body: JSON.stringify({
+          requests: [{
+            image: { content: base64Content },
+            features: [{ type: 'DOCUMENT_TEXT_DETECTION', maxResults: 1 }]
+          }]
+        })
       }
     );
 
-    if (!uploadRes.ok) {
-      const errText = await uploadRes.text();
-      throw new Error('업로드 실패: ' + errText);
+    if (!visionRes.ok) {
+      const errText = await visionRes.text();
+      throw new Error('Vision API 오류: ' + errText);
     }
 
-    const { id: fileId } = await uploadRes.json();
+    const visionData = await visionRes.json();
+    const ocrText = visionData.responses?.[0]?.fullTextAnnotation?.text || '';
 
-    // 텍스트 추출
-    const exportRes = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=text/plain`,
-      { headers: { 'Authorization': 'Bearer ' + token } }
-    );
-    const ocrText = await exportRes.text();
+    if (!ocrText) {
+      return res.status(200).json({ 
+        success: true, 
+        text: '', 
+        parsed: {},
+        message: '텍스트를 인식하지 못했습니다'
+      });
+    }
 
-    // 파일 삭제
-    await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-
-    // 파싱
     const parsed = parseDoc(ocrText);
     return res.status(200).json({ success: true, text: ocrText, parsed });
 
@@ -83,15 +66,13 @@ async function getAccessToken(key) {
   const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(JSON.stringify({
     iss: key.client_email,
-    scope: 'https://www.googleapis.com/auth/drive',
+    scope: 'https://www.googleapis.com/auth/cloud-platform',
     aud: 'https://oauth2.googleapis.com/token',
     exp: now + 3600,
     iat: now
   })).toString('base64url');
 
   const sigInput = `${header}.${payload}`;
-  
-  // RSA 서명
   const { createSign } = await import('crypto');
   const sign = createSign('RSA-SHA256');
   sign.update(sigInput);
@@ -115,14 +96,15 @@ function parseDoc(text) {
   const r = {};
   const m = (p) => { const x = text.match(p); return x ? (x[2]||x[1]).trim() : null; };
   
-  r.accNum = m(/(국부|서금)\s*([\d]{2}-[\d]+)/) || m(/재단\s*접수번호[:\s]*([\d\-]+)/);
+  r.accNum = m(/(국부|서금)\s*([\d]{2}-[\d]+)/) || m(/재단\s*접수번호[:\s]*([\w\-]+)/);
   r.caseName = m(/사건명[:\s]*([^\n\r]+)/);
   r.client = m(/의\s*뢰\s*자[:\s]*([가-힣]+)/);
   r.opponent = m(/상\s*대\s*방[:\s]*([가-힣\s]+?)(?:\s{2,}|\n)/);
-  r.lawyer = m(/변호사\s+([가-힣]{2,4})\s*[①인\(]/);
+  r.lawyer = m(/변호사\s+([가-힣]{2,4})\s*[①인\(◯]/);
   r.amount = m(/착\s*수\s*금[:\s]*([\d,]+)/) || m(/합\s*계[:\s]*([\d,]+)/);
   r.account = m(/입금\s*계좌번호[:\s]*([^\n\r]+)/);
   r.caseNumber = m(/사건번호[:\s]*([^\n\r]+)/);
+  r.lawCourt = m(/법원명[:\s]*([^\n\r\s]+)/);
 
   if (r.amount) r.amount = r.amount.replace(/,/g, '');
   return r;
