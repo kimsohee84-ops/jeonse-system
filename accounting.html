@@ -233,20 +233,12 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
       </div>
 
 
-      <!-- 청구서 등록 -->
+      <!-- 청구서 등록 (새 탭형 UI) -->
       <div class="view" id="view-scan">
-        <p class="page-title">비용청구서 등록</p>
-        <p class="page-sub">PDF 스캔 파일을 업로드하면 구글 드라이브 OCR로 내용을 자동으로 읽어 등록합니다</p>
-
-        <!-- 구글 드라이브 OCR 연동 상태 -->
-        <div id="ocr-status-bar" style="display:flex;align-items:center;gap:8px;background:var(--green-bg);border-radius:var(--radius);padding:10px 14px;margin-bottom:1rem;font-size:12px;color:var(--green-txt)">
-          <i class="ti ti-circle-check" aria-hidden="true"></i>
-          <span>구글 드라이브 OCR 연결됨 — PDF 업로드 시 자동으로 내용이 채워집니다</span>
-        </div>
 
         <!-- 키 설정 모달 -->
-        <div id="key-setup-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center">
-          <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:500px;max-width:90vw;box-shadow:var(--shadow-md)">
+        <div id="key-setup-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+          <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:480px;max-width:90vw;box-shadow:var(--shadow-md)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
               <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-key" aria-hidden="true"></i> 구글 드라이브 OCR 키 설정</h3>
               <button onclick="document.getElementById('key-setup-modal').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
@@ -256,7 +248,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
               C:\Users\kimso\Desktop\composite-drive-497801-n8-7c96874ee5c7.json<br><br>
               아래에 JSON 파일 내용을 붙여넣으세요.
             </div>
-            <textarea id="key-json-input" placeholder="JSON 키 파일 내용을 붙여넣으세요..." 
+            <textarea id="key-json-input" placeholder="JSON 키 파일 내용을 붙여넣으세요..."
               style="width:100%;height:120px;padding:8px;border:1px solid var(--border);border-radius:var(--radius);font-family:monospace;font-size:11px;resize:none;outline:none;color:var(--text);background:var(--surface)"></textarea>
             <div style="display:flex;gap:8px;margin-top:10px">
               <button class="btn" style="flex:1;justify-content:center" onclick="document.getElementById('key-setup-modal').style.display='none'">취소</button>
@@ -267,141 +259,214 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <!-- 탭 헤더 -->
+        <div style="display:flex;gap:4px;margin-bottom:1.25rem;border-bottom:1.5px solid var(--border);padding-bottom:0">
+          <button id="scan-tab-upload" onclick="switchScanTab('upload')"
+            style="padding:8px 18px;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2.5px solid var(--navy);color:var(--navy);margin-bottom:-1.5px">
+            <i class="ti ti-upload" aria-hidden="true"></i> 청구서 업로드
+          </button>
+          <button id="scan-tab-resol" onclick="switchScanTab('resol')"
+            style="padding:8px 18px;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2.5px solid transparent;color:var(--muted);margin-bottom:-1.5px">
+            <i class="ti ti-file-text" aria-hidden="true"></i> 지출결의서
+            <span id="scan-resol-badge" style="display:none;font-size:10px;background:#DBEAFE;color:#1D4ED8;padding:1px 6px;border-radius:99px;margin-left:4px"></span>
+          </button>
+          <button id="scan-tab-list" onclick="switchScanTab('list')"
+            style="padding:8px 18px;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2.5px solid transparent;color:var(--muted);margin-bottom:-1.5px">
+            <i class="ti ti-list" aria-hidden="true"></i> 지출목록
+            <span id="scan-list-badge" style="display:none;font-size:10px;background:#DCFCE7;color:#166534;padding:1px 6px;border-radius:99px;margin-left:4px"></span>
+          </button>
+        </div>
 
-          <!-- 왼쪽: 업로드 + 미리보기 -->
-          <div>
-            <div class="card">
-              <div class="card-title"><i class="ti ti-upload" aria-hidden="true"></i> PDF 업로드</div>
-              <div id="scan-dropzone"
-                style="border:2px dashed var(--border);border-radius:var(--radius-lg);padding:2rem;text-align:center;cursor:pointer;background:var(--light);transition:all .15s"
-                onclick="document.getElementById('scan-file').click()"
-                ondragover="event.preventDefault();this.style.borderColor='#2E75B6';this.style.background='#EFF6FF'"
-                ondragleave="this.style.borderColor='';this.style.background='var(--light)'"
-                ondrop="handleScanDrop(event)">
-                <i class="ti ti-file-type-pdf" style="font-size:44px;color:var(--muted);display:block;margin-bottom:.75rem" aria-hidden="true"></i>
-                <div style="font-size:14px;font-weight:500;margin-bottom:4px">PDF 파일을 여기에 드래그하거나 클릭</div>
-                <div style="font-size:12px;color:var(--muted)">소송비용청구서 · 전자세금계산서 · 영수증</div>
-              </div>
-              <input type="file" id="scan-file" accept=".pdf,image/*" style="display:none" onchange="handleScanFile(event)">
-              <div id="scan-file-info" style="display:none;margin-top:10px;padding:8px 12px;background:var(--light);border-radius:var(--radius);font-size:12px;display:none;align-items:center;gap:8px">
-                <i class="ti ti-file" style="color:var(--navy)" aria-hidden="true"></i>
-                <span id="scan-file-name"></span>
-                <span id="scan-file-size" style="color:var(--muted)"></span>
-              </div>
-            </div>
+        <!-- OCR 상태바 -->
+        <div id="ocr-status-bar" style="display:flex;align-items:center;gap:8px;background:var(--green-bg);border-radius:var(--radius);padding:9px 14px;margin-bottom:1rem;font-size:12px;color:var(--green-txt)">
+          <i class="ti ti-circle-check" aria-hidden="true"></i>
+          <span id="ocr-status-text">구글 드라이브 OCR 연결됨 — PDF 업로드 시 자동으로 내용이 채워집니다</span>
+        </div>
 
-            <!-- PDF 미리보기 -->
-            <div class="card" id="scan-preview-card" style="display:none">
-              <div class="card-title"><i class="ti ti-eye" aria-hidden="true"></i> 파일 미리보기</div>
-              <div id="scan-preview-wrap" style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:#f0f0f0;text-align:center;min-height:200px;display:flex;align-items:center;justify-content:center">
-                <div style="color:var(--muted);font-size:13px">미리보기 로딩 중...</div>
-              </div>
-              <div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center">스캔 이미지를 확인하고 아래 내용을 수정하세요</div>
-            </div>
+        <!-- ── 탭1: 업로드 ── -->
+        <div id="scan-panel-upload">
+          <!-- 드롭존 -->
+          <div id="scan-dropzone"
+            style="border:1.5px dashed var(--border);border-radius:var(--radius-lg);padding:2.5rem;text-align:center;cursor:pointer;background:var(--light);transition:all .15s;margin-bottom:1rem"
+            onclick="document.getElementById('scan-file').click()"
+            ondragover="event.preventDefault();this.style.borderColor='#2E75B6';this.style.background='#EFF6FF'"
+            ondragleave="this.style.borderColor='';this.style.background='var(--light)'"
+            ondrop="handleScanDrop(event)">
+            <i class="ti ti-file-upload" style="font-size:38px;color:var(--muted);display:block;margin-bottom:.75rem" aria-hidden="true"></i>
+            <div style="font-size:14px;font-weight:600;margin-bottom:4px">클릭하거나 파일을 여기로 드래그</div>
+            <div style="font-size:12px;color:var(--muted)">PDF, 이미지(JPG, PNG) 지원 · 여러 파일 동시 가능</div>
+          </div>
+          <input type="file" id="scan-file" accept=".pdf,image/*" multiple style="display:none" onchange="handleScanFile(event)">
+
+          <!-- 업로드된 파일 목록 -->
+          <div id="scan-file-list" style="display:none;margin-bottom:1rem">
+            <div id="scan-file-items" style="display:flex;flex-direction:column;gap:6px"></div>
           </div>
 
-          <!-- 오른쪽: 분석 결과 입력 -->
-          <div>
-            <div class="card">
-              <div class="card-title"><i class="ti ti-forms" aria-hidden="true"></i> 청구서 내용 확인 · 수정</div>
+          <!-- 분석 중 -->
+          <div id="scan-loading" style="display:none;text-align:center;padding:1.5rem">
+            <div style="width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto .75rem"></div>
+            <div style="font-size:13px;color:var(--muted)">청구서 내용을 읽는 중...</div>
+          </div>
 
-              <div id="scan-empty" style="text-align:center;padding:2.5rem;color:var(--muted)">
-                <i class="ti ti-file-search" style="font-size:40px;display:block;margin-bottom:.75rem;opacity:.35" aria-hidden="true"></i>
-                <div style="font-size:13px">PDF를 업로드하면 내용이 여기에 채워집니다</div>
-                <div style="font-size:11px;margin-top:4px">수동으로 직접 입력도 가능합니다</div>
-                <button class="btn btn-sm" style="margin-top:1rem" onclick="showScanForm()">
-                  <i class="ti ti-pencil" aria-hidden="true"></i> 직접 입력하기
-                </button>
+          <!-- 입력 폼 (OCR 완료 후) -->
+          <div id="scan-empty" style="text-align:center;padding:2rem;color:var(--muted)">
+            <i class="ti ti-file-search" style="font-size:36px;display:block;margin-bottom:.75rem;opacity:.35" aria-hidden="true"></i>
+            <div style="font-size:13px">PDF를 업로드하면 내용이 여기에 채워집니다</div>
+            <div style="font-size:11px;margin-top:4px">수동으로 직접 입력도 가능합니다</div>
+            <button class="btn btn-sm" style="margin-top:1rem" onclick="showScanForm()">
+              <i class="ti ti-pencil" aria-hidden="true"></i> 직접 입력하기
+            </button>
+          </div>
+
+          <div id="scan-form" style="display:none">
+            <div style="background:var(--green-bg);border-radius:var(--radius);padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--green-txt);display:flex;align-items:center;gap:6px" id="scan-status-bar">
+              <i class="ti ti-sparkles" aria-hidden="true"></i> 내용을 확인하고 필요 시 수정하세요
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+              <div class="field">
+                <label>재단 접수번호 <span style="color:#DC2626">*</span></label>
+                <input class="form-input" id="sc-num" placeholder="예: 26-110">
               </div>
-
-              <!-- 분석 중 -->
-              <div id="scan-loading" style="display:none;text-align:center;padding:2rem">
-                <div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto .75rem"></div>
-                <div style="font-size:13px;color:var(--muted)">청구서 내용을 읽는 중...</div>
+              <div class="field">
+                <label>서류 유형</label>
+                <select class="form-select" id="sc-doctype">
+                  <option>소송비용청구서</option>
+                  <option>전자세금계산서</option>
+                  <option>인지대 영수증</option>
+                  <option>송달료 영수증</option>
+                </select>
               </div>
-
-              <!-- 입력 폼 -->
-              <div id="scan-form" style="display:none">
-                <div style="background:var(--green-bg);border-radius:var(--radius);padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--green-txt);display:flex;align-items:center;gap:6px" id="scan-status-bar">
-                  <i class="ti ti-circle-check" aria-hidden="true"></i> 내용을 확인하고 필요 시 수정하세요
-                </div>
-
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-                  <div class="field">
-                    <label>재단 접수번호 <span style="color:#DC2626">*</span></label>
-                    <input class="form-input" id="sc-num" placeholder="예: 26-110">
-                  </div>
-                  <div class="field">
-                    <label>서류 유형</label>
-                    <select class="form-select" id="sc-doctype">
-                      <option>소송비용청구서</option>
-                      <option>전자세금계산서</option>
-                      <option>인지대 영수증</option>
-                      <option>송달료 영수증</option>
-                    </select>
-                  </div>
-                  <div class="field">
-                    <label>변호사 <span style="color:#DC2626">*</span></label>
-                    <input class="form-input" id="sc-lawyer" placeholder="변호사 성명">
-                  </div>
-                  <div class="field">
-                    <label>법무법인/사무소</label>
-                    <input class="form-input" id="sc-firm" placeholder="법무법인명">
-                  </div>
-                  <div class="field">
-                    <label>의뢰인 <span style="color:#DC2626">*</span></label>
-                    <input class="form-input" id="sc-client" placeholder="의뢰인 성명">
-                  </div>
-                  <div class="field">
-                    <label>상대방</label>
-                    <input class="form-input" id="sc-opponent" placeholder="상대방">
-                  </div>
-                  <div class="field" style="grid-column:1/-1">
-                    <label>사건명</label>
-                    <input class="form-input" id="sc-case" placeholder="예: 임대차보증금반환소송">
-                  </div>
-                  <div class="field">
-                    <label>청구 금액 (원) <span style="color:#DC2626">*</span></label>
-                    <input class="form-input mono" id="sc-amt" placeholder="1,000,000" oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',')">
-                  </div>
-                  <div class="field">
-                    <label>수령일자</label>
-                    <input class="form-input" type="date" id="sc-date">
-                  </div>
-                  <div class="field">
-                    <label>입금 계좌</label>
-                    <input class="form-input mono" id="sc-acct" placeholder="은행 계좌번호">
-                  </div>
-                  <div class="field">
-                    <label>세금서류</label>
-                    <select class="form-select" id="sc-tax">
-                      <option>전자세금계산서</option>
-                      <option>사업소득</option>
-                      <option>미수령</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div style="display:flex;gap:6px">
-                  <button class="btn" onclick="resetScan()"><i class="ti ti-refresh" aria-hidden="true"></i> 초기화</button>
-                  <button class="btn btn-primary" onclick="saveScanEntry()" style="flex:1;justify-content:center">
-                    <i class="ti ti-circle-plus" aria-hidden="true"></i> 등록 완료 — 지출목록에 반영
-                  </button>
-                </div>
+              <div class="field">
+                <label>변호사 <span style="color:#DC2626">*</span></label>
+                <input class="form-input" id="sc-lawyer" placeholder="변호사 성명">
+              </div>
+              <div class="field">
+                <label>법무법인/사무소</label>
+                <input class="form-input" id="sc-firm" placeholder="법무법인명">
+              </div>
+              <div class="field">
+                <label>의뢰인 <span style="color:#DC2626">*</span></label>
+                <input class="form-input" id="sc-client" placeholder="의뢰인 성명">
+              </div>
+              <div class="field">
+                <label>상대방</label>
+                <input class="form-input" id="sc-opponent" placeholder="상대방">
+              </div>
+              <div class="field" style="grid-column:1/-1">
+                <label>사건명</label>
+                <input class="form-input" id="sc-case" placeholder="예: 임대차보증금반환소송">
+              </div>
+              <div class="field">
+                <label>청구 금액 (원) <span style="color:#DC2626">*</span></label>
+                <input class="form-input mono" id="sc-amt" placeholder="1,000,000" oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',')">
+              </div>
+              <div class="field">
+                <label>수령일자</label>
+                <input class="form-input" type="date" id="sc-date">
+              </div>
+              <div class="field">
+                <label>입금 계좌</label>
+                <input class="form-input mono" id="sc-acct" placeholder="은행 계좌번호">
+              </div>
+              <div class="field">
+                <label>세금서류</label>
+                <select class="form-select" id="sc-tax">
+                  <option>전자세금계산서</option>
+                  <option>사업소득</option>
+                  <option>미수령</option>
+                </select>
               </div>
             </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn" onclick="resetScan()"><i class="ti ti-refresh" aria-hidden="true"></i> 초기화</button>
+              <button class="btn btn-primary" onclick="saveScanEntry()" style="flex:1;justify-content:center">
+                <i class="ti ti-circle-plus" aria-hidden="true"></i> 등록 완료 — 지출목록에 반영
+              </button>
+            </div>
+          </div>
+        </div>
 
-            <!-- 등록 완료 현황 -->
-            <div class="card" id="scan-done-card" style="display:none">
-              <div class="card-title"><i class="ti ti-circle-check" aria-hidden="true"></i> 이번 세션 등록 현황</div>
-              <div id="scan-done-list" style="display:flex;flex-direction:column;gap:6px"></div>
-              <div style="margin-top:10px;display:flex;gap:6px">
-                <button class="btn btn-sm" onclick="showView('list')"><i class="ti ti-list" aria-hidden="true"></i> 지출목록 확인</button>
-                <button class="btn btn-sm btn-primary" onclick="showView('input')"><i class="ti ti-edit" aria-hidden="true"></i> 결의서 작성</button>
+        <!-- ── 탭2: 지출결의서 미리보기 ── -->
+        <div id="scan-panel-resol" style="display:none">
+          <div id="scan-resol-empty" style="text-align:center;padding:2.5rem;color:var(--muted)">
+            <i class="ti ti-file-off" style="font-size:36px;display:block;margin-bottom:.75rem;opacity:.35" aria-hidden="true"></i>
+            <div style="font-size:13px">등록된 청구서가 없습니다. 먼저 업로드 탭에서 등록해주세요.</div>
+          </div>
+          <div id="scan-resol-content" style="display:none">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem">
+              <button class="btn btn-sm" id="resol-prev" onclick="navigateResol(-1)"><i class="ti ti-chevron-left" aria-hidden="true"></i></button>
+              <span id="resol-nav-text" style="font-size:13px;color:var(--muted)">1 / 1</span>
+              <button class="btn btn-sm" id="resol-next" onclick="navigateResol(1)"><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
+              <div style="flex:1"></div>
+              <button class="btn btn-sm btn-primary" onclick="addCurrentToList()">
+                <i class="ti ti-circle-plus" aria-hidden="true"></i> 목록에 추가
+              </button>
+            </div>
+            <div class="card">
+              <div class="card-title"><i class="ti ti-file-text" aria-hidden="true"></i> 지출결의서</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div class="field"><label>접수번호</label><input class="form-input" id="rv-num"></div>
+                <div class="field"><label>수령일자</label><input class="form-input" type="date" id="rv-date"></div>
+                <div class="field"><label>변호사</label><input class="form-input" id="rv-lawyer"></div>
+                <div class="field"><label>법무법인</label><input class="form-input" id="rv-firm"></div>
+                <div class="field"><label>의뢰인</label><input class="form-input" id="rv-client"></div>
+                <div class="field"><label>상대방</label><input class="form-input" id="rv-opponent"></div>
+                <div class="field" style="grid-column:1/-1"><label>사건명</label><input class="form-input" id="rv-case"></div>
+                <div class="field"><label>청구 금액 (원)</label><input class="form-input mono" id="rv-amt"></div>
+                <div class="field"><label>세금서류</label><input class="form-input" id="rv-tax"></div>
+                <div class="field"><label>계좌번호</label><input class="form-input mono" id="rv-acct"></div>
+                <div class="field"><label>비고</label><input class="form-input" id="rv-note"></div>
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- ── 탭3: 지출목록 ── -->
+        <div id="scan-panel-list" style="display:none">
+          <div id="scan-list-empty" style="text-align:center;padding:2.5rem;color:var(--muted)">
+            <i class="ti ti-inbox" style="font-size:36px;display:block;margin-bottom:.75rem;opacity:.35" aria-hidden="true"></i>
+            <div style="font-size:13px">지출결의서 탭에서 "목록에 추가" 버튼을 눌러주세요.</div>
+          </div>
+          <div id="scan-list-content" style="display:none">
+            <div style="overflow-x:auto;margin-bottom:1rem">
+              <table style="width:100%;border-collapse:collapse;font-size:12px">
+                <thead>
+                  <tr style="background:var(--light)">
+                    <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">접수번호</th>
+                    <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">변호사</th>
+                    <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">의뢰인</th>
+                    <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">사건명</th>
+                    <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap">금액</th>
+                    <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">계산서</th>
+                    <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border)"></th>
+                  </tr>
+                </thead>
+                <tbody id="scan-list-tbody"></tbody>
+                <tfoot>
+                  <tr style="background:var(--light);font-weight:600">
+                    <td colspan="4" style="padding:8px 10px;border-top:1px solid var(--border)">합계</td>
+                    <td style="padding:8px 10px;text-align:right;border-top:1px solid var(--border)" id="scan-list-total">0원</td>
+                    <td colspan="2" style="border-top:1px solid var(--border)"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary" onclick="downloadBatchExcel()">
+                <i class="ti ti-download" aria-hidden="true"></i> 엑셀 저장 (.xlsx)
+              </button>
+              <button class="btn" onclick="clearScanList()">
+                <i class="ti ti-trash" aria-hidden="true"></i> 목록 초기화
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 세션 등록 현황 (하단 고정) -->
+        <div class="card" id="scan-done-card" style="display:none;margin-top:1rem">
+          <div class="card-title"><i class="ti ti-circle-check" aria-hidden="true"></i> 이번 세션 등록 현황</div>
+          <div id="scan-done-list" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
       </div>
 
@@ -1408,6 +1473,103 @@ function printBatchCheckList() {
 // 청구서 등록 + 구글 드라이브 OCR
 // ═══════════════════════════════════
 const scanDoneList = [];
+let scanResolItems = [];
+let scanListItems = [];
+let resolIdx = 0;
+
+function switchScanTab(tab) {
+  ["upload","resol","list"].forEach(t => {
+    const btn = document.getElementById("scan-tab-"+t);
+    if(btn){ btn.style.borderBottomColor = t===tab ? "var(--navy)" : "transparent"; btn.style.color = t===tab ? "var(--navy)" : "var(--muted)"; }
+    const p = document.getElementById("scan-panel-"+t);
+    if(p) p.style.display = t===tab ? "block" : "none";
+  });
+  if(tab==="resol") renderResolPanel();
+  if(tab==="list") renderScanListPanel();
+}
+
+function renderResolPanel() {
+  const empty = document.getElementById("scan-resol-empty");
+  const content = document.getElementById("scan-resol-content");
+  const all = [...BIZ[curBiz].cases, ...resolList[curBiz]];
+  if(!all.length){ if(empty) empty.style.display=""; if(content) content.style.display="none"; return; }
+  if(empty) empty.style.display="none";
+  if(content) content.style.display="";
+  if(resolIdx >= all.length) resolIdx = 0;
+  fillResolForm(all[resolIdx]);
+  const nav = document.getElementById("resol-nav-text");
+  if(nav) nav.textContent = (resolIdx+1)+" / "+all.length;
+}
+
+function fillResolForm(c) {
+  const num = (c.num||"").replace(/^(국부|서금)\s*/,"");
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.value=v||""; };
+  set("rv-num",num); set("rv-date",c.date||""); set("rv-lawyer",c.lawyer||"");
+  set("rv-firm",c.firm||""); set("rv-client",c.client||""); set("rv-opponent",c.opponent||"");
+  set("rv-case",c.case||c.caseName||"");
+  set("rv-amt",((c.fee||0)+(c.stamp||0)+(c.delivery||0)).toLocaleString());
+  set("rv-tax",c.tax||""); set("rv-acct",c.account||""); set("rv-note",c.note||c.type||"");
+}
+
+function navigateResol(dir) {
+  const all = [...BIZ[curBiz].cases, ...resolList[curBiz]];
+  resolIdx = Math.max(0, Math.min(all.length-1, resolIdx+dir));
+  fillResolForm(all[resolIdx]);
+  const nav = document.getElementById("resol-nav-text");
+  if(nav) nav.textContent = (resolIdx+1)+" / "+all.length;
+}
+
+function addCurrentToList() {
+  const all = [...BIZ[curBiz].cases, ...resolList[curBiz]];
+  if(!all.length) return;
+  const c = all[resolIdx];
+  if(scanListItems.find(x=>x.num===c.num)){ showToast("이미 목록에 있습니다"); return; }
+  scanListItems.push({...c});
+  renderScanListPanel();
+  const badge = document.getElementById("scan-list-badge");
+  if(badge){ badge.textContent=scanListItems.length; badge.style.display="inline"; }
+  showToast("목록에 추가됐습니다");
+  switchScanTab("list");
+}
+
+function renderScanListPanel() {
+  const empty = document.getElementById("scan-list-empty");
+  const content = document.getElementById("scan-list-content");
+  if(!scanListItems.length){ if(empty) empty.style.display=""; if(content) content.style.display="none"; return; }
+  if(empty) empty.style.display="none";
+  if(content) content.style.display="";
+  const tbody = document.getElementById("scan-list-tbody");
+  if(tbody) tbody.innerHTML = scanListItems.map((c,i) => {
+    const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+    const num = (c.num||"").replace(/^(국부|서금)\s*/,"");
+    const taxBadge = c.tax==="미수령"
+      ? '<span style="font-size:10px;background:#FEF9C3;color:#854D0E;padding:1px 6px;border-radius:99px">미수령</span>'
+      : '<span style="font-size:10px;background:#DCFCE7;color:#166534;padding:1px 6px;border-radius:99px">수령</span>';
+    return `<tr style="border-bottom:1px solid var(--border)">`
+      +`<td style="padding:8px 10px">${num}</td>`
+      +`<td style="padding:8px 10px">${c.lawyer||''}</td>`
+      +`<td style="padding:8px 10px">${c.client||''}</td>`
+      +`<td style="padding:8px 10px">${c.case||c.caseName||''}</td>`
+      +`<td style="padding:8px 10px;text-align:right;font-family:monospace">${amt.toLocaleString()}원</td>`
+      +`<td style="padding:8px 10px">${taxBadge}</td>`
+      +`<td style="padding:8px 10px;text-align:center"><button onclick="removeScanListItem(${i})" style="background:none;border:none;cursor:pointer;color:var(--muted)"><i class="ti ti-x"></i></button></td>`
+      +`</tr>`;
+  }).join("");
+  const total = scanListItems.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0);
+  const tot = document.getElementById("scan-list-total");
+  if(tot) tot.textContent = total.toLocaleString()+"원";
+}
+
+function removeScanListItem(i) {
+  scanListItems.splice(i,1); renderScanListPanel();
+  const badge = document.getElementById("scan-list-badge");
+  if(badge){ if(scanListItems.length){ badge.textContent=scanListItems.length; } else { badge.style.display="none"; } }
+}
+function clearScanList() {
+  scanListItems=[]; renderScanListPanel();
+  const badge = document.getElementById("scan-list-badge");
+  if(badge) badge.style.display="none";
+}
 
 function handleScanFile(e) {
   const file = e.target.files[0];
@@ -1590,19 +1752,65 @@ function saveScanEntry() {
   const num = get('sc-num'), lawyer = get('sc-lawyer'), client = get('sc-client');
   const amt = parseInt(get('sc-amt').replace(/,/g,''))||0;
   const tax = get('sc-tax'), date = get('sc-date'), doctype = get('sc-doctype');
+  const caseName = get('sc-case'), opponent = get('sc-opponent'), acct = get('sc-acct'), firm = get('sc-firm');
   if (!num||!lawyer||!client||!amt) { showToast('접수번호, 변호사, 의뢰인, 금액은 필수'); return; }
-  const fullNum = BIZ[curBiz].prefix+' '+num;
-  const idx = BIZ[curBiz].cases.findIndex(c=>c.num===fullNum||c.num.includes(num));
-  if (idx>=0) { BIZ[curBiz].cases[idx].tax='수령'; }
-  else { BIZ[curBiz].cases.push({num:fullNum,lawyer,client,case:get('sc-case'),type:'민사',fee:amt,stamp:0,delivery:0,tax:'수령',resol:'대기',date}); }
-  scanDoneList.unshift({num:fullNum,lawyer,client,amt,doctype,date,tax});
+
+  // 서류 유형에 따라 fee/stamp/delivery 분리
+  let fee = 0, stamp = 0, delivery = 0;
+  if (doctype === '인지대 영수증') stamp = amt;
+  else if (doctype === '송달료 영수증') delivery = amt;
+  else fee = amt; // 소송비용청구서, 전자세금계산서
+
+  // 사건 유형 추론 (사건명 기반)
+  let caseType = '민사';
+  if (caseName.includes('사기')||caseName.includes('횡령')||caseName.includes('배임')||caseName.includes('형사')) caseType = '형사';
+  else if (caseName.includes('집행')||caseName.includes('압류')||caseName.includes('추심')||caseName.includes('명시')||caseName.includes('가처분')||caseName.includes('경매')) caseType = '신청';
+
+  // 비고: 사건유형 + 접수번호 연결 (원본 양식 비고 형식)
+  const note = caseType;
+
+  const fullNum = BIZ[curBiz].prefix + ' ' + num;
+  const newCase = {
+    num: fullNum,
+    lawyer,
+    firm,
+    client,
+    opponent,
+    case: caseName,
+    caseName,
+    type: caseType,
+    fee,
+    stamp,
+    delivery,
+    tax,
+    resol: '대기',
+    date,
+    account: acct,
+    note,
+    doctype
+  };
+
+  const idx = BIZ[curBiz].cases.findIndex(c => c.num === fullNum || c.num.includes(num));
+  if (idx >= 0) {
+    // 기존 건 업데이트 (인지대·송달료 추가 등)
+    BIZ[curBiz].cases[idx].stamp += stamp;
+    BIZ[curBiz].cases[idx].delivery += delivery;
+    if (fee > 0) BIZ[curBiz].cases[idx].fee = fee;
+    if (acct) BIZ[curBiz].cases[idx].account = acct;
+    BIZ[curBiz].cases[idx].tax = tax;
+    BIZ[curBiz].cases[idx].resol = '대기';
+  } else {
+    BIZ[curBiz].cases.push(newCase);
+  }
+
+  scanDoneList.unshift({num: fullNum, lawyer, client, amt, doctype, date, tax});
   renderScanDone();
   renderDashboard();
-  showToast('등록 완료!');
+  showToast('등록 완료! — 지출목록 및 결의서에 반영됩니다');
   resetScan();
-  document.getElementById('scan-empty').style.display='none';
-  document.getElementById('scan-form').style.display='block';
-  document.getElementById('sc-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('scan-empty').style.display = 'none';
+  document.getElementById('scan-form').style.display = 'block';
+  document.getElementById('sc-date').value = new Date().toISOString().slice(0,10);
 }
 
 function renderScanDone() {
@@ -1675,117 +1883,169 @@ function downloadBatchExcel() {
   const dd = today.getDate();
   const wb_new = XLSX.utils.book_new();
 
-  // ── 시트1: 지출결의서 ──
-  // 원본 양식과 동일한 구조
-  const resol_data = [];
+  // ── 지출결의서 시트 생성 함수 (20건 1페이지) ──
+  function makeResolSheet(caseSlice, pageTotal, bizTitle) {
+    // 원본 양식 행 구조 (A~Q, 17열)
+    // 행1: 타이틀 (B1)
+    // 행2: 빈행
+    // 행3: 사업명(A3) + 결재란(K3~Q3)
+    // 행4: 빈행(결재란 아래칸)
+    // 행5: 빈행
+    // 행6: 작성일자
+    // 행7: 결재일자
+    // 행8: 합계행 (A8=합계, K8=합계)
+    // 행9: 빈행(헤더 위)
+    // 행10: 헤더 (순번/계정과목/적요/금액/비고)
+    // 행11~30: 데이터 (20건)
+    // 행31: 계
 
-  // 타이틀
-  resol_data.push(['', '지   출   결   의   서 ', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
-  resol_data.push([]);
-  // 사업명 + 결재란
-  resol_data.push([
-    b.short === '국토부' ? '2026년 소송구조(국토부) / 전세피해자' : '2026년 소송구조 / 전세피해자',
-    '','','','','','','','','',
-    '결\n\n재', '담당', '', '사무총장', '', '재무이사', ''
-  ]);
-  resol_data.push(['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
-  resol_data.push([]);
-  // 작성일자
-  resol_data.push(['작성일자', '', yy, '', '년', mm, '월', dd, '', '일', '처리사항', '', '', '구분', '', '결제방식', '']);
-  // 결재일자
-  resol_data.push(['결재일자', '', yy, '', '년', mm, '월', '__', '', '일', '', '', '', '영수증', '', '계좌이체', '']);
-  // 합계행
-  const total = cases.reduce((s, c) => s + (c.fee||0) + (c.stamp||0) + (c.delivery||0), 0);
-  resol_data.push([total, '', '', '', '', '', '', '', '', '', total, '', '', '', '', '', total]);
-  resol_data.push([]);
-  // 헤더
-  resol_data.push(['순번', '계 정 과 목', '', '', '적         요', '', '', '', '', '', '', '', '금       액', '', '', '비 고', '']);
-
-  // 데이터 (20건씩)
-  const page1 = cases.slice(0, 20);
-  page1.forEach((c, i) => {
-    const amt = (c.fee||0) + (c.stamp||0) + (c.delivery||0);
-    const accType = c.acctType || '법률구조사업비\n전세피해자사업비';
-    const num = (c.num||'').replace(/^(국부|서금)\s*/,'');
-    const desc = `${c.lawyer} 弁 ${num}호 ${c.client} ${c.case||c.caseName||''}`;
-    resol_data.push([i+1, accType, '', '', desc, '', '', '', '', '', '', '', amt, '', '', c.note||c.type||'', '']);
-  });
-  // 빈행 채우기 (20건 미만이면)
-  for (let i = page1.length; i < 20; i++) {
-    resol_data.push([i+1, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+    const R = []; // 17열 기준
+    const _ = '';
+    // 행1: 타이틀
+    R.push([_,'지   출   결   의   서 ',_,_,_,_,_,_,_,_,_,_,_,_,_,_,_]);
+    // 행2: 빈
+    R.push([_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_]);
+    // 행3: 사업명 + 결재란
+    R.push([bizTitle,_,_,_,_,_,_,_,_,_,'결\n\n재','담당',_,'사무총장',_,'재무이사',_]);
+    // 행4: 결재란 아래칸 (빈)
+    R.push([_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_]);
+    // 행5: 빈
+    R.push([_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_]);
+    // 행6: 작성일자 (A,C,E,F,G,H,J,K,N,P)
+    R.push(['작성일자',_,yy,_,'년',mm,'월',dd,_,'일','처리사항',_,_,'구분',_,'결제방식',_]);
+    // 행7: 결재일자
+    R.push(['결재일자',_,yy,_,'년',mm,'월','__',_,'일',_,_,_,'영수증',_,'계좌이체',_]);
+    // 행8: 합계 (A8=합계값, K8=합계값)
+    R.push([pageTotal,_,_,_,_,_,_,_,_,_,pageTotal,_,_,_,_,_,pageTotal]);
+    // 행9: 헤더 위 빈행
+    R.push([_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_]);
+    // 행10: 헤더
+    R.push(['순번','계 정 과 목',_,_,'적         요',_,_,_,_,_,_,_,'금       액',_,_,'비 고',_]);
+    // 행11~30: 데이터
+    for (let i = 0; i < 20; i++) {
+      if (i < caseSlice.length) {
+        const c = caseSlice[i];
+        const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+        const accType = c.acctType || '법률구조사업비\n전세피해자사업비';
+        const num = (c.num||'').replace(/^(국부|서금)\s*/,'');
+        const desc = `${c.lawyer} 弁 ${num}호 ${c.client} ${c.case||c.caseName||''}`;
+        const note = c.note || c.type || '';
+        R.push([i+1, accType,_,_, desc,_,_,_,_,_,_,_, amt,_,_, note,_]);
+      } else {
+        R.push([i+1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_]);
+      }
+    }
+    // 행31: 계
+    R.push(['계',_,_,_,_,_,_,_,_,_,_,_, pageTotal,_,_,_,_]);
+    return R;
   }
-  // 합계
-  resol_data.push(['계', '', '', '', '', '', '', '', '', '', '', '', total, '', '', '', '']);
 
-  // 2페이지 (21건 이상)
-  if (cases.length > 20) {
-    resol_data.push([]);
-    resol_data.push(['', '지   출   결   의   서 ', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
-    resol_data.push([]);
-    const total2 = cases.slice(20).reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0);
-    resol_data.push([b.short === '국토부' ? '2026년 소송구조(국토부) / 전세피해자' : '2026년 소송구조 / 전세피해자',
-      '','','','','','','','','','결\n\n재','담당','','사무총장','','재무이사','']);
-    resol_data.push([]);
-    resol_data.push(['작성일자','',yy,'','년',mm,'월',dd,'','일','처리사항','','','구분','','결제방식','']);
-    resol_data.push(['결재일자','',yy,'','년',mm,'월','__','','일','','','','영수증','','계좌이체','']);
-    resol_data.push([total2,'','','','','','','','','',total2,'','','','','',total2]);
-    resol_data.push([]);
-    resol_data.push(['순번','계 정 과 목','','','적         요','','','','','','','','금       액','','','비 고','']);
-    const page2 = cases.slice(20);
-    page2.forEach((c, i) => {
-      const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
-      const num = (c.num||'').replace(/^(국부|서금)\s*/,'');
-      const desc = `${c.lawyer} 弁 ${num}호 ${c.client} ${c.case||c.caseName||''}`;
-      resol_data.push([21+i,'법률구조사업비\n전세피해자사업비','','',desc,'','','','','','','',amt,'','',c.note||c.type||'','']);
-    });
-    for (let i = page2.length; i < 20; i++) resol_data.push([21+i,'','','','','','','','','','','','','','','','']);
-    resol_data.push(['계','','','','','','','','','','','',total2,'','','','']);
+  const total = cases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0);
+  const bizTitle = b.short === '국토부' ? '2026년 소송구조(국토부) / 전세피해자' : '2026년 소송구조 / 전세피해자';
+
+  // 20건씩 페이지 분할
+  const resol_data = [];
+  for (let p = 0; p < Math.ceil(cases.length / 20); p++) {
+    const slice = cases.slice(p*20, p*20+20);
+    const pageTotal = slice.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0);
+    const pageRows = makeResolSheet(slice, pageTotal, bizTitle);
+    if (p > 0) resol_data.push(Array(17).fill('')); // 페이지 사이 빈행
+    pageRows.forEach(r => resol_data.push(r));
   }
 
   const ws_resol = XLSX.utils.aoa_to_sheet(resol_data);
+  // 원본 양식 열너비: A(4) B(11) C(3) D(3) E(3) F(3) G(3) H(3) I(3) J(3) K(5) L(4) M(9) N(5) O(5) P(7) Q(3)
   ws_resol['!cols'] = [
-    {wch:4},{wch:4},{wch:5},{wch:13},{wch:5},{wch:13},{wch:13},{wch:13},{wch:13},{wch:13},{wch:13},{wch:4},{wch:13},{wch:13},{wch:13},{wch:5},{wch:13}
+    {wch:4},{wch:11},{wch:3},{wch:3},{wch:30},{wch:3},{wch:3},{wch:3},{wch:3},{wch:3},{wch:5},{wch:4},{wch:12},{wch:5},{wch:5},{wch:14},{wch:3}
   ];
   const sheetName = b.short === '국토부' ? `26년사업비-국토부 (${mm}월)` : `26년사업비-서민 (${mm}월)`;
   XLSX.utils.book_append_sheet(wb_new, ws_resol, sheetName);
 
   // ── 시트2: 지출목록 ──
-  const list_data = [
-    ['', '', '', '', '', '', b.short === '국토부' ? `(국토부) 전세피해자 소송구조 26년 ${mm}월 사업비 지출 목록` : `전세피해자 소송구조 26년 ${mm}월 사업비 지출 목록`],
-    [],
-    ['', '결의서', '변호사', '접수번호', '', '', '', '신청인', '구조날짜', '사건', '금액', '', '', '예금주', '은행', '은행번호', '계좌', '비고', '', '메일'],
-  ];
+  // 원본 구조: A~U (21열)
+  // 행1: 빈
+  // 행2: H2=타이틀
+  // 행3: U3=최종수정일
+  // 행4: U4=합계(수식)
+  // 행5: 헤더 (B~U)
+  // 행6~: 데이터
 
+  const listTitle = b.short === '국토부'
+    ? `(국토부) 전세피해자 소송구조 ${yy}년 ${mm}월 사업비 지출 목록`
+    : `전세피해자 소송구조 ${yy}년 ${mm}월 사업비 지출 목록`;
+
+  const list_data = [];
+  // 행1: 빈
+  list_data.push(Array(21).fill(''));
+  // 행2: H열(idx7)에 타이틀
+  const r2 = Array(21).fill('');
+  r2[7] = listTitle;
+  list_data.push(r2);
+  // 행3: U열(idx20)에 최종수정
+  const r3 = Array(21).fill('');
+  r3[20] = `최종 수정: ${yy}. ${String(mm).padStart(2,'0')}.`;
+  list_data.push(r3);
+  // 행4: U열(idx20)에 합계 — 데이터 행 범위는 6행부터
+  const r4 = Array(21).fill('');
+  r4[20] = total; // 합계값 직접 입력 (수식 대신)
+  list_data.push(r4);
+  // 행5: 헤더 (B~U, idx1~20)
+  // B=결의서, C=변호사, D=접수번호(연), E=접수번호(호), F=접수번호합, G=재단, H=신청인, I=구조날짜, J=사건, K=금액, L=출금표시, M=입금표시, N=예금주, O=은행, P=은행번호, Q=계좌, R=비고, S=빈, T=메일, U=빈
+  list_data.push(['','결의서','변호사','접수번호','','','','신청인','구조날짜','사건','금액','','','예금주','은행','은행번호','계좌','비고','','메일','               ']);
+
+  // 행6~: 데이터
+  const dataStartRow = 6; // 엑셀 기준 6행
   cases.forEach((c, i) => {
+    const excelRow = dataStartRow + i;
     const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
     const num = (c.num||'').replace(/^(국부|서금)\s*/,'');
     const numParts = num.split('-');
-    const yr = numParts[0]||'';
-    const seq = numParts[1]||'';
-    // 변호사 계좌 정보 찾기
-    const lawyerInfo = BIZ[curBiz].lawyers.find(l => l.name === c.lawyer) || {};
+    const yr = numParts[0] ? parseInt(numParts[0]) : '';
+    const seq = numParts[1] ? parseInt(numParts[1]) : '';
+    const lawyerInfo = BIZ[curBiz].lawyers ? (BIZ[curBiz].lawyers.find(l=>l.name===c.lawyer)||{}) : {};
+    // 구조날짜: 등록된 날짜 우선, 없으면 오늘
+    const cDate = c.date ? new Date(c.date) : today;
+
     list_data.push([
-      '', i+1, c.lawyer,
-      yr, seq, c.num||'', '재단',
-      c.client,
-      new Date().toLocaleDateString('ko-KR').replace(/\.\s*/g,'.').slice(0,-1),
-      c.case||c.caseName||'',
-      amt, `${c.num||''}${c.client}`, `재단${c.client}`,
-      lawyerInfo.owner||lawyerInfo.firm||'',
-      lawyerInfo.bank||'',
-      lawyerInfo.bankCode||'',
-      lawyerInfo.acct||c.account||'',
-      c.note||c.type||'',
-      '', lawyerInfo.email||''
+      '',                          // A: 빈
+      i+1,                         // B: 결의서 순번
+      c.lawyer||'',                // C: 변호사
+      yr,                          // D: 접수번호 연
+      seq,                         // E: 접수번호 호
+      num||'',                     // F: 접수번호 합 (D-E)
+      '재단',                      // G: 재단
+      c.client||'',                // H: 신청인
+      cDate,                       // I: 구조날짜 (날짜 객체)
+      c.case||c.caseName||'',      // J: 사건
+      amt,                         // K: 금액
+      `${num}${c.client||''}`,     // L: 출금통장표시(접수번호+신청인)
+      `재단${c.client||''}`,       // M: 입금통장표시
+      lawyerInfo.owner||lawyerInfo.firm||c.holder||'',  // N: 예금주
+      lawyerInfo.bank||c.bank||'',                      // O: 은행
+      lawyerInfo.bankCode||c.bankCode||'',              // P: 은행번호
+      lawyerInfo.acct||c.account||'',                   // Q: 계좌
+      c.note||c.type||'',          // R: 비고
+      '',                          // S: 빈
+      lawyerInfo.email||c.email||'', // T: 메일
+      ''                           // U: 빈
     ]);
   });
 
-  list_data.push([]);
-  list_data.push(['', '', '', '', '', '', '', '', '', '', cases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0)]);
+  // 합계행
+  const sumRow = Array(21).fill('');
+  sumRow[10] = total; // K열 합계
+  list_data.push(sumRow);
 
   const ws_list = XLSX.utils.aoa_to_sheet(list_data);
+  // 날짜 형식 지정
+  const dateFormat = 'YYYY.MM.DD';
+  for (let i = 0; i < cases.length; i++) {
+    const cellAddr = XLSX.utils.encode_cell({r: 5+i, c: 8}); // I열 (0-indexed: 8)
+    if (ws_list[cellAddr]) ws_list[cellAddr].t = 'd';
+  }
+  // 원본 열너비: A(2) B(6) C(8) D(4) E(6) F(10) G(4) H(8) I(10) J(20) K(10) L(14) M(14) N(20) O(6) P(8) Q(16) R(16) S(2) T(24) U(16)
   ws_list['!cols'] = [
-    {wch:2},{wch:6},{wch:8},{wch:4},{wch:6},{wch:10},{wch:4},{wch:8},{wch:10},{wch:20},{wch:10},{wch:14},{wch:14},{wch:20},{wch:6},{wch:8},{wch:16},{wch:16},{wch:2},{wch:24}
+    {wch:2},{wch:6},{wch:8},{wch:4},{wch:6},{wch:10},{wch:4},{wch:8},{wch:10},{wch:20},{wch:10},{wch:14},{wch:14},{wch:20},{wch:6},{wch:8},{wch:16},{wch:16},{wch:2},{wch:24},{wch:16}
   ];
   XLSX.utils.book_append_sheet(wb_new, ws_list, `26년 ${mm}월(${b.short})`);
 
