@@ -648,12 +648,48 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
       <!-- 변호사 계좌 -->
       <div class="view" id="view-lawyer">
         <p class="page-title">변호사 계좌 정보</p>
-        <p class="page-sub">입금 처리용 계좌 관리</p>
+        <p class="page-sub">입금 처리용 계좌 관리 — 엑셀로 일괄 업로드 가능</p>
+
+        <!-- 엑셀 업로드 카드 -->
+        <div class="card" style="margin-bottom:1rem">
+          <div class="card-title"><i class="ti ti-upload" aria-hidden="true"></i> 계좌 정보 엑셀 업로드</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.7">
+            기존 <strong>지출목록리스트정리.xlsx</strong>의 <strong>"변호사 계좌 정보"</strong> 시트를 그대로 업로드하거나,<br>
+            아래 양식과 동일한 헤더(변호사 / 은행 명 / *입금은행 / *입금계좌 / 고객관리성명 / 메일)로 만들어서 업로드하세요.
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <label style="cursor:pointer">
+              <input type="file" id="lawyer-upload" accept=".xlsx,.xls" style="display:none" onchange="handleLawyerUpload(event)">
+              <span class="btn btn-primary">
+                <i class="ti ti-file-spreadsheet" aria-hidden="true"></i> 엑셀 파일 선택
+              </span>
+            </label>
+            <span id="lawyer-upload-status" style="font-size:12px;color:var(--muted)">파일 미선택</span>
+            <button class="btn" onclick="resetLawyerData()" style="margin-left:auto">
+              <i class="ti ti-refresh" aria-hidden="true"></i> 초기화 (기본값 복원)
+            </button>
+          </div>
+        </div>
+
+        <!-- 계좌 목록 테이블 -->
         <div class="card">
-          <table class="tbl">
-            <thead><tr><th>변호사</th><th>은행</th><th>계좌번호</th><th>예금주</th><th>이메일</th><th>계산서유형</th><th>상태</th></tr></thead>
-            <tbody id="lawyer-tbody"></tbody>
-          </table>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div class="card-title" style="margin-bottom:0">
+              <i class="ti ti-user-check" aria-hidden="true"></i> 등록된 변호사 계좌
+            </div>
+            <span id="lawyer-count" style="font-size:12px;color:var(--muted)"></span>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>변호사</th><th>은행</th><th>은행번호</th>
+                  <th>계좌번호</th><th>예금주</th><th>이메일</th><th>상태</th>
+                </tr>
+              </thead>
+              <tbody id="lawyer-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -1115,21 +1151,94 @@ function renderBudget() {
     </tr>`).join("");
 }
 
+// ── 변호사 계좌 목록 렌더 ──
 function renderLawyers() {
   const b = BIZ[curBiz];
+  const count = document.getElementById("lawyer-count");
+  if(count) count.textContent = `총 ${b.lawyers.length}명`;
+
   document.getElementById("lawyer-tbody").innerHTML = b.lawyers.map(l=>{
-    const need = l.acct==="확인필요";
-    const st = need ? '<span class="badge ba">확인필요</span>' : '<span class="badge bg">확인완료</span>';
+    const need = !l.acct || l.acct==="확인필요";
+    const st = need
+      ? '<span class="badge ba">확인필요</span>'
+      : '<span class="badge bg">확인완료</span>';
     const acctStyle = need ? "color:#92400E;background:#FFFBEB" : "";
-    return `<tr class="${need?"row-a":"row-g"}">
-      <td>${l.name}</td><td>${l.bank}</td>
-      <td class="mono" style="font-size:11px;${acctStyle}">${l.acct}</td>
-      <td style="font-size:11px">${l.owner}</td>
+    return `<tr>
+      <td style="font-weight:500">${l.name}</td>
+      <td>${l.bank||"—"}</td>
+      <td style="font-size:11px">${l.bankCode||"—"}</td>
+      <td class="mono" style="font-size:11px;${acctStyle}">${l.acct||"—"}</td>
+      <td style="font-size:11px">${l.owner||"—"}</td>
       <td style="font-size:11px;color:var(--muted)">${l.email||"—"}</td>
-      <td><span class="badge bg">${l.tax}</span></td>
       <td>${st}</td>
     </tr>`;
   }).join("");
+}
+
+// ── 변호사 계좌 엑셀 업로드 처리 ──
+// SheetJS로 파일 읽기 → BIZ[curBiz].lawyers 업데이트
+function handleLawyerUpload(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data   = new Uint8Array(e.target.result);
+      const wb     = XLSX.read(data, { type: "array" });
+
+      // "변호사 계좌 정보" 시트 찾기
+      const sheetName = wb.SheetNames.find(n => n.includes("변호사")) || wb.SheetNames[0];
+      const ws        = wb.Sheets[sheetName];
+      const rows      = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+      if(rows.length < 2) { showToast("데이터가 없습니다"); return; }
+
+      // 헤더 파악 (첫 행)
+      // 원본: 변호사(0) / 은행명(1) / *입금은행=은행코드(2) / *입금계좌(3) / 고객관리성명=예금주(4) / 메일(5)
+      const header = rows[0].map(h => String(h).trim());
+      const idx = {
+        name:     header.findIndex(h => h.includes("변호사")),
+        bank:     header.findIndex(h => h.includes("은행 명") || h === "은행명"),
+        bankCode: header.findIndex(h => h.includes("입금은행") || h.includes("은행코드")),
+        acct:     header.findIndex(h => h.includes("입금계좌") || h.includes("계좌번호")),
+        owner:    header.findIndex(h => h.includes("고객관리") || h.includes("예금주")),
+        email:    header.findIndex(h => h.includes("메일") || h.includes("이메일")),
+      };
+
+      const lawyers = rows.slice(1)
+        .filter(r => r[idx.name])
+        .map(r => ({
+          name:     String(r[idx.name]||"").trim(),
+          bank:     String(r[idx.bank >= 0 ? idx.bank : 1]||"").trim(),
+          bankCode: String(r[idx.bankCode >= 0 ? idx.bankCode : 2]||"").trim(),
+          acct:     String(r[idx.acct >= 0 ? idx.acct : 3]||"").trim(),
+          owner:    String(r[idx.owner >= 0 ? idx.owner : 4]||"").trim(),
+          email:    String(r[idx.email >= 0 ? idx.email : 5]||"").trim(),
+          tax:      "전자계산서",
+        }));
+
+      // 두 사업 모두 업데이트
+      BIZ.kt.lawyers = lawyers;
+      BIZ.sf.lawyers = lawyers;
+
+      renderLawyers();
+      const status = document.getElementById("lawyer-upload-status");
+      if(status) status.textContent = `✅ ${file.name} — ${lawyers.length}명 로드 완료`;
+      showToast(`변호사 계좌 ${lawyers.length}명 업로드 완료`);
+
+    } catch(err) {
+      showToast("파일 오류: " + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── 변호사 데이터 기본값으로 초기화 ──
+function resetLawyerData() {
+  // 페이지 새로고침으로 원본 데이터 복원
+  if(confirm("변호사 계좌 정보를 기본값으로 초기화할까요?")) location.reload();
 }
 
 function showToast(msg) {
@@ -1926,12 +2035,13 @@ async function downloadBatchExcel() {
   showToast('엑셀 생성 중...');
 
   try {
-    // 서버에 사건 데이터 전송
+    // 서버에 사건 데이터 + 변호사 계좌 정보 전송
     const res = await fetch('/api/excel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         cases:    cases,
+        lawyers:  BIZ[curBiz].lawyers,  // 변호사 계좌 정보 함께 전달
         bizShort: b.short,
         yy, mm, dd
       })
