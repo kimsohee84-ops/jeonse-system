@@ -49,41 +49,34 @@ function parseDoc(text) {
   const r = {};
   const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
-  // 재단 접수번호 - 다양한 형태 처리
+  // 재단 접수번호
+  // OCR이 "국부 26-110" 을 "국토부법률구조 26:110" 또는 다양하게 읽음
+  // "-" 를 ":" 으로 읽는 경우도 있음
   for (const line of lines) {
-    // "국부 26-110" 또는 "서금 26-110"
-    const m1 = line.match(/(국\s*부|서\s*금)\s*(\d{2}\s*-\s*\d+)/);
+    // 재단 접수번호 라인에서 숫자 추출 (- 또는 : 모두 허용)
+    if (/재단\s*접수번호/.test(line)) {
+      const m = line.match(/(\d{2})\s*[-:]\s*(\d+)/);
+      if (m) { r.accNum = m[1] + '-' + m[2]; break; }
+    }
+    // "국부/서금 + 숫자" 형태
+    const m1 = line.match(/(국\s*부|서\s*금)\s*(\d{2})\s*[-:]\s*(\d+)/);
     if (m1) {
       const prefix = m1[1].replace(/\s/g,'') === '국부' ? '국부' : '서금';
-      r.accNum = prefix + ' ' + m1[2].replace(/\s/g,'');
+      r.accNum = prefix + ' ' + m1[2] + '-' + m1[3];
       break;
     }
-    // 재단 접수번호 라인에서 숫자 추출
-    if (/재단\s*접수번호/.test(line)) {
-      const m2 = line.match(/(\d{2}\s*-\s*\d+)/);
-      if (m2) { r.accNum = m2[1].replace(/\s/g,''); break; }
-    }
-    // "법률구조 전 26-110" 형태 (전자계산서)
-    const m3 = line.match(/법률구조\s*전\s*(\d{2}\s*-\s*\d+)/);
-    if (m3) { r.accNum = m3[1].replace(/\s/g,''); break; }
+    // "국토부법률구조 26:110" 또는 "국토부 26-110" 형태
+    const m2 = line.match(/국토부[^\d]*(\d{2})\s*[-:]\s*(\d+)/);
+    if (m2) { r.accNum = m2[1] + '-' + m2[2]; break; }
+    // "서민금융 26-110" 형태
+    const m3 = line.match(/서민금융[^\d]*(\d{2})\s*[-:]\s*(\d+)/);
+    if (m3) { r.accNum = m3[1] + '-' + m3[2]; break; }
   }
-  // 전체 텍스트에서 "재단 접수번호" 다음 숫자 추출
+  // 전체 텍스트에서 재단접수번호 근처 숫자 추출
   if (!r.accNum) {
-    const m = text.match(/재단\s*접수번호[^\n]*?(\d{2}\s*-\s*\d+)/) ||
-              text.match(/법률구조\s*전\s*(\d{2}\s*-\s*\d+)/);
-    if (m) r.accNum = m[1].replace(/\s/g,'');
-  }
-  // 마지막 시도: 전체에서 XX-숫자 패턴 (26-110 형태)
-  if (!r.accNum) {
-    // 재단접수번호 행 근처 라인들에서 숫자 패턴 찾기
-    for (let i = 0; i < lines.length; i++) {
-      if (/재단|접수/.test(lines[i])) {
-        // 같은 줄 또는 바로 다음 줄에서 숫자 추출
-        const searchText = lines[i] + ' ' + (lines[i+1]||'');
-        const m = searchText.match(/(\d{2}\s*-\s*\d+)/);
-        if (m) { r.accNum = m[1].replace(/\s/g,''); break; }
-      }
-    }
+    const m = text.match(/재단\s*접수번호[^
+]{0,30}?(\d{2})\s*[-:]\s*(\d+)/s);
+    if (m) r.accNum = m[1] + '-' + m[2];
   }
 
   // 사건명: "사건명" 다음 내용, "사건번호" 앞까지
