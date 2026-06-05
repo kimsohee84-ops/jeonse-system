@@ -58,7 +58,7 @@ function parseDoc(text) {
       r.accNum = prefix + ' ' + m1[2].replace(/\s/g,'');
       break;
     }
-    // 재단 접수번호 라인
+    // 재단 접수번호 라인에서 숫자 추출
     if (/재단\s*접수번호/.test(line)) {
       const m2 = line.match(/(\d{2}\s*-\s*\d+)/);
       if (m2) { r.accNum = m2[1].replace(/\s/g,''); break; }
@@ -67,11 +67,23 @@ function parseDoc(text) {
     const m3 = line.match(/법률구조\s*전\s*(\d{2}\s*-\s*\d+)/);
     if (m3) { r.accNum = m3[1].replace(/\s/g,''); break; }
   }
-  // 전체 텍스트에서 XX-숫자 패턴 추출
+  // 전체 텍스트에서 "재단 접수번호" 다음 숫자 추출
   if (!r.accNum) {
-    const m = text.match(/재단\s*접수번호[^\d]*(2[0-9]\s*-\s*\d+)/) ||
-              text.match(/법률구조\s*전\s*(2[0-9]\s*-\s*\d+)/);
+    const m = text.match(/재단\s*접수번호[^\n]*?(\d{2}\s*-\s*\d+)/) ||
+              text.match(/법률구조\s*전\s*(\d{2}\s*-\s*\d+)/);
     if (m) r.accNum = m[1].replace(/\s/g,'');
+  }
+  // 마지막 시도: 전체에서 XX-숫자 패턴 (26-110 형태)
+  if (!r.accNum) {
+    // 재단접수번호 행 근처 라인들에서 숫자 패턴 찾기
+    for (let i = 0; i < lines.length; i++) {
+      if (/재단|접수/.test(lines[i])) {
+        // 같은 줄 또는 바로 다음 줄에서 숫자 추출
+        const searchText = lines[i] + ' ' + (lines[i+1]||'');
+        const m = searchText.match(/(\d{2}\s*-\s*\d+)/);
+        if (m) { r.accNum = m[1].replace(/\s/g,''); break; }
+      }
+    }
   }
 
   // 사건명: "사건명" 다음 내용, "사건번호" 앞까지
