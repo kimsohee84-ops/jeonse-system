@@ -12,7 +12,6 @@ export default async function handler(req, res) {
 
     const base64Content = fileData.includes(',') ? fileData.split(',')[1] : fileData;
 
-    // OCR.space API 호출
     const formData = new URLSearchParams();
     formData.append('apikey', process.env.OCR_API_KEY || 'K89320929588957');
     formData.append('base64Image', 'data:' + (mimeType || 'application/pdf') + ';base64,' + base64Content);
@@ -30,15 +29,13 @@ export default async function handler(req, res) {
     });
 
     if (!ocrRes.ok) throw new Error('OCR API 오류: ' + ocrRes.status);
-
     const ocrData = await ocrRes.json();
     if (ocrData.IsErroredOnProcessing) throw new Error('OCR 오류: ' + ocrData.ErrorMessage);
 
     const ocrText = ocrData.ParsedResults?.[0]?.ParsedText || '';
     if (!ocrText) return res.status(200).json({ success: true, text: '', parsed: {} });
 
-    console.log('OCR TEXT:', ocrText); // 디버깅용
-
+    console.log('OCR TEXT:\n', ocrText);
     const parsed = parseDoc(ocrText);
     return res.status(200).json({ success: true, text: ocrText, parsed });
 
@@ -50,62 +47,103 @@ export default async function handler(req, res) {
 
 function parseDoc(text) {
   const r = {};
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
-  // 띄어쓰기 제거한 버전도 같이 체크
-  const compact = text.replace(/\s+/g, '');
-
-  // 재단 접수번호 - 다양한 형태 처리
-  // "국부 26-110" 또는 "국부26-110" 또는 "재단 접수번호 국부 26-110"
-  const numM = text.match(/(국\s*부|서\s*금)\s*([\d]{2}\s*-\s*[\d]+)/) ||
-               text.match(/재단\s*접수번호\s*(국\s*부|서\s*금)\s*([\d]{2}\s*-\s*[\d]+)/);
-  if (numM) {
-    const prefix = numM[1].replace(/\s/g,'') === '국부' ? '국부' : '서금';
-    const num = (numM[2]||numM[3]||'').replace(/\s/g,'');
-    r.accNum = prefix + ' ' + num;
+  // 재단 접수번호: "국부 26-110" 또는 "서금 26-110"
+  for (const line of lines) {
+    const m = line.match(/(국\s*부|서\s*금)\s*(\d{2}\s*-\s*\d+)/);
+    if (m) {
+      const prefix = m[1].replace(/\s/g,'') === '국부' ? '국부' : '서금';
+      r.accNum = prefix + ' ' + m[2].replace(/\s/g,'');
+      break;
+    }
   }
 
-  // 사건명 - "사건명 전세금반환소송" 형태
-  const caseM = text.match(/사\s*건\s*명\s+([^\n\r\t]+?)(?:\s{2,}|사건번호|$)/m) ||
-                text.match(/사건명\s*([^\n\r]+)/);
-  if (caseM) r.caseName = (caseM[1]||'').replace(/\s+/g,' ').trim();
+  // 사건명: "사건명" 다음 내용, "사건번호" 앞까지
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/사\s*건\s*명\s+(.*)/);
+    if (m) {
+      // "사건번호" 가 같은 줄에 있으면 그 앞까지만
+      let val = m[1].replace(/사건번호.*$/, '').trim();
+      val = val.replace(/\s+/g, ' ').trim();
+      if (val) { r.caseName = val; break; }
+    }
+  }
 
-  // 의뢰자 - "강 은 지" 형태 (글자 사이 공백 있음)
-  // 의뢰자 행 다음 줄에 이름이 나옴
-  const clientM = text.match(/의\s*뢰\s*자[\s\S]*?\n\s*([가-힣\s]{2,10})\s*\n/) ||
-                  text.match(/의\s*뢰\s*자\s+([가-힣\s]{2,10})(?:\s{2,}|\t)/);
-  if (clientM) r.client = (clientM[1]||'').replace(/\s+/g,'').trim();
+  // 의뢰자: "의 뢰 자" 행 아래 이름 (상대방 이름이 같이 오면 분리)
+  for (let i = 0; i < lines.length; i++) {
+    if (/의\s*뢰\s*자/.test(lines[i])) {
+      // 다음 줄에서 한글 이름 추출 (상대방 이름 제거)
+      for (let j = i+1; j < Math.min(i+4, lines.length); j++) {
+        const m = lines[j].match(/^([가-힣\s]{2,8}?)(?:\s{3,}|\t)([가-힣\s]{1,10})$/);
+        if (m) {
+          r.client = m[1].replace(/\s/g,'').trim();
+          r.opponent = m[2].replace(/\s/g,'').trim();
+          break;
+        }
+        // 이름만 있는 경우
+        const single = lines[j].match(/^([가-힣\s]{2,10})$/);
+        if (single && !r.client) {
+          r.client = single[1].replace(/\s/g,'').trim();
+        }
+      }
+      break;
+    }
+  }
 
-  // 상대방 - "서 광" 형태
-  const opponentM = text.match(/상\s*대\s*방[\s\S]*?\n\s*([가-힣\s]{1,15})\s*\n/) ||
-                    text.match(/상\s*대\s*방\s+([가-힣\s]+?)(?:\s{2,}|\n|$)/);
-  if (opponentM) r.opponent = (opponentM[1]||'').replace(/\s+/g,' ').trim();
+  // 상대방: 별도 처리 (의뢰자에서 못 잡은 경우)
+  if (!r.opponent) {
+    for (let i = 0; i < lines.length; i++) {
+      if (/상\s*대\s*방/.test(lines[i])) {
+        for (let j = i+1; j < Math.min(i+4, lines.length); j++) {
+          const m = lines[j].match(/([가-힣\s]{1,10})\s*$/);
+          if (m && !lines[j].includes('의') && !lines[j].includes('뢰')) {
+            r.opponent = m[1].replace(/\s/g,'').trim();
+            break;
+          }
+        }
+        break;
+      }
+    }
+  }
 
-  // 변호사 - "권 우 상" 형태
-  const lawyerM = text.match(/변\s*호\s*사\s+([가-힣\s]{2,8})(?:\s*[①인\(◯]|\s*\(인\)|\s*\n)/);
-  if (lawyerM) r.lawyer = (lawyerM[1]||'').replace(/\s+/g,'').trim();
+  // 변호사: "변호사 권 우 상" 형태 - 보수합계/보수 등 제외
+  for (const line of lines) {
+    const m = line.match(/변\s*호\s*사\s+([가-힣\s]{2,10})(?:\s*[①인\(\)◯]|$)/);
+    if (m) {
+      const name = m[1].replace(/\s/g,'').trim();
+      // 보수, 합계 등 잘못된 값 제외
+      if (!['보수합계','보수','합계','회'].includes(name) && name.length >= 2 && name.length <= 4) {
+        r.lawyer = name;
+        break;
+      }
+    }
+  }
 
   // 착수금/합계 금액
-  const amtM = text.match(/착\s*수\s*금\s+([\d,\s]+)/) ||
-               text.match(/합\s*계\s+([\d,\s]+)/);
-  if (amtM) r.amount = (amtM[1]||'').replace(/[\s,]/g,'').trim();
+  for (const line of lines) {
+    const m = line.match(/착\s*수\s*금\s+([\d,\s]+)/) ||
+              line.match(/합\s*계\s+([\d,\s]+)/);
+    if (m) {
+      r.amount = m[1].replace(/[\s,]/g,'').trim();
+      if (r.amount && parseInt(r.amount) > 0) break;
+    }
+  }
 
   // 입금 계좌번호
-  const acctM = text.match(/입금\s*계좌번호\s+([^\n\r]+)/) ||
-                text.match(/계좌번호\s+([^\n\r]+)/);
-  if (acctM) r.account = (acctM[1]||'').trim();
+  for (const line of lines) {
+    const m = line.match(/계\s*좌\s*번\s*호\s+(.+)/) ||
+              line.match(/(신한|국민|기업|농협|우리|하나|SC|씨티)\s+[\d\-]+.*/);
+    if (m) {
+      r.account = (m[1]||m[0]).trim();
+      break;
+    }
+  }
 
   // 법원명
-  const courtM = text.match(/법\s*원\s*명\s+([^\n\r\t\s]+)/);
-  if (courtM) r.lawCourt = (courtM[1]||'').trim();
-
-  // 사건번호
-  const caseNumM = text.match(/사\s*건\s*번\s*호\s+([^\n\r]+)/);
-  if (caseNumM) r.caseNumber = (caseNumM[1]||'').trim();
-
-  // 법무법인 (계좌번호에서 추출)
-  if (r.account) {
-    const firmM = r.account.match(/법무법인\s*\S+|법률사무소\s*\S+/);
-    if (firmM) r.firm = firmM[0];
+  for (const line of lines) {
+    const m = line.match(/법\s*원\s*명\s+([^\s]+)/);
+    if (m) { r.lawCourt = m[1].trim(); break; }
   }
 
   return r;
