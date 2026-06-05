@@ -1908,187 +1908,305 @@ async function getServiceAccountToken(keyData) {
 
 
 
-// ── 일괄 엑셀 다운로드 (원본 양식 구조) ──
+// ══════════════════════════════════════════════════════
+// 엑셀 일괄저장
+// 원본 양식(전세피해자-지출결의서.xlsx, 지출목록리스트정리.xlsx) 구조와 1:1 일치
+// ── 지출결의서 시트 구조 (18열 A~R) ──
+//   행1  : 타이틀 (B열)
+//   행2  : 빈
+//   행3  : 사업명(A열) + 결재란(K=결재, L=담당, N=사무총장, P=재무이사)
+//   행4  : 빈
+//   행5  : 빈
+//   행6  : 작성일자 (A, C=연, E=년, F=월번호, G=월, H=일번호, J=일, K=처리사항, N=구분, P=결제방식)
+//   행7  : 결재일자 (A, C=연, E=년, F=월번호, G=월, H=__, J=일, N=영수증, P=계좌이체)
+//   행8  : 합계 (A=합계값, K=합계값, R=합계값)
+//   행9  : 빈 (헤더 위 여백)
+//   행10 : 헤더 (A=순번, B=계정과목, E=적요, M=금액, P=비고)
+//   행11~30: 데이터 20건 (A=순번, B=계정과목, E=적요, M=금액, P=비고)
+//   행31 : 계 (A=계, M=합계값)
+// ── 지출목록 시트 구조 (21열 A~U) ──
+//   행2  : H열 = 타이틀
+//   행3  : U열 = 최종수정일
+//   행4  : U열 = 합계
+//   행5  : 헤더 (B=결의서, C=변호사, D=접수번호, E=호, F=접수번호합, G=재단, H=신청인, I=구조날짜, J=사건, K=금액, L=출금표시, M=입금표시, N=예금주, O=은행, P=은행번호, Q=계좌, R=비고, T=메일)
+//   행6~ : 데이터
+// ══════════════════════════════════════════════════════
 function downloadBatchExcel() {
   const cases = [...BIZ[curBiz].cases, ...resolList[curBiz]];
   if (!cases.length) { showToast('등록된 사건이 없습니다'); return; }
 
-  const b = BIZ[curBiz];
+  const b     = BIZ[curBiz];
   const today = new Date();
-  const yy = today.getFullYear();
-  const mm = today.getMonth() + 1;
-  const dd = today.getDate();
+  const yy    = today.getFullYear();
+  const mm    = today.getMonth() + 1;
+  const dd    = today.getDate();
   const wb_new = XLSX.utils.book_new();
 
-  // ── 지출결의서 시트 생성 함수 (20건 1페이지) ──
-  function makeResolSheet(caseSlice, pageTotal, bizTitle) {
-    // 원본 양식 행 구조 (A~Q, 17열)
-    // 행1: 타이틀 (B1)
-    // 행2: 빈행
-    // 행3: 사업명(A3) + 결재란(K3~Q3)
-    // 행4: 빈행(결재란 아래칸)
-    // 행5: 빈행
-    // 행6: 작성일자
-    // 행7: 결재일자
-    // 행8: 합계행 (A8=합계, K8=합계)
-    // 행9: 빈행(헤더 위)
-    // 행10: 헤더 (순번/계정과목/적요/금액/비고)
-    // 행11~30: 데이터 (20건)
-    // 행31: 계
+  // ── 헬퍼: 18칸 빈 배열 ──
+  const E = () => Array(18).fill('');
 
-    const R = []; // 17열 기준
-    const _ = '';
-    // 행1: 타이틀
-    R.push([_,'지   출   결   의   서 ',_,_,_,_,_,_,_,_,_,_,_,_,_,_,_]);
+  // ── 지출결의서 1페이지(20건) 행 배열 생성 ──
+  function makeResolRows(slice, pageTotal, bizTitle) {
+    const rows = [];
+
+    // 행1: 타이틀 — B열(idx 1)
+    const r1 = E(); r1[1] = '지   출   결   의   서 ';
+    rows.push(r1);
+
     // 행2: 빈
-    R.push([_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_]);
-    // 행3: 사업명 + 결재란
-    R.push([bizTitle,_,_,_,_,_,_,_,_,_,'결\n\n재','담당',_,'사무총장',_,'재무이사',_]);
-    // 행4: 결재란 아래칸 (빈)
-    R.push([_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_]);
+    rows.push(E());
+
+    // 행3: 사업명(A=idx0) + 결재란(K=idx10, L=idx11, N=idx13, P=idx15)
+    const r3 = E();
+    r3[0]  = bizTitle;
+    r3[10] = '결\n\n재';
+    r3[11] = '담당';
+    r3[13] = '사무총장';
+    r3[15] = '재무이사';
+    rows.push(r3);
+
+    // 행4: 빈
+    rows.push(E());
+
     // 행5: 빈
-    R.push([_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_]);
-    // 행6: 작성일자 (A,C,E,F,G,H,J,K,N,P)
-    R.push(['작성일자',_,yy,_,'년',mm,'월',dd,_,'일','처리사항',_,_,'구분',_,'결제방식',_]);
+    rows.push(E());
+
+    // 행6: 작성일자
+    const r6 = E();
+    r6[0]  = '작성일자';
+    r6[2]  = yy;       // C열: 연도
+    r6[4]  = '년';     // E열
+    r6[5]  = mm;       // F열: 월 숫자
+    r6[6]  = '월';     // G열
+    r6[7]  = dd;       // H열: 일 숫자
+    r6[9]  = '일';     // J열
+    r6[10] = '처리사항'; // K열
+    r6[13] = '구분';   // N열
+    r6[15] = '결제방식'; // P열
+    rows.push(r6);
+
     // 행7: 결재일자
-    R.push(['결재일자',_,yy,_,'년',mm,'월','__',_,'일',_,_,_,'영수증',_,'계좌이체',_]);
-    // 행8: 합계 (A8=합계값, K8=합계값)
-    R.push([pageTotal,_,_,_,_,_,_,_,_,_,pageTotal,_,_,_,_,_,pageTotal]);
-    // 행9: 헤더 위 빈행
-    R.push([_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_]);
+    const r7 = E();
+    r7[0]  = '결재일자';
+    r7[2]  = yy;
+    r7[4]  = '년';
+    r7[5]  = mm;
+    r7[6]  = '월';
+    r7[7]  = '__';
+    r7[9]  = '일';
+    r7[13] = '영수증';
+    r7[15] = '계좌이체';
+    rows.push(r7);
+
+    // 행8: 합계 — A(idx0), K(idx10), R(idx17)
+    const r8 = E();
+    r8[0]  = pageTotal;
+    r8[10] = pageTotal;
+    r8[17] = pageTotal;
+    rows.push(r8);
+
+    // 행9: 빈 (헤더 위 여백)
+    rows.push(E());
+
     // 행10: 헤더
-    R.push(['순번','계 정 과 목',_,_,'적         요',_,_,_,_,_,_,_,'금       액',_,_,'비 고',_]);
-    // 행11~30: 데이터
+    const r10 = E();
+    r10[0]  = '순번';
+    r10[1]  = '계 정 과 목';
+    r10[4]  = '적         요';
+    r10[12] = '금       액';
+    r10[15] = '비 고';
+    rows.push(r10);
+
+    // 행11~30: 데이터 20건 (건수 미만은 순번만)
     for (let i = 0; i < 20; i++) {
-      if (i < caseSlice.length) {
-        const c = caseSlice[i];
-        const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
-        const accType = c.acctType || '법률구조사업비\n전세피해자사업비';
-        const num = (c.num||'').replace(/^(국부|서금)\s*/,'');
-        const desc = `${c.lawyer} 弁 ${num}호 ${c.client} ${c.case||c.caseName||''}`;
-        const note = c.note || c.type || '';
-        R.push([i+1, accType,_,_, desc,_,_,_,_,_,_,_, amt,_,_, note,_]);
-      } else {
-        R.push([i+1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_]);
+      const r = E();
+      r[0] = i + 1; // A열: 순번
+      if (i < slice.length) {
+        const c   = slice[i];
+        const amt = (c.fee||0) + (c.stamp||0) + (c.delivery||0);
+        const num = (c.num||'').replace(/^(국부|서금)\s*/, '');
+        r[1]  = '법률구조사업비\n전세피해자사업비'; // B열: 계정과목
+        r[4]  = `${c.lawyer} 弁 ${num}호 ${c.client} ${c.case||c.caseName||''}`; // E열: 적요
+        r[12] = amt;                               // M열: 금액
+        r[15] = c.note || c.type || '';            // P열: 비고
       }
+      rows.push(r);
     }
-    // 행31: 계
-    R.push(['계',_,_,_,_,_,_,_,_,_,_,_, pageTotal,_,_,_,_]);
-    return R;
+
+    // 행31: 계 — A(idx0)='계', M(idx12)=합계
+    const r31 = E();
+    r31[0]  = '계';
+    r31[12] = pageTotal;
+    rows.push(r31);
+
+    return rows;
   }
 
-  const total = cases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0);
-  const bizTitle = b.short === '국토부' ? '2026년 소송구조(국토부) / 전세피해자' : '2026년 소송구조 / 전세피해자';
+  // ── 지출결의서 시트 생성 (20건 초과 시 자동 분할) ──
+  const bizTitle  = b.short === '국토부'
+    ? '2026년 소송구조(국토부) / 전세피해자'
+    : '2026년 소송구조 / 전세피해자';
+  const total     = cases.reduce((s,c) => s+(c.fee||0)+(c.stamp||0)+(c.delivery||0), 0);
+  const resolRows = [];
 
-  // 20건씩 페이지 분할
-  const resol_data = [];
   for (let p = 0; p < Math.ceil(cases.length / 20); p++) {
-    const slice = cases.slice(p*20, p*20+20);
-    const pageTotal = slice.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0);
-    const pageRows = makeResolSheet(slice, pageTotal, bizTitle);
-    if (p > 0) resol_data.push(Array(17).fill('')); // 페이지 사이 빈행
-    pageRows.forEach(r => resol_data.push(r));
+    const slice     = cases.slice(p*20, p*20+20);
+    const pageTotal = slice.reduce((s,c) => s+(c.fee||0)+(c.stamp||0)+(c.delivery||0), 0);
+    if (p > 0) resolRows.push(E()); // 페이지 사이 빈행
+    makeResolRows(slice, pageTotal, bizTitle).forEach(r => resolRows.push(r));
   }
 
-  const ws_resol = XLSX.utils.aoa_to_sheet(resol_data);
-  // 원본 양식 열너비: A(4) B(11) C(3) D(3) E(3) F(3) G(3) H(3) I(3) J(3) K(5) L(4) M(9) N(5) O(5) P(7) Q(3)
+  const ws_resol = XLSX.utils.aoa_to_sheet(resolRows);
+  // 원본 열너비 그대로 (A~R, 18열)
   ws_resol['!cols'] = [
-    {wch:4},{wch:11},{wch:3},{wch:3},{wch:30},{wch:3},{wch:3},{wch:3},{wch:3},{wch:3},{wch:5},{wch:4},{wch:12},{wch:5},{wch:5},{wch:14},{wch:3}
+    {wch:4.1},  // A: 순번
+    {wch:11.0}, // B: 계정과목
+    {wch:5.2},  // C: 연도
+    {wch:8.9},  // D: (병합용 빈칸)
+    {wch:4.9},  // E: 적요 시작
+    {wch:8.9},  // F: 적요
+    {wch:8.9},  // G: 적요
+    {wch:8.9},  // H: 적요
+    {wch:8.9},  // I: 적요
+    {wch:8.9},  // J: 적요
+    {wch:8.9},  // K: 결재/처리사항
+    {wch:4.2},  // L: 담당
+    {wch:8.9},  // M: 금액
+    {wch:8.9},  // N: 사무총장/구분
+    {wch:8.9},  // O: 금액(병합)
+    {wch:5.3},  // P: 비고/재무이사
+    {wch:8.9},  // Q: 비고(병합)
+    {wch:22.7}, // R: 합계(숨김용)
   ];
-  const sheetName = b.short === '국토부' ? `26년사업비-국토부 (${mm}월)` : `26년사업비-서민 (${mm}월)`;
+  const sheetName = b.short === '국토부'
+    ? `26년사업비-국토부 (${mm}월)`
+    : `26년사업비-서민 (${mm}월)`;
   XLSX.utils.book_append_sheet(wb_new, ws_resol, sheetName);
 
-  // ── 시트2: 지출목록 ──
-  // 원본 구조: A~U (21열)
-  // 행1: 빈
-  // 행2: H2=타이틀
-  // 행3: U3=최종수정일
-  // 행4: U4=합계(수식)
-  // 행5: 헤더 (B~U)
-  // 행6~: 데이터
+  // ── 지출목록 시트 생성 ──
+  // 헬퍼: 21칸 빈 배열
+  const L = () => Array(21).fill('');
 
   const listTitle = b.short === '국토부'
     ? `(국토부) 전세피해자 소송구조 ${yy}년 ${mm}월 사업비 지출 목록`
     : `전세피해자 소송구조 ${yy}년 ${mm}월 사업비 지출 목록`;
 
-  const list_data = [];
+  const listRows = [];
+
   // 행1: 빈
-  list_data.push(Array(21).fill(''));
-  // 행2: H열(idx7)에 타이틀
-  const r2 = Array(21).fill('');
-  r2[7] = listTitle;
-  list_data.push(r2);
-  // 행3: U열(idx20)에 최종수정
-  const r3 = Array(21).fill('');
-  r3[20] = `최종 수정: ${yy}. ${String(mm).padStart(2,'0')}.`;
-  list_data.push(r3);
-  // 행4: U열(idx20)에 합계 — 데이터 행 범위는 6행부터
-  const r4 = Array(21).fill('');
-  r4[20] = total; // 합계값 직접 입력 (수식 대신)
-  list_data.push(r4);
-  // 행5: 헤더 (B~U, idx1~20)
-  // B=결의서, C=변호사, D=접수번호(연), E=접수번호(호), F=접수번호합, G=재단, H=신청인, I=구조날짜, J=사건, K=금액, L=출금표시, M=입금표시, N=예금주, O=은행, P=은행번호, Q=계좌, R=비고, S=빈, T=메일, U=빈
-  list_data.push(['','결의서','변호사','접수번호','','','','신청인','구조날짜','사건','금액','','','예금주','은행','은행번호','계좌','비고','','메일','               ']);
+  listRows.push(L());
+
+  // 행2: 타이틀 — H열(idx 7)
+  const l2 = L(); l2[7] = listTitle;
+  listRows.push(l2);
+
+  // 행3: 최종수정일 — U열(idx 20)
+  const l3 = L(); l3[20] = `최종 수정: ${yy}. ${String(mm).padStart(2,'0')}.`;
+  listRows.push(l3);
+
+  // 행4: 합계 — U열(idx 20)
+  const l4 = L(); l4[20] = total;
+  listRows.push(l4);
+
+  // 행5: 헤더
+  const l5 = L();
+  l5[1]  = '결의서';    // B
+  l5[2]  = '변호사';    // C
+  l5[3]  = '접수번호';  // D
+  // E(4): 호 (D와 병합 헤더)
+  // F(5): 접수번호합
+  // G(6): 재단
+  l5[7]  = '신청인';    // H
+  l5[8]  = '구조날짜';  // I
+  l5[9]  = '사건';      // J
+  l5[10] = '금액';      // K
+  // L(11), M(12): 출금/입금 표시
+  l5[13] = '예금주';    // N
+  l5[14] = '은행';      // O
+  l5[15] = '은행번호';  // P
+  l5[16] = '계좌';      // Q
+  l5[17] = '비고';      // R
+  l5[19] = '메일';      // T
+  l5[20] = '               '; // U
+  listRows.push(l5);
 
   // 행6~: 데이터
-  const dataStartRow = 6; // 엑셀 기준 6행
   cases.forEach((c, i) => {
-    const excelRow = dataStartRow + i;
-    const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
-    const num = (c.num||'').replace(/^(국부|서금)\s*/,'');
-    const numParts = num.split('-');
-    const yr = numParts[0] ? parseInt(numParts[0]) : '';
-    const seq = numParts[1] ? parseInt(numParts[1]) : '';
-    const lawyerInfo = BIZ[curBiz].lawyers ? (BIZ[curBiz].lawyers.find(l=>l.name===c.lawyer)||{}) : {};
+    const r   = L();
+    const amt = (c.fee||0) + (c.stamp||0) + (c.delivery||0);
+    const num = (c.num||'').replace(/^(국부|서금)\s*/, '');
+
+    // 접수번호 연-호 분리 (예: "26-110" → 연=26, 호=110)
+    const parts = num.split('-');
+    const yr    = parts[0] ? parseInt(parts[0]) : '';
+    const seq   = parts[1] ? parseInt(parts[1]) : '';
+
+    // 변호사 계좌 정보 조회
+    const lInfo = (BIZ[curBiz].lawyers || []).find(l => l.name === c.lawyer) || {};
+
     // 구조날짜: 등록된 날짜 우선, 없으면 오늘
     const cDate = c.date ? new Date(c.date) : today;
 
-    list_data.push([
-      '',                          // A: 빈
-      i+1,                         // B: 결의서 순번
-      c.lawyer||'',                // C: 변호사
-      yr,                          // D: 접수번호 연
-      seq,                         // E: 접수번호 호
-      num||'',                     // F: 접수번호 합 (D-E)
-      '재단',                      // G: 재단
-      c.client||'',                // H: 신청인
-      cDate,                       // I: 구조날짜 (날짜 객체)
-      c.case||c.caseName||'',      // J: 사건
-      amt,                         // K: 금액
-      `${num}${c.client||''}`,     // L: 출금통장표시(접수번호+신청인)
-      `재단${c.client||''}`,       // M: 입금통장표시
-      lawyerInfo.owner||lawyerInfo.firm||c.holder||'',  // N: 예금주
-      lawyerInfo.bank||c.bank||'',                      // O: 은행
-      lawyerInfo.bankCode||c.bankCode||'',              // P: 은행번호
-      lawyerInfo.acct||c.account||'',                   // Q: 계좌
-      c.note||c.type||'',          // R: 비고
-      '',                          // S: 빈
-      lawyerInfo.email||c.email||'', // T: 메일
-      ''                           // U: 빈
-    ]);
+    r[0]  = '';                                   // A: 빈
+    r[1]  = i + 1;                                // B: 결의서 순번
+    r[2]  = c.lawyer || '';                       // C: 변호사
+    r[3]  = yr;                                   // D: 접수번호 연
+    r[4]  = seq;                                  // E: 접수번호 호
+    r[5]  = num;                                  // F: 접수번호 합(연-호)
+    r[6]  = '재단';                               // G
+    r[7]  = c.client || '';                       // H: 신청인
+    r[8]  = cDate;                                // I: 구조날짜
+    r[9]  = c.case || c.caseName || '';           // J: 사건
+    r[10] = amt;                                  // K: 금액
+    r[11] = `${num}${c.client||''}`;              // L: 출금통장표시
+    r[12] = `재단${c.client||''}`;                // M: 입금통장표시
+    r[13] = lInfo.owner || lInfo.firm || c.holder || ''; // N: 예금주
+    r[14] = lInfo.bank  || c.bank  || '';         // O: 은행
+    r[15] = lInfo.bankCode || c.bankCode || '';   // P: 은행번호
+    r[16] = lInfo.acct  || c.account || '';       // Q: 계좌
+    r[17] = c.note || c.type || '';               // R: 비고
+    r[18] = '';                                   // S: 빈
+    r[19] = lInfo.email || c.email || '';         // T: 메일
+    r[20] = '';                                   // U: 빈
+    listRows.push(r);
   });
 
-  // 합계행
-  const sumRow = Array(21).fill('');
-  sumRow[10] = total; // K열 합계
-  list_data.push(sumRow);
+  // 합계행: K열(idx 10)
+  const lSum = L(); lSum[10] = total;
+  listRows.push(lSum);
 
-  const ws_list = XLSX.utils.aoa_to_sheet(list_data);
-  // 날짜 형식 지정
-  const dateFormat = 'YYYY.MM.DD';
-  for (let i = 0; i < cases.length; i++) {
-    const cellAddr = XLSX.utils.encode_cell({r: 5+i, c: 8}); // I열 (0-indexed: 8)
-    if (ws_list[cellAddr]) ws_list[cellAddr].t = 'd';
-  }
-  // 원본 열너비: A(2) B(6) C(8) D(4) E(6) F(10) G(4) H(8) I(10) J(20) K(10) L(14) M(14) N(20) O(6) P(8) Q(16) R(16) S(2) T(24) U(16)
+  const ws_list = XLSX.utils.aoa_to_sheet(listRows);
+  // 원본 열너비 그대로 (A~U, 21열)
   ws_list['!cols'] = [
-    {wch:2},{wch:6},{wch:8},{wch:4},{wch:6},{wch:10},{wch:4},{wch:8},{wch:10},{wch:20},{wch:10},{wch:14},{wch:14},{wch:20},{wch:6},{wch:8},{wch:16},{wch:16},{wch:2},{wch:24},{wch:16}
+    {wch:5.3},  // A
+    {wch:6.3},  // B: 결의서
+    {wch:15.4}, // C: 변호사
+    {wch:6.4},  // D: 접수번호 연
+    {wch:9.0},  // E: 접수번호 호
+    {wch:11.5}, // F: 접수번호 합
+    {wch:9.0},  // G: 재단
+    {wch:13.9}, // H: 신청인
+    {wch:17.1}, // I: 구조날짜
+    {wch:31.4}, // J: 사건
+    {wch:13.5}, // K: 금액
+    {wch:20.4}, // L: 출금표시
+    {wch:8.9},  // M: 입금표시
+    {wch:30.5}, // N: 예금주
+    {wch:13.1}, // O: 은행
+    {wch:8.9},  // P: 은행번호
+    {wch:19.0}, // Q: 계좌
+    {wch:8.9},  // R: 비고
+    {wch:8.9},  // S: 빈
+    {wch:37.8}, // T: 메일
+    {wch:29.9}, // U
   ];
-  XLSX.utils.book_append_sheet(wb_new, ws_list, `26년 ${mm}월(${b.short})`);
+  const listSheetName = `26년 ${mm}월(${b.short})`;
+  XLSX.utils.book_append_sheet(wb_new, ws_list, listSheetName);
 
+  // ── 파일명 형식: 전세피해자_국토부_2026년6월_지출결의서.xlsx ──
   const fname = `전세피해자_${b.short}_${yy}년${mm}월_지출결의서.xlsx`;
   XLSX.writeFile(wb_new, fname);
-  showToast(`엑셀 저장 완료: ${fname}`);
+  showToast(`저장 완료: ${fname}`);
 }
 
 </script>
