@@ -1662,6 +1662,144 @@ async function getServiceAccountToken(keyData) {
 }
 
 
+
+// ── 일괄 엑셀 다운로드 (원본 양식 구조) ──
+function downloadBatchExcel() {
+  const cases = [...BIZ[curBiz].cases, ...resolList[curBiz]];
+  if (!cases.length) { showToast('등록된 사건이 없습니다'); return; }
+
+  const b = BIZ[curBiz];
+  const today = new Date();
+  const yy = today.getFullYear();
+  const mm = today.getMonth() + 1;
+  const dd = today.getDate();
+  const wb_new = XLSX.utils.book_new();
+
+  // ── 시트1: 지출결의서 ──
+  // 원본 양식과 동일한 구조
+  const resol_data = [];
+
+  // 타이틀
+  resol_data.push(['', '지   출   결   의   서 ', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+  resol_data.push([]);
+  // 사업명 + 결재란
+  resol_data.push([
+    b.short === '국토부' ? '2026년 소송구조(국토부) / 전세피해자' : '2026년 소송구조 / 전세피해자',
+    '','','','','','','','','',
+    '결
+
+재', '담당', '', '사무총장', '', '재무이사', ''
+  ]);
+  resol_data.push(['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+  resol_data.push([]);
+  // 작성일자
+  resol_data.push(['작성일자', '', yy, '', '년', mm, '월', dd, '', '일', '처리사항', '', '', '구분', '', '결제방식', '']);
+  // 결재일자
+  resol_data.push(['결재일자', '', yy, '', '년', mm, '월', '__', '', '일', '', '', '', '영수증', '', '계좌이체', '']);
+  // 합계행
+  const total = cases.reduce((s, c) => s + (c.fee||0) + (c.stamp||0) + (c.delivery||0), 0);
+  resol_data.push([total, '', '', '', '', '', '', '', '', '', total, '', '', '', '', '', total]);
+  resol_data.push([]);
+  // 헤더
+  resol_data.push(['순번', '계 정 과 목', '', '', '적         요', '', '', '', '', '', '', '', '금       액', '', '', '비 고', '']);
+
+  // 데이터 (20건씩)
+  const page1 = cases.slice(0, 20);
+  page1.forEach((c, i) => {
+    const amt = (c.fee||0) + (c.stamp||0) + (c.delivery||0);
+    const accType = c.acctType || '법률구조사업비
+전세피해자사업비';
+    const num = (c.num||'').replace(/^(국부|서금)\s*/,'');
+    const desc = `${c.lawyer} 弁 ${num}호 ${c.client} ${c.case||c.caseName||''}`;
+    resol_data.push([i+1, accType, '', '', desc, '', '', '', '', '', '', '', amt, '', '', c.note||c.type||'', '']);
+  });
+  // 빈행 채우기 (20건 미만이면)
+  for (let i = page1.length; i < 20; i++) {
+    resol_data.push([i+1, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+  }
+  // 합계
+  resol_data.push(['계', '', '', '', '', '', '', '', '', '', '', '', total, '', '', '', '']);
+
+  // 2페이지 (21건 이상)
+  if (cases.length > 20) {
+    resol_data.push([]);
+    resol_data.push(['', '지   출   결   의   서 ', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+    resol_data.push([]);
+    const total2 = cases.slice(20).reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0);
+    resol_data.push([b.short === '국토부' ? '2026년 소송구조(국토부) / 전세피해자' : '2026년 소송구조 / 전세피해자',
+      '','','','','','','','','','결
+
+재','담당','','사무총장','','재무이사','']);
+    resol_data.push([]);
+    resol_data.push(['작성일자','',yy,'','년',mm,'월',dd,'','일','처리사항','','','구분','','결제방식','']);
+    resol_data.push(['결재일자','',yy,'','년',mm,'월','__','','일','','','','영수증','','계좌이체','']);
+    resol_data.push([total2,'','','','','','','','','',total2,'','','','','',total2]);
+    resol_data.push([]);
+    resol_data.push(['순번','계 정 과 목','','','적         요','','','','','','','','금       액','','','비 고','']);
+    const page2 = cases.slice(20);
+    page2.forEach((c, i) => {
+      const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+      const num = (c.num||'').replace(/^(국부|서금)\s*/,'');
+      const desc = `${c.lawyer} 弁 ${num}호 ${c.client} ${c.case||c.caseName||''}`;
+      resol_data.push([21+i,'법률구조사업비
+전세피해자사업비','','',desc,'','','','','','','',amt,'','',c.note||c.type||'','']);
+    });
+    for (let i = page2.length; i < 20; i++) resol_data.push([21+i,'','','','','','','','','','','','','','','','']);
+    resol_data.push(['계','','','','','','','','','','','',total2,'','','','']);
+  }
+
+  const ws_resol = XLSX.utils.aoa_to_sheet(resol_data);
+  ws_resol['!cols'] = [
+    {wch:4},{wch:4},{wch:5},{wch:13},{wch:5},{wch:13},{wch:13},{wch:13},{wch:13},{wch:13},{wch:13},{wch:4},{wch:13},{wch:13},{wch:13},{wch:5},{wch:13}
+  ];
+  const sheetName = b.short === '국토부' ? `26년사업비-국토부 (${mm}월)` : `26년사업비-서민 (${mm}월)`;
+  XLSX.utils.book_append_sheet(wb_new, ws_resol, sheetName);
+
+  // ── 시트2: 지출목록 ──
+  const list_data = [
+    ['', '', '', '', '', '', b.short === '국토부' ? `(국토부) 전세피해자 소송구조 26년 ${mm}월 사업비 지출 목록` : `전세피해자 소송구조 26년 ${mm}월 사업비 지출 목록`],
+    [],
+    ['', '결의서', '변호사', '접수번호', '', '', '', '신청인', '구조날짜', '사건', '금액', '', '', '예금주', '은행', '은행번호', '계좌', '비고', '', '메일'],
+  ];
+
+  cases.forEach((c, i) => {
+    const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+    const num = (c.num||'').replace(/^(국부|서금)\s*/,'');
+    const numParts = num.split('-');
+    const yr = numParts[0]||'';
+    const seq = numParts[1]||'';
+    // 변호사 계좌 정보 찾기
+    const lawyerInfo = BIZ[curBiz].lawyers.find(l => l.name === c.lawyer) || {};
+    list_data.push([
+      '', i+1, c.lawyer,
+      yr, seq, c.num||'', '재단',
+      c.client,
+      new Date().toLocaleDateString('ko-KR').replace(/\.\s*/g,'.').slice(0,-1),
+      c.case||c.caseName||'',
+      amt, `${c.num||''}${c.client}`, `재단${c.client}`,
+      lawyerInfo.owner||lawyerInfo.firm||'',
+      lawyerInfo.bank||'',
+      lawyerInfo.bankCode||'',
+      lawyerInfo.acct||c.account||'',
+      c.note||c.type||'',
+      '', lawyerInfo.email||''
+    ]);
+  });
+
+  list_data.push([]);
+  list_data.push(['', '', '', '', '', '', '', '', '', '', cases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0)]);
+
+  const ws_list = XLSX.utils.aoa_to_sheet(list_data);
+  ws_list['!cols'] = [
+    {wch:2},{wch:6},{wch:8},{wch:4},{wch:6},{wch:10},{wch:4},{wch:8},{wch:10},{wch:20},{wch:10},{wch:14},{wch:14},{wch:20},{wch:6},{wch:8},{wch:16},{wch:16},{wch:2},{wch:24}
+  ];
+  XLSX.utils.book_append_sheet(wb_new, ws_list, `26년 ${mm}월(${b.short})`);
+
+  const fname = `전세피해자_${b.short}_${yy}년${mm}월_지출결의서.xlsx`;
+  XLSX.writeFile(wb_new, fname);
+  showToast(`엑셀 저장 완료: ${fname}`);
+}
+
 </script>
 
 
