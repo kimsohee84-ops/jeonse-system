@@ -86,31 +86,44 @@ function parseDoc(text) {
   }
 
   // 의뢰자 + 상대방
+  // "의 뢰 자" 행 다음 줄: "강 은 지          서 광" 형태
+  // 또는 각각 따로 있는 경우
   for (let i = 0; i < lines.length; i++) {
     if (/의\s*뢰\s*자/.test(lines[i])) {
-      for (let j = i+1; j < Math.min(i+4, lines.length); j++) {
-        const m = lines[j].match(/^([가-힣\s]{2,8}?)\s{3,}([가-힣\s]{1,10})$/);
-        if (m) {
-          r.client = m[1].replace(/\s/g,'').trim();
-          r.opponent = m[2].replace(/\s/g,'').trim();
-          break;
+      for (let j = i+1; j < Math.min(i+5, lines.length); j++) {
+        const line = lines[j];
+        // 두 이름이 공백으로 구분된 경우 "강 은 지     서 광"
+        // 먼저 긴 공백(3칸 이상)으로 나누기 시도
+        const parts = line.split(/\s{2,}/);
+        if (parts.length >= 2) {
+          const c = parts[0].replace(/\s/g,'').trim();
+          const o = parts[parts.length-1].replace(/\s/g,'').trim();
+          if (c && /^[가-힣]{2,6}$/.test(c)) {
+            r.client = c;
+            if (o && /^[가-힣]{1,8}$/.test(o) && o !== c) r.opponent = o;
+            break;
+          }
         }
-        const single = lines[j].match(/^([가-힣\s]{2,10})$/);
-        if (single && !r.client) {
-          r.client = single[1].replace(/\s/g,'').trim();
+        // 이름 하나만 있는 경우
+        const single = line.replace(/\s+/g,'');
+        if (/^[가-힣]{2,6}$/.test(single) && !r.client) {
+          r.client = single;
         }
       }
       break;
     }
   }
 
-  // 상대방 별도 처리
+  // 상대방 별도 처리 (위에서 못 잡은 경우)
   if (!r.opponent) {
     for (let i = 0; i < lines.length; i++) {
       if (/상\s*대\s*방/.test(lines[i])) {
         for (let j = i+1; j < Math.min(i+4, lines.length); j++) {
-          const m = lines[j].match(/([가-힣\s]{1,10})\s*$/);
-          if (m) { r.opponent = m[1].replace(/\s/g,'').trim(); break; }
+          const s = lines[j].replace(/\s/g,'').trim();
+          if (/^[가-힣]{1,8}$/.test(s)) {
+            r.opponent = s;
+            break;
+          }
         }
         break;
       }
