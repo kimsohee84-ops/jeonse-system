@@ -50,13 +50,34 @@ function parseDoc(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
   // 재단 접수번호: "국부 26-110" 또는 "서금 26-110"
+  // OCR이 국부를 다양하게 읽을 수 있어서 숫자 패턴으로도 잡음
   for (const line of lines) {
-    const m = line.match(/(국\s*부|서\s*금)\s*(\d{2}\s*-\s*\d+)/);
-    if (m) {
-      const prefix = m[1].replace(/\s/g,'') === '국부' ? '국부' : '서금';
-      r.accNum = prefix + ' ' + m[2].replace(/\s/g,'');
+    // 국부/서금 + 숫자
+    const m1 = line.match(/(국\s*부|서\s*금)\s*(\d{2}\s*-\s*\d+)/);
+    if (m1) {
+      const prefix = m1[1].replace(/\s/g,'') === '국부' ? '국부' : '서금';
+      r.accNum = prefix + ' ' + m1[2].replace(/\s/g,'');
       break;
     }
+    // 재단 접수번호 라인에서 숫자만 추출
+    if (/재단\s*접수번호/.test(line)) {
+      const m2 = line.match(/(\d{2}\s*-\s*\d+)/);
+      if (m2) {
+        r.accNum = m2[1].replace(/\s/g,'');
+        break;
+      }
+    }
+    // 26- 로 시작하는 숫자 패턴 (재단접수번호 행 근처)
+    const m3 = line.match(/(2[0-9]\s*-\s*\d+)/);
+    if (m3 && /접수|국부|서금/.test(line)) {
+      r.accNum = m3[1].replace(/\s/g,'');
+      break;
+    }
+  }
+  // 못 잡은 경우 전체 텍스트에서 26-숫자 패턴 찾기
+  if (!r.accNum) {
+    const m = text.match(/재단\s*접수번호[^\d]*(2[0-9]\s*-\s*\d+)/);
+    if (m) r.accNum = m[1].replace(/\s/g,'');
   }
 
   // 사건명: "사건명" 다음 내용, "사건번호" 앞까지
@@ -144,6 +165,20 @@ function parseDoc(text) {
   for (const line of lines) {
     const m = line.match(/법\s*원\s*명\s+([^\s]+)/);
     if (m) { r.lawCourt = m[1].trim(); break; }
+  }
+
+  // 법무법인/사무소 - 계좌번호에서 추출 또는 별도 라인
+  for (const line of lines) {
+    const m = line.match(/(법무법인\s*\S+|법률사무소\s*\S+|법률사무\s*소\s*\S+)/);
+    if (m) {
+      r.firm = m[1].replace(/\s+/g,' ').trim();
+      break;
+    }
+  }
+  // 계좌번호 라인에서 법무법인 추출
+  if (!r.firm && r.account) {
+    const m = r.account.match(/(법무법인\s*\S+|법률사무소\s*\S+)/);
+    if (m) r.firm = m[1].replace(/\s+/g,' ').trim();
   }
 
   return r;
