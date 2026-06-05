@@ -417,11 +417,11 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
               <label>재단 접수번호</label>
               <input class="form-input" id="f-num" placeholder="예: 26-110">
             </div>
-            <div class="field">
+            <div class="field" style="position:relative">
               <label>담당 변호사</label>
-              <select class="form-select" id="f-lawyer" onchange="fillAccount()">
-                <option value="">-- 선택 --</option>
-              </select>
+              <input class="form-input" id="f-lawyer" placeholder="변호사 이름 입력" autocomplete="off"
+                oninput="lawyerAutocomplete(this.value)" onblur="setTimeout(()=>document.getElementById('lawyer-suggestions').style.display='none',200)">
+              <div id="lawyer-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);z-index:100;box-shadow:var(--shadow-md);max-height:200px;overflow-y:auto"></div>
             </div>
             <div class="field">
               <label>의뢰인</label>
@@ -1472,6 +1472,14 @@ async function ocrWithGoogleDrive(file, base64Data) {
     const data = await res.json();
     
     if (data.parsed) {
+      // OCR 텍스트 저장 (디버깅용)
+      window._lastOcrText = data.text || '';
+      window._lastParsed = data.parsed || {};
+      console.log('=== OCR 원본 텍스트 ===');
+      console.log(data.text);
+      console.log('=== 파싱 결과 ===');
+      console.log(JSON.stringify(data.parsed, null, 2));
+      
       // 파싱된 결과 자동 입력
       const set = (id, val) => { if(val && document.getElementById(id)) document.getElementById(id).value = val; };
       set('sc-num', data.parsed.accNum);
@@ -1480,9 +1488,14 @@ async function ocrWithGoogleDrive(file, base64Data) {
       set('sc-opponent', data.parsed.opponent);
       set('sc-case', data.parsed.caseName);
       set('sc-acct', data.parsed.account);
+      if(data.parsed.firm && document.getElementById('sc-firm')) {
+        document.getElementById('sc-firm').value = data.parsed.firm;
+      }
       if(data.parsed.amount) {
         document.getElementById('sc-amt').value = parseInt(data.parsed.amount).toLocaleString();
       }
+      console.log('OCR 파싱 결과:', data.parsed);
+      console.log('OCR 원본 텍스트:', data.text);
     }
 
     document.getElementById('sc-date').value = new Date().toISOString().slice(0,10);
