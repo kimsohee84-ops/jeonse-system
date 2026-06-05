@@ -49,34 +49,28 @@ function parseDoc(text) {
   const r = {};
   const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
-  // 재단 접수번호: "국부 26-110" 또는 "서금 26-110"
-  // OCR이 국부를 다양하게 읽을 수 있어서 숫자 패턴으로도 잡음
+  // 재단 접수번호 - 다양한 형태 처리
   for (const line of lines) {
-    // 국부/서금 + 숫자
+    // "국부 26-110" 또는 "서금 26-110"
     const m1 = line.match(/(국\s*부|서\s*금)\s*(\d{2}\s*-\s*\d+)/);
     if (m1) {
       const prefix = m1[1].replace(/\s/g,'') === '국부' ? '국부' : '서금';
       r.accNum = prefix + ' ' + m1[2].replace(/\s/g,'');
       break;
     }
-    // 재단 접수번호 라인에서 숫자만 추출
+    // 재단 접수번호 라인
     if (/재단\s*접수번호/.test(line)) {
       const m2 = line.match(/(\d{2}\s*-\s*\d+)/);
-      if (m2) {
-        r.accNum = m2[1].replace(/\s/g,'');
-        break;
-      }
+      if (m2) { r.accNum = m2[1].replace(/\s/g,''); break; }
     }
-    // 26- 로 시작하는 숫자 패턴 (재단접수번호 행 근처)
-    const m3 = line.match(/(2[0-9]\s*-\s*\d+)/);
-    if (m3 && /접수|국부|서금/.test(line)) {
-      r.accNum = m3[1].replace(/\s/g,'');
-      break;
-    }
+    // "법률구조 전 26-110" 형태 (전자계산서)
+    const m3 = line.match(/법률구조\s*전\s*(\d{2}\s*-\s*\d+)/);
+    if (m3) { r.accNum = m3[1].replace(/\s/g,''); break; }
   }
-  // 못 잡은 경우 전체 텍스트에서 26-숫자 패턴 찾기
+  // 전체 텍스트에서 XX-숫자 패턴 추출
   if (!r.accNum) {
-    const m = text.match(/재단\s*접수번호[^\d]*(2[0-9]\s*-\s*\d+)/);
+    const m = text.match(/재단\s*접수번호[^\d]*(2[0-9]\s*-\s*\d+)/) ||
+              text.match(/법률구조\s*전\s*(2[0-9]\s*-\s*\d+)/);
     if (m) r.accNum = m[1].replace(/\s/g,'');
   }
 
@@ -167,17 +161,23 @@ function parseDoc(text) {
     if (m) { r.lawCourt = m[1].trim(); break; }
   }
 
-  // 법무법인/사무소 - 계좌번호에서 추출 또는 별도 라인
+  // 법무법인/사무소
   for (const line of lines) {
-    const m = line.match(/(법무법인\s*\S+|법률사무소\s*\S+|법률사무\s*소\s*\S+)/);
-    if (m) {
+    // "법무법인 동북아" 형태
+    const m = line.match(/(법무법인\s*[\S가-힣]+|법률사무소\s*[\S가-힣]+)/);
+    if (m && !/(계좌|번호|신한|국민|농협|기업|우리|하나)/.test(m[1])) {
       r.firm = m[1].replace(/\s+/g,' ').trim();
       break;
     }
   }
   // 계좌번호 라인에서 법무법인 추출
   if (!r.firm && r.account) {
-    const m = r.account.match(/(법무법인\s*\S+|법률사무소\s*\S+)/);
+    const m = r.account.match(/(법무법인\s*[\S가-힣]+|법률사무소\s*[\S가-힣]+)/);
+    if (m) r.firm = m[1].replace(/\s+/g,' ').trim();
+  }
+  // 전체 텍스트에서 마지막 시도
+  if (!r.firm) {
+    const m = text.match(/(법무법인\s*[가-힣]+)/);
     if (m) r.firm = m[1].replace(/\s+/g,' ').trim();
   }
 
