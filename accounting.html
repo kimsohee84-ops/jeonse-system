@@ -1705,8 +1705,7 @@ function downloadBatchExcel() {
   const page1 = cases.slice(0, 20);
   page1.forEach((c, i) => {
     const amt = (c.fee||0) + (c.stamp||0) + (c.delivery||0);
-    const accType = c.acctType || '법률구조사업비
-전세피해자사업비';
+    const accType = c.acctType || '법률구조사업비\n전세피해자사업비';
     const num = (c.num||'').replace(/^(국부|서금)\s*/,'');
     const desc = `${c.lawyer} 弁 ${num}호 ${c.client} ${c.case||c.caseName||''}`;
     resol_data.push([i+1, accType, '', '', desc, '', '', '', '', '', '', '', amt, '', '', c.note||c.type||'', '']);
@@ -1725,9 +1724,7 @@ function downloadBatchExcel() {
     resol_data.push([]);
     const total2 = cases.slice(20).reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0);
     resol_data.push([b.short === '국토부' ? '2026년 소송구조(국토부) / 전세피해자' : '2026년 소송구조 / 전세피해자',
-      '','','','','','','','','','결
-
-재','담당','','사무총장','','재무이사','']);
+      '','','','','','','','','','결\n\n재','담당','','사무총장','','재무이사','']);
     resol_data.push([]);
     resol_data.push(['작성일자','',yy,'','년',mm,'월',dd,'','일','처리사항','','','구분','','결제방식','']);
     resol_data.push(['결재일자','',yy,'','년',mm,'월','__','','일','','','','영수증','','계좌이체','']);
@@ -1739,8 +1736,7 @@ function downloadBatchExcel() {
       const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
       const num = (c.num||'').replace(/^(국부|서금)\s*/,'');
       const desc = `${c.lawyer} 弁 ${num}호 ${c.client} ${c.case||c.caseName||''}`;
-      resol_data.push([21+i,'법률구조사업비
-전세피해자사업비','','',desc,'','','','','','','',amt,'','',c.note||c.type||'','']);
+      resol_data.push([21+i,'법률구조사업비\n전세피해자사업비','','',desc,'','','','','','','',amt,'','',c.note||c.type||'','']);
     });
     for (let i = page2.length; i < 20; i++) resol_data.push([21+i,'','','','','','','','','','','','','','','','']);
     resol_data.push(['계','','','','','','','','','','','',total2,'','','','']);
