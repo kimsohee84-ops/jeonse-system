@@ -1,11 +1,1 @@
-{
-  "functions": {
-    "api/excel.py": {
-      "runtime": "python3.9"
-    },
-    "api/ocr.js": {
-      "runtime": "nodejs18.x"
-    }
-  }
-}
-
+{}
