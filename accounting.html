@@ -399,12 +399,20 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
               <span id="resol-nav-text" style="font-size:13px;color:var(--muted)">1 / 1</span>
               <button class="btn btn-sm" id="resol-next" onclick="navigateResol(1)"><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
               <div style="flex:1"></div>
-              <button class="btn btn-sm btn-primary" onclick="addCurrentToList()">
-                <i class="ti ti-circle-plus" aria-hidden="true"></i> 목록에 추가
-              </button>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-sm btn-primary" onclick="saveResolEdit()">
+                  <i class="ti ti-check" aria-hidden="true"></i> 수정 저장
+                </button>
+                <button class="btn btn-sm" onclick="document.getElementById('scan-resol-form-wrap').style.display='none';renderResolPanel()">
+                  취소
+                </button>
+                <button class="btn btn-sm btn-primary" onclick="addAllToList()" style="margin-left:auto;background:#166534;border-color:#166534">
+                  <i class="ti ti-download" aria-hidden="true"></i> 전체 엑셀 저장
+                </button>
+              </div>
             </div>
-            <div class="card">
-              <div class="card-title"><i class="ti ti-file-text" aria-hidden="true"></i> 지출결의서</div>
+            <div class="card" id="scan-resol-form-wrap" style="display:none">
+              <div class="card-title"><i class="ti ti-file-text" aria-hidden="true"></i> 지출결의서 수정</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                 <div class="field"><label>접수번호</label><input class="form-input" id="rv-num"></div>
                 <div class="field"><label>수령일자</label><input class="form-input" type="date" id="rv-date"></div>
@@ -1748,6 +1756,52 @@ function fillResolForm(c) {
   set("rv-tax",c.tax||""); set("rv-acct",c.account||""); set("rv-note",c.note||c.type||"");
 }
 
+// ── 수정 저장 ──
+function saveResolEdit() {
+  const get = id => document.getElementById(id) ? document.getElementById(id).value.trim() : "";
+  const all = [...BIZ[curBiz].cases];
+  if(resolIdx >= all.length) return;
+
+  const c = all[resolIdx];
+  const amt = parseInt(get("rv-amt").replace(/,/g,"")) || 0;
+  let fee = 0, stamp = 0, delivery = 0;
+  if((c.doctype||"") === "인지대 영수증") stamp = amt;
+  else if((c.doctype||"") === "송달료 영수증") delivery = amt;
+  else fee = amt;
+
+  BIZ[curBiz].cases[resolIdx] = {
+    ...c,
+    num:      BIZ[curBiz].prefix + " " + get("rv-num"),
+    lawyer:   get("rv-lawyer"),
+    firm:     get("rv-firm"),
+    client:   get("rv-client"),
+    opponent: get("rv-opponent"),
+    case:     get("rv-case"),
+    caseName: get("rv-case"),
+    fee, stamp, delivery,
+    tax:      get("rv-tax"),
+    date:     get("rv-date"),
+    account:  get("rv-acct"),
+    note:     get("rv-note"),
+  };
+
+  document.getElementById("scan-resol-form-wrap").style.display = "none";
+  renderResolPanel();
+  renderDashboard();
+  showToast("수정됐습니다");
+}
+
+// ── 전체 엑셀 저장 ──
+function addAllToList() {
+  const all = [...BIZ[curBiz].cases, ...resolList[curBiz]];
+  if(!all.length) { showToast("등록된 건이 없습니다"); return; }
+  scanListItems = all.map(c => ({...c}));
+  renderScanListPanel();
+  const badge = document.getElementById("scan-list-badge");
+  if(badge) { badge.textContent = scanListItems.length; badge.style.display = "inline"; }
+  switchScanTab("list");
+}
+
 function navigateResol(dir) {
   const all = [...BIZ[curBiz].cases, ...resolList[curBiz]];
   resolIdx = Math.max(0, Math.min(all.length-1, resolIdx+dir));
@@ -2030,24 +2084,79 @@ async function ocrWithGoogleDrive(file, base64Data, itemId, mimeType) {
     }
 
     document.getElementById('sc-date').value = new Date().toISOString().slice(0,10);
-    document.getElementById('scan-loading').style.display = 'none';
-    document.getElementById('scan-form').style.display = 'block';
-    matchExistingCase();
 
-    const bar = document.getElementById('scan-status-bar');
-    bar.innerHTML = '<i class="ti ti-sparkles" aria-hidden="true"></i> OCR 완료 — 내용을 확인하세요';
-    bar.style.background = 'var(--green-bg)';
-    bar.style.color = 'var(--green-txt)';
-    showToast('OCR 완료! 내용을 확인하세요');
-    // 파일 목록 상태 → 완료
-    setStatus('완료', '#DCFCE7', '#166534');
+    // ── OCR 완료 → 자동 등록 ──
+    autoSaveScanEntry(data.parsed, file.name);
+    setStatus('등록완료', '#DCFCE7', '#166534');
 
   } catch(err) {
     console.error('OCR 오류:', err);
-    // 파일 목록 상태 → 오류 (수동 입력 유도)
-    setStatus('직접 입력 필요', '#FEE2E2', '#991B1B');
-    showManualInput(file.name);
-    showToast('OCR 오류: ' + err.message);
+    setStatus('인식실패', '#FEE2E2', '#991B1B');
+    showToast('OCR 실패: ' + file.name + ' — 목록에서 직접 입력해주세요');
+  } finally {
+    document.getElementById('scan-loading').style.display = 'none';
+  }
+}
+
+// ── OCR 결과로 자동 등록 ──
+// 인식된 데이터를 바로 cases에 저장 (확인 없이)
+// 틀린 건 지출결의서 탭 목록에서 수정
+function autoSaveScanEntry(parsed, fileName) {
+  const today = new Date().toISOString().slice(0,10);
+  const num      = (parsed.accNum  || '').trim();
+  const lawyer   = (parsed.lawyer  || '').trim();
+  const client   = (parsed.client  || '').trim();
+  const amt      = parseInt(parsed.amount) || 0;
+  const caseName = (parsed.caseName|| '').trim();
+  const opponent = (parsed.opponent|| '').trim();
+  const firm     = (parsed.firm    || '').trim();
+  const acct     = (parsed.account || '').trim();
+  const doctype  = parsed.doctype  || '소송비용청구서';
+
+  // 비용 분리
+  let fee = 0, stamp = 0, delivery = 0;
+  if (doctype === '인지대 영수증') stamp = amt;
+  else if (doctype === '송달료 영수증') delivery = amt;
+  else fee = amt;
+
+  // 사건 유형 추론
+  let caseType = '민사';
+  if (caseName.includes('사기')||caseName.includes('횡령')||caseName.includes('배임')||caseName.includes('형사')) caseType = '형사';
+  else if (caseName.includes('집행')||caseName.includes('압류')||caseName.includes('추심')||caseName.includes('가처분')||caseName.includes('경매')) caseType = '신청';
+
+  const fullNum = num ? BIZ[curBiz].prefix + ' ' + num : '미인식-' + fileName;
+
+  const newCase = {
+    num: fullNum, lawyer, firm, client, opponent,
+    case: caseName, caseName, type: caseType,
+    fee, stamp, delivery,
+    tax: '전자세금계산서',
+    resol: '대기', date: today,
+    account: acct, note: caseType, doctype,
+    _fromOcr: true  // OCR 자동 등록 표시
+  };
+
+  // 기존 접수번호 있으면 금액만 추가, 없으면 새로 추가
+  const idx = num ? BIZ[curBiz].cases.findIndex(c => c.num.includes(num)) : -1;
+  if (idx >= 0) {
+    BIZ[curBiz].cases[idx].stamp    += stamp;
+    BIZ[curBiz].cases[idx].delivery += delivery;
+    if (fee > 0) BIZ[curBiz].cases[idx].fee = fee;
+    if (acct)    BIZ[curBiz].cases[idx].account = acct;
+  } else {
+    BIZ[curBiz].cases.push(newCase);
+  }
+
+  scanDoneList.unshift({ num: fullNum, lawyer, client, amt, doctype, date: today, tax: '전자계산서' });
+  renderScanDone();
+  renderDashboard();
+
+  // 지출결의서 탭 뱃지 업데이트
+  const badge = document.getElementById('scan-resol-badge');
+  if (badge) {
+    const total = BIZ[curBiz].cases.length;
+    badge.textContent = total;
+    badge.style.display = 'inline';
   }
 }
 
