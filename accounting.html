@@ -1879,23 +1879,101 @@ async function processScanQueue() {
   document.getElementById('scan-loading').style.display = 'block';
   document.getElementById('scan-form').style.display    = 'none';
 
-  // base64 변환
-  const base64Data = await new Promise(res => {
-    const reader = new FileReader();
-    reader.onload = ev => res(ev.target.result);
-    reader.readAsDataURL(file);
-  });
-
-  // OCR 호출 (1장씩)
-  await ocrWithGoogleDrive(file, base64Data, itemId);
+  // PDF/이미지를 압축해서 OCR 호출
+  // PDF는 Canvas로 렌더링 → JPEG 압축 (Vercel 4.5MB 제한 대응)
+  await compressAndOcr(file, itemId);
 
   // 다음 파일 처리
   processScanQueue();
 }
 
+// ── PDF/이미지 압축 후 OCR 호출 ──
+// PDF.js로 첫 페이지 렌더링 → Canvas → JPEG 0.7 품질로 압축 → API 전송
+async function compressAndOcr(file, itemId) {
+  const setStatus = (text, bg, color) => {
+    const el = document.getElementById(itemId + '-status');
+    if (el) { el.textContent = text; el.style.background = bg; el.style.color = color; }
+  };
+
+  try {
+    let compressedBase64, mimeType;
+
+    if (file.type === 'application/pdf') {
+      // PDF → 첫 페이지를 JPEG으로 렌더링 압축
+      setStatus('변환 중...', '#FEF3C7', '#92400E');
+
+      const arrayBuf = await file.arrayBuffer();
+      const pdfData  = new Uint8Array(arrayBuf);
+
+      // PDF.js CDN 동적 로드
+      if (!window.pdfjsLib) {
+        await new Promise((res, rej) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+
+      const pdf      = await window.pdfjsLib.getDocument({ data: pdfData }).promise;
+      const page     = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1.5 }); // 해상도 적당히
+
+      const canvas  = document.createElement('canvas');
+      canvas.width  = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+      // JPEG 0.7 품질로 압축 (보통 200~400KB)
+      compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+      mimeType = 'image/jpeg';
+
+    } else {
+      // 이미지 파일 → Canvas 리사이즈 압축
+      setStatus('압축 중...', '#FEF3C7', '#92400E');
+
+      compressedBase64 = await new Promise(res => {
+        const img = new Image();
+        img.onload = () => {
+          // 최대 1600px로 리사이즈
+          const MAX = 1600;
+          let w = img.width, h = img.height;
+          if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+          if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          res(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = URL.createObjectURL(file);
+      });
+      mimeType = 'image/jpeg';
+    }
+
+    // 압축된 크기 확인 (디버깅)
+    const kb = Math.round(compressedBase64.length * 0.75 / 1024);
+    console.log(`압축 완료: ${file.name} → ${kb}KB`);
+
+    // OCR 호출
+    await ocrWithGoogleDrive(file, compressedBase64, itemId, mimeType);
+
+  } catch(err) {
+    console.error('압축 오류:', err);
+    // 압축 실패 시 원본 그대로 시도
+    const reader = new FileReader();
+    const base64Data = await new Promise(res => {
+      reader.onload = ev => res(ev.target.result);
+      reader.readAsDataURL(file);
+    });
+    await ocrWithGoogleDrive(file, base64Data, itemId, file.type);
+  }
+}
+
 // ── OCR 처리: Vercel API 호출 → 결과를 폼에 자동 채움 ──
 // itemId: 파일 목록의 상태 뱃지를 업데이트하기 위한 식별자
-async function ocrWithGoogleDrive(file, base64Data, itemId) {
+async function ocrWithGoogleDrive(file, base64Data, itemId, mimeType) {
   // 상태 뱃지 업데이트 헬퍼
   const setStatus = (text, bg, color) => {
     const el = document.getElementById((itemId||'') + '-status');
@@ -1912,7 +1990,7 @@ async function ocrWithGoogleDrive(file, base64Data, itemId) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         fileData: base64Data,
-        mimeType: file.type || 'application/pdf',
+        mimeType: mimeType || file.type || 'image/jpeg',
         fileName: file.name
       })
     });
