@@ -671,20 +671,67 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
           </div>
         </div>
 
+        <!-- 변호사 추가/수정 모달 -->
+        <div id="lawyer-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+          <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:460px;max-width:92vw;box-shadow:var(--shadow-md)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
+              <h3 id="lawyer-modal-title" style="font-size:15px;font-weight:600;color:var(--navy)">변호사 추가</h3>
+              <button onclick="closeLawyerModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem">
+              <div class="field" style="grid-column:1/-1">
+                <label>변호사명 <span style="color:#DC2626">*</span></label>
+                <input class="form-input" id="lm-name" placeholder="성명">
+              </div>
+              <div class="field">
+                <label>은행명</label>
+                <input class="form-input" id="lm-bank" placeholder="예: 신한">
+              </div>
+              <div class="field">
+                <label>은행코드</label>
+                <input class="form-input" id="lm-bankCode" placeholder="예: 088">
+              </div>
+              <div class="field" style="grid-column:1/-1">
+                <label>계좌번호</label>
+                <input class="form-input mono" id="lm-acct" placeholder="계좌번호">
+              </div>
+              <div class="field">
+                <label>예금주</label>
+                <input class="form-input" id="lm-owner" placeholder="예금주명">
+              </div>
+              <div class="field">
+                <label>이메일</label>
+                <input class="form-input" id="lm-email" placeholder="이메일">
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn" style="flex:1;justify-content:center" onclick="closeLawyerModal()">취소</button>
+              <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveLawyerModal()">
+                <i class="ti ti-check" aria-hidden="true"></i> 저장
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- 계좌 목록 테이블 -->
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
             <div class="card-title" style="margin-bottom:0">
               <i class="ti ti-user-check" aria-hidden="true"></i> 등록된 변호사 계좌
             </div>
-            <span id="lawyer-count" style="font-size:12px;color:var(--muted)"></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span id="lawyer-count" style="font-size:12px;color:var(--muted)"></span>
+              <button class="btn btn-primary btn-sm" onclick="openLawyerModal(-1)">
+                <i class="ti ti-plus" aria-hidden="true"></i> 변호사 추가
+              </button>
+            </div>
           </div>
           <div style="overflow-x:auto">
             <table class="tbl">
               <thead>
                 <tr>
                   <th>변호사</th><th>은행</th><th>은행번호</th>
-                  <th>계좌번호</th><th>예금주</th><th>이메일</th><th>상태</th>
+                  <th>계좌번호</th><th>예금주</th><th>이메일</th><th>상태</th><th></th>
                 </tr>
               </thead>
               <tbody id="lawyer-tbody"></tbody>
@@ -1152,13 +1199,14 @@ function renderBudget() {
 }
 
 // ── 변호사 계좌 목록 렌더 ──
+// ── 변호사 목록 렌더 ──
 function renderLawyers() {
   const b = BIZ[curBiz];
   const count = document.getElementById("lawyer-count");
   if(count) count.textContent = `총 ${b.lawyers.length}명`;
 
-  document.getElementById("lawyer-tbody").innerHTML = b.lawyers.map(l=>{
-    const need = !l.acct || l.acct==="확인필요";
+  document.getElementById("lawyer-tbody").innerHTML = b.lawyers.map((l, i) => {
+    const need = !l.acct || l.acct === "확인필요";
     const st = need
       ? '<span class="badge ba">확인필요</span>'
       : '<span class="badge bg">확인완료</span>';
@@ -1171,8 +1219,88 @@ function renderLawyers() {
       <td style="font-size:11px">${l.owner||"—"}</td>
       <td style="font-size:11px;color:var(--muted)">${l.email||"—"}</td>
       <td>${st}</td>
+      <td style="white-space:nowrap">
+        <button onclick="openLawyerModal(${i})" style="background:none;border:none;cursor:pointer;color:var(--navy);font-size:13px;padding:2px 6px" title="수정">
+          <i class="ti ti-pencil" aria-hidden="true"></i>
+        </button>
+        <button onclick="deleteLawyer(${i})" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:13px;padding:2px 6px" title="삭제">
+          <i class="ti ti-trash" aria-hidden="true"></i>
+        </button>
+      </td>
     </tr>`;
   }).join("");
+}
+
+// ── 모달 열기 (idx=-1: 추가, idx>=0: 수정) ──
+let lawyerEditIdx = -1;
+function openLawyerModal(idx) {
+  lawyerEditIdx = idx;
+  const modal = document.getElementById("lawyer-modal");
+  const title = document.getElementById("lawyer-modal-title");
+  modal.style.display = "flex";
+
+  if(idx === -1) {
+    // 추가 모드 — 필드 초기화
+    title.textContent = "변호사 추가";
+    ["lm-name","lm-bank","lm-bankCode","lm-acct","lm-owner","lm-email"].forEach(id => {
+      document.getElementById(id).value = "";
+    });
+  } else {
+    // 수정 모드 — 기존 데이터 채우기
+    title.textContent = "변호사 정보 수정";
+    const l = BIZ[curBiz].lawyers[idx];
+    document.getElementById("lm-name").value     = l.name     || "";
+    document.getElementById("lm-bank").value     = l.bank     || "";
+    document.getElementById("lm-bankCode").value = l.bankCode || "";
+    document.getElementById("lm-acct").value     = l.acct     || "";
+    document.getElementById("lm-owner").value    = l.owner    || "";
+    document.getElementById("lm-email").value    = l.email    || "";
+  }
+}
+
+function closeLawyerModal() {
+  document.getElementById("lawyer-modal").style.display = "none";
+}
+
+// ── 모달 저장 ──
+function saveLawyerModal() {
+  const name = document.getElementById("lm-name").value.trim();
+  if(!name) { showToast("변호사명은 필수입니다"); return; }
+
+  const data = {
+    name,
+    bank:     document.getElementById("lm-bank").value.trim(),
+    bankCode: document.getElementById("lm-bankCode").value.trim(),
+    acct:     document.getElementById("lm-acct").value.trim(),
+    owner:    document.getElementById("lm-owner").value.trim(),
+    email:    document.getElementById("lm-email").value.trim(),
+    tax:      "전자계산서",
+  };
+
+  if(lawyerEditIdx === -1) {
+    // 추가
+    BIZ.kt.lawyers.push(data);
+    BIZ.sf.lawyers.push(data);
+    showToast(`${name} 변호사 추가됐습니다`);
+  } else {
+    // 수정 (두 사업 모두 업데이트)
+    BIZ.kt.lawyers[lawyerEditIdx] = data;
+    BIZ.sf.lawyers[lawyerEditIdx] = data;
+    showToast(`${name} 변호사 정보가 수정됐습니다`);
+  }
+
+  closeLawyerModal();
+  renderLawyers();
+}
+
+// ── 변호사 삭제 ──
+function deleteLawyer(idx) {
+  const name = BIZ[curBiz].lawyers[idx].name;
+  if(!confirm(`${name} 변호사를 삭제할까요?`)) return;
+  BIZ.kt.lawyers.splice(idx, 1);
+  BIZ.sf.lawyers.splice(idx, 1);
+  renderLawyers();
+  showToast(`${name} 삭제됐습니다`);
 }
 
 // ── 변호사 계좌 엑셀 업로드 처리 ──
@@ -1680,56 +1808,89 @@ function clearScanList() {
   if(badge) badge.style.display="none";
 }
 
-// ── 파일 선택 (input change 이벤트) ──
-// 여러 파일 동시 선택 지원
+// ── 파일 처리 큐 ──
+// 여러 파일을 한꺼번에 올려도 한 장씩 순서대로 OCR 처리
+// (Vercel 4.5MB 요청 제한 + 동시 요청 과부하 방지)
+let scanQueue = [];
+let scanProcessing = false;
+
 function handleScanFile(e) {
   const files = Array.from(e.target.files);
-  files.forEach(f => processScanFile(f));
+  addToScanQueue(files);
 }
 
-// ── 드래그&드롭 ──
 function handleScanDrop(e) {
   e.preventDefault();
   const dz = document.getElementById('scan-dropzone');
   dz.style.borderColor = '';
   dz.style.background = 'var(--light)';
   const files = Array.from(e.dataTransfer.files);
-  files.forEach(f => processScanFile(f));
+  addToScanQueue(files);
 }
 
-// ── 파일 1개 처리: 파일 목록에 추가 → FileReader → OCR 호출 ──
-function processScanFile(file) {
-  // 파일 목록 영역 표시
+// 파일들을 큐에 등록 → 목록 카드 즉시 표시 → 순차 처리 시작
+function addToScanQueue(files) {
   const listWrap  = document.getElementById('scan-file-list');
   const listItems = document.getElementById('scan-file-items');
   if (listWrap) listWrap.style.display = 'block';
+  document.getElementById('scan-empty').style.display = 'none';
 
-  // 파일 항목 카드 생성 (itemId로 나중에 상태 업데이트)
-  const itemId = 'fi-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
-  if (listItems) {
-    const div = document.createElement('div');
-    div.id = itemId;
-    div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 14px;'
-      + 'background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:13px';
-    div.innerHTML = '<i class="ti ti-file-description" style="color:var(--muted)" aria-hidden="true"></i>'
-      + '<span style="flex:1">' + file.name + '</span>'
-      + '<span style="color:var(--muted);font-size:11px">' + (file.size/1024).toFixed(1) + 'KB</span>'
-      + '<span id="' + itemId + '-status" style="font-size:11px;background:#DBEAFE;color:#1D4ED8;'
-      + 'padding:2px 8px;border-radius:99px">인식 중...</span>';
-    listItems.appendChild(div);
+  files.forEach(file => {
+    // 파일 항목 카드 즉시 생성 (대기 상태)
+    const itemId = 'fi-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
+    if (listItems) {
+      const div = document.createElement('div');
+      div.id = itemId;
+      div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 14px;'
+        + 'background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:13px';
+      div.innerHTML = '<i class="ti ti-file-description" style="color:var(--muted)" aria-hidden="true"></i>'
+        + '<span style="flex:1">' + file.name + '</span>'
+        + '<span style="color:var(--muted);font-size:11px">' + (file.size/1024).toFixed(1) + 'KB</span>'
+        + '<span id="' + itemId + '-status" style="font-size:11px;background:#F3F4F6;color:#6B7280;'
+        + 'padding:2px 8px;border-radius:99px">대기 중</span>';
+      listItems.appendChild(div);
+    }
+    scanQueue.push({ file, itemId });
+  });
+
+  // 처리 중이 아니면 시작
+  if (!scanProcessing) processScanQueue();
+}
+
+// 큐에서 한 장씩 꺼내서 순서대로 OCR 처리
+async function processScanQueue() {
+  if (scanQueue.length === 0) {
+    scanProcessing = false;
+    document.getElementById('scan-loading').style.display = 'none';
+    return;
   }
 
-  // 폼 상태 초기화
-  document.getElementById('scan-empty').style.display   = 'none';
+  scanProcessing = true;
+  const { file, itemId } = scanQueue.shift();
+
+  // 상태: 인식 중
+  const statusEl = document.getElementById(itemId + '-status');
+  if (statusEl) {
+    statusEl.textContent = '인식 중...';
+    statusEl.style.background = '#DBEAFE';
+    statusEl.style.color = '#1D4ED8';
+  }
+
   document.getElementById('scan-loading').style.display = 'block';
   document.getElementById('scan-form').style.display    = 'none';
 
-  // base64 변환 후 OCR 호출
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    ocrWithGoogleDrive(file, ev.target.result, itemId);
-  };
-  reader.readAsDataURL(file);
+  // base64 변환
+  const base64Data = await new Promise(res => {
+    const reader = new FileReader();
+    reader.onload = ev => res(ev.target.result);
+    reader.readAsDataURL(file);
+  });
+
+  // OCR 호출 (1장씩)
+  await ocrWithGoogleDrive(file, base64Data, itemId);
+
+  // 다음 파일 처리
+  processScanQueue();
 }
 
 // ── OCR 처리: Vercel API 호출 → 결과를 폼에 자동 채움 ──
