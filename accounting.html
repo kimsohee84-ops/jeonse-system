@@ -2178,8 +2178,13 @@ function autoSaveScanEntry(parsed, fileName) {
   };
 
   // 기존 접수번호 있으면 금액만 추가, 없으면 새로 추가
-  const idx = num ? BIZ[curBiz].cases.findIndex(c => c.num.includes(num)) : -1;
+  // 정확한 접수번호 매칭 (예: "26-1"이 "26-10"에 매칭되는 오류 방지)
+  const idx = num ? BIZ[curBiz].cases.findIndex(c => {
+    const cn = (c.num || "").replace(/^(국부|서금)\s*/, "").trim();
+    return cn === num;
+  }) : -1;
   if (idx >= 0) {
+    // 동일 접수번호면 인지대·송달료만 누적 (중복 등록 방지)
     BIZ[curBiz].cases[idx].stamp    += stamp;
     BIZ[curBiz].cases[idx].delivery += delivery;
     if (fee > 0) BIZ[curBiz].cases[idx].fee = fee;
