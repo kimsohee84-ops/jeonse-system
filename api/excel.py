@@ -59,12 +59,29 @@ def copy_page_format(ws_src, ws_dst, row_offset):
                 nc.number_format = cell.number_format
                 nc.alignment    = copy.copy(cell.alignment)
 
+def force_write(ws, row, col, value, alignment=None):
+    """병합셀이라도 강제로 값 쓰기 (병합 해제 후 재병합)"""
+    from openpyxl.utils import get_column_letter as gcl
+    merge_to_remove = None
+    for merge in list(ws.merged_cells.ranges):
+        if merge.min_row <= row <= merge.max_row and merge.min_col <= col <= merge.max_col:
+            merge_to_remove = str(merge)
+            break
+    if merge_to_remove:
+        ws.unmerge_cells(merge_to_remove)
+    cell = ws.cell(row=row, column=col)
+    cell.value = value
+    if alignment:
+        cell.alignment = alignment
+    if merge_to_remove:
+        ws.merge_cells(merge_to_remove)
+
 def fill_page(ws, o, page, page_total, biz_title, yy, mm, dd):
     """지출결의서 1페이지 데이터 채우기 (o=row offset)"""
     safe_write(ws, 1+o, 2,  "지   출   결   의   서 ")
     safe_write(ws, 3+o, 1,  biz_title)
-    safe_write(ws, 3+o, 11, "결\n\n재")
-    safe_style(ws, 3+o, 11, alignment=Alignment(horizontal="center", vertical="center", wrap_text=True))
+    # K3:K4 병합셀이라 force_write로 강제 처리
+    force_write(ws, 3+o, 11, "결\n\n재", Alignment(horizontal="center", vertical="center", wrap_text=True))
     safe_write(ws, 3+o, 12, "담당")
     safe_write(ws, 3+o, 14, "사무총장")
     safe_write(ws, 3+o, 16, "재무이사")
