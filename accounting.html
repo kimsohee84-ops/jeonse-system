@@ -1857,10 +1857,41 @@ function removeScanListItem(i) {
   const badge = document.getElementById("scan-list-badge");
   if(badge){ if(scanListItems.length){ badge.textContent=scanListItems.length; } else { badge.style.display="none"; } }
 }
+// ── 목록 초기화 ──
+// scanListItems + BIZ cases 전부 초기화
 function clearScanList() {
-  scanListItems=[]; renderScanListPanel();
-  const badge = document.getElementById("scan-list-badge");
-  if(badge) badge.style.display="none";
+  if(!confirm("등록된 전체 목록을 초기화할까요?")) return;
+  scanListItems = [];
+  BIZ[curBiz].cases = [];
+  resolList[curBiz] = [];
+  scanDoneList.length = 0;
+
+  // UI 초기화
+  renderScanListPanel();
+  renderResolPanel();
+  renderDashboard();
+
+  const listBadge = document.getElementById("scan-list-badge");
+  if(listBadge) listBadge.style.display = "none";
+  const resolBadge = document.getElementById("scan-resol-badge");
+  if(resolBadge) resolBadge.style.display = "none";
+
+  const doneCard = document.getElementById("scan-done-card");
+  if(doneCard) doneCard.style.display = "none";
+  const doneList = document.getElementById("scan-done-list");
+  if(doneList) doneList.innerHTML = "";
+
+  // 파일 목록도 초기화
+  const listItems = document.getElementById("scan-file-items");
+  if(listItems) listItems.innerHTML = "";
+  const listWrap = document.getElementById("scan-file-list");
+  if(listWrap) listWrap.style.display = "none";
+  const fileInput = document.getElementById("scan-file");
+  if(fileInput) fileInput.value = "";
+
+  scanQueue = [];
+  scanProcessing = false;
+  showToast("초기화됐습니다");
 }
 
 // ── 파일 처리 큐 ──
