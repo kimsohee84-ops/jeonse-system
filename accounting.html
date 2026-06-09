@@ -1954,7 +1954,7 @@ async function compressAndOcr(file, itemId) {
     let compressedBase64, mimeType;
 
     if (file.type === 'application/pdf') {
-      // PDF → 첫 페이지를 JPEG으로 렌더링 압축
+      // PDF → 전체 페이지를 각각 JPEG으로 렌더링 후 순서대로 OCR
       setStatus('변환 중...', '#FEF3C7', '#92400E');
 
       const arrayBuf = await file.arrayBuffer();
@@ -1972,18 +1972,26 @@ async function compressAndOcr(file, itemId) {
           'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       }
 
-      const pdf      = await window.pdfjsLib.getDocument({ data: pdfData }).promise;
-      const page     = await pdf.getPage(1);
-      const viewport = page.getViewport({ scale: 1.5 }); // 해상도 적당히
+      const pdf       = await window.pdfjsLib.getDocument({ data: pdfData }).promise;
+      const numPages  = pdf.numPages;
 
-      const canvas  = document.createElement('canvas');
-      canvas.width  = viewport.width;
-      canvas.height = viewport.height;
-      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      // 페이지마다 OCR 호출 (순서대로)
+      for (let p = 1; p <= numPages; p++) {
+        setStatus(`${p}/${numPages} 인식 중...`, '#DBEAFE', '#1D4ED8');
 
-      // JPEG 0.7 품질로 압축 (보통 200~400KB)
-      compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-      mimeType = 'image/jpeg';
+        const page     = await pdf.getPage(p);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas   = document.createElement('canvas');
+        canvas.width   = viewport.width;
+        canvas.height  = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+        const pageBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        await ocrWithGoogleDrive(file, pageBase64, itemId, 'image/jpeg');
+      }
+
+      setStatus(`완료 (${numPages}건)`, '#DCFCE7', '#166534');
+      return; // 아래 단일 OCR 호출 건너뜀
 
     } else {
       // 이미지 파일 → Canvas 리사이즈 압축
@@ -2011,8 +2019,9 @@ async function compressAndOcr(file, itemId) {
     const kb = Math.round(compressedBase64.length * 0.75 / 1024);
     console.log(`압축 완료: ${file.name} → ${kb}KB`);
 
-    // OCR 호출
+    // 이미지 단일 OCR 호출
     await ocrWithGoogleDrive(file, compressedBase64, itemId, mimeType);
+    setStatus('완료', '#DCFCE7', '#166534');
 
   } catch(err) {
     console.error('압축 오류:', err);
