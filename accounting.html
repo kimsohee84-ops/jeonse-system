@@ -1757,16 +1757,23 @@ function renderResolPanel() {
 
   const total = all.reduce((s,c) => s+(c.fee||0)+(c.stamp||0)+(c.delivery||0), 0);
 
+  // 인라인 편집 방식: 셀 클릭 → input으로 바뀜 → 포커스 잃으면 저장
+  const cellStyle = "padding:6px 8px;border-bottom:1px solid var(--border)";
+  const inputStyle = "width:100%;border:none;outline:none;background:transparent;font-size:12px;font-family:inherit;padding:0";
+
   tableEl.innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">
+      <i class="ti ti-info-circle"></i> 셀을 클릭하면 바로 수정할 수 있어요
+    </div>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
         <tr style="background:var(--light)">
-          <th style="padding:8px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap">접수번호</th>
-          <th style="padding:8px;text-align:left;border-bottom:2px solid var(--border)">변호사</th>
-          <th style="padding:8px;text-align:left;border-bottom:2px solid var(--border)">의뢰인</th>
-          <th style="padding:8px;text-align:left;border-bottom:2px solid var(--border)">사건명</th>
-          <th style="padding:8px;text-align:right;border-bottom:2px solid var(--border);white-space:nowrap">금액</th>
-          <th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">수정</th>
+          <th style="${cellStyle};border-bottom:2px solid var(--border);white-space:nowrap">접수번호</th>
+          <th style="${cellStyle};border-bottom:2px solid var(--border)">변호사</th>
+          <th style="${cellStyle};border-bottom:2px solid var(--border)">의뢰인</th>
+          <th style="${cellStyle};border-bottom:2px solid var(--border)">사건명</th>
+          <th style="${cellStyle};border-bottom:2px solid var(--border);text-align:right">금액</th>
+          <th style="${cellStyle};border-bottom:2px solid var(--border);text-align:center">삭제</th>
         </tr>
       </thead>
       <tbody>
@@ -1775,15 +1782,15 @@ function renderResolPanel() {
           const num = (c.num||"").replace(/^(국부|서금)\s*/,"");
           const missing = !c.lawyer || !c.client || !amt;
           const bg = missing ? "background:#FFF7F7" : (i%2===0?"":"background:#F9FAFB");
-          return `<tr style="border-bottom:1px solid var(--border);${bg}">
-            <td style="padding:7px 8px;font-weight:600;white-space:nowrap">${num||'<span style="color:#DC2626;font-size:11px">미인식</span>'}</td>
-            <td style="padding:7px 8px">${c.lawyer||'<span style="color:#DC2626">—</span>'}</td>
-            <td style="padding:7px 8px">${c.client||'<span style="color:#DC2626">—</span>'}</td>
-            <td style="padding:7px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.case||c.caseName||"—"}</td>
-            <td style="padding:7px 8px;text-align:right;font-family:monospace">${amt?amt.toLocaleString():'<span style="color:#DC2626">0</span>'}</td>
-            <td style="padding:7px 8px;text-align:center;white-space:nowrap">
-              <button onclick="editResolRow(${i})" style="background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--navy);padding:3px 8px;font-size:11px" title="수정">✏️</button>
-              <button onclick="deleteResolRow(${i})" style="background:none;border:1px solid #FCA5A5;border-radius:4px;cursor:pointer;color:#DC2626;padding:3px 8px;font-size:11px;margin-left:3px" title="삭제">🗑</button>
+          // 각 셀: 클릭하면 input 표시, blur시 저장
+          return `<tr id="resol-row-${i}" style="${bg}">
+            <td style="${cellStyle};font-weight:600" onclick="resolEditCell(this,${i},'num','${num}')">${num||'<span style="color:#DC2626;font-size:11px">미인식(클릭수정)</span>'}</td>
+            <td style="${cellStyle}" onclick="resolEditCell(this,${i},'lawyer','${(c.lawyer||'').replace(/'/g,'')}')">${c.lawyer||'<span style="color:#DC2626">클릭하여 입력</span>'}</td>
+            <td style="${cellStyle}" onclick="resolEditCell(this,${i},'client','${(c.client||'').replace(/'/g,'')}')">${c.client||'<span style="color:#DC2626">클릭하여 입력</span>'}</td>
+            <td style="${cellStyle};max-width:200px" onclick="resolEditCell(this,${i},'case','${(c.case||c.caseName||'').replace(/'/g,'')}')">${c.case||c.caseName||'<span style="color:#6B7280">클릭하여 입력</span>'}</td>
+            <td style="${cellStyle};text-align:right" onclick="resolEditCell(this,${i},'fee',${amt})">${amt?amt.toLocaleString():'<span style="color:#DC2626">0(클릭수정)</span>'}</td>
+            <td style="${cellStyle};text-align:center">
+              <button onclick="deleteResolRow(${i})" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:14px" title="삭제">🗑</button>
             </td>
           </tr>`;
         }).join("")}
@@ -1796,20 +1803,53 @@ function renderResolPanel() {
     </table>`;
 }
 
-// ── 행 수정 버튼 ──
-function editResolRow(idx) {
-  const all = [...BIZ[curBiz].cases, ...resolList[curBiz]];
-  if(idx >= all.length) return;
-  resolIdx = idx;
-  fillResolForm(all[idx]);
-  const formEl = document.getElementById("scan-resol-form-wrap");
-  if(formEl) {
-    formEl.style.display = "block";
-    formEl.scrollIntoView({ behavior:"smooth", block:"nearest" });
-  }
+// ── 셀 클릭 인라인 편집 ──
+function resolEditCell(td, idx, field, currentVal) {
+  if(td.querySelector('input')) return; // 이미 편집 중
+
+  const isAmt = (field === 'fee');
+  const displayVal = isAmt ? currentVal : (currentVal||'');
+  td.innerHTML = '';
+
+  const input = document.createElement('input');
+  input.type = isAmt ? 'number' : 'text';
+  input.value = isAmt ? (currentVal||0) : displayVal;
+  input.style.cssText = 'width:100%;border:none;outline:2px solid var(--blue);border-radius:3px;background:#EFF6FF;font-size:12px;font-family:inherit;padding:2px 4px;box-sizing:border-box';
+  if(isAmt) input.style.textAlign = 'right';
+
+  td.appendChild(input);
+  input.focus();
+  input.select();
+
+  const save = () => {
+    const val = input.value.trim();
+    const c = BIZ[curBiz].cases[idx];
+    if(!c) return;
+
+    if(field === 'num') {
+      c.num = BIZ[curBiz].prefix + ' ' + val;
+    } else if(field === 'fee') {
+      const amt = parseInt(val.replace(/,/g,'')) || 0;
+      if((c.doctype||'') === '인지대 영수증')  { c.stamp = amt; c.fee = 0; c.delivery = 0; }
+      else if((c.doctype||'') === '송달료 영수증') { c.delivery = amt; c.fee = 0; c.stamp = 0; }
+      else { c.fee = amt; c.stamp = 0; c.delivery = 0; }
+    } else if(field === 'case') {
+      c.case = val; c.caseName = val;
+    } else {
+      c[field] = val;
+    }
+    renderResolPanel();
+    renderDashboard();
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', e => {
+    if(e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if(e.key === 'Escape') { renderResolPanel(); }
+  });
 }
 
-// ── 행 삭제 버튼 ──
+// ── 행 삭제 ──
 function deleteResolRow(idx) {
   const c = BIZ[curBiz].cases[idx];
   if(!c) return;
