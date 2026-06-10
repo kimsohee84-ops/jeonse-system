@@ -1735,16 +1735,89 @@ function switchScanTab(tab) {
 }
 
 function renderResolPanel() {
-  const empty = document.getElementById("scan-resol-empty");
-  const content = document.getElementById("scan-resol-content");
-  const all = [...BIZ[curBiz].cases, ...resolList[curBiz]];
-  if(!all.length){ if(empty) empty.style.display=""; if(content) content.style.display="none"; return; }
-  if(empty) empty.style.display="none";
-  if(content) content.style.display="";
-  if(resolIdx >= all.length) resolIdx = 0;
-  fillResolForm(all[resolIdx]);
+  const empty   = document.getElementById("scan-resol-empty");
+  const cont    = document.getElementById("scan-resol-content");
+  const tableEl = document.getElementById("scan-resol-table");
+  const formEl  = document.getElementById("scan-resol-form-wrap");
+  const all     = [...BIZ[curBiz].cases, ...resolList[curBiz]];
+
+  if (!all.length) {
+    if(empty) empty.style.display = "";
+    if(cont)  cont.style.display  = "none";
+    return;
+  }
+  if(empty) empty.style.display = "none";
+  if(cont)  cont.style.display  = "";
+  if(formEl) formEl.style.display = "none";
+
   const nav = document.getElementById("resol-nav-text");
-  if(nav) nav.textContent = (resolIdx+1)+" / "+all.length;
+  if(nav) nav.textContent = `총 ${all.length}건`;
+
+  if(!tableEl) return;
+
+  const total = all.reduce((s,c) => s+(c.fee||0)+(c.stamp||0)+(c.delivery||0), 0);
+
+  tableEl.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="background:var(--light)">
+          <th style="padding:8px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap">접수번호</th>
+          <th style="padding:8px;text-align:left;border-bottom:2px solid var(--border)">변호사</th>
+          <th style="padding:8px;text-align:left;border-bottom:2px solid var(--border)">의뢰인</th>
+          <th style="padding:8px;text-align:left;border-bottom:2px solid var(--border)">사건명</th>
+          <th style="padding:8px;text-align:right;border-bottom:2px solid var(--border);white-space:nowrap">금액</th>
+          <th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">수정</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${all.map((c, i) => {
+          const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+          const num = (c.num||"").replace(/^(국부|서금)\s*/,"");
+          const missing = !c.lawyer || !c.client || !amt;
+          const bg = missing ? "background:#FFF7F7" : (i%2===0?"":"background:#F9FAFB");
+          return `<tr style="border-bottom:1px solid var(--border);${bg}">
+            <td style="padding:7px 8px;font-weight:600;white-space:nowrap">${num||'<span style="color:#DC2626;font-size:11px">미인식</span>'}</td>
+            <td style="padding:7px 8px">${c.lawyer||'<span style="color:#DC2626">—</span>'}</td>
+            <td style="padding:7px 8px">${c.client||'<span style="color:#DC2626">—</span>'}</td>
+            <td style="padding:7px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.case||c.caseName||"—"}</td>
+            <td style="padding:7px 8px;text-align:right;font-family:monospace">${amt?amt.toLocaleString():'<span style="color:#DC2626">0</span>'}</td>
+            <td style="padding:7px 8px;text-align:center;white-space:nowrap">
+              <button onclick="editResolRow(${i})" style="background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--navy);padding:3px 8px;font-size:11px" title="수정">✏️</button>
+              <button onclick="deleteResolRow(${i})" style="background:none;border:1px solid #FCA5A5;border-radius:4px;cursor:pointer;color:#DC2626;padding:3px 8px;font-size:11px;margin-left:3px" title="삭제">🗑</button>
+            </td>
+          </tr>`;
+        }).join("")}
+        <tr style="border-top:2px solid var(--border);background:var(--light);font-weight:600">
+          <td colspan="4" style="padding:8px;text-align:right">합계</td>
+          <td style="padding:8px;text-align:right;font-family:monospace">${total.toLocaleString()}</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>`;
+}
+
+// ── 행 수정 버튼 ──
+function editResolRow(idx) {
+  const all = [...BIZ[curBiz].cases, ...resolList[curBiz]];
+  if(idx >= all.length) return;
+  resolIdx = idx;
+  fillResolForm(all[idx]);
+  const formEl = document.getElementById("scan-resol-form-wrap");
+  if(formEl) {
+    formEl.style.display = "block";
+    formEl.scrollIntoView({ behavior:"smooth", block:"nearest" });
+  }
+}
+
+// ── 행 삭제 버튼 ──
+function deleteResolRow(idx) {
+  const c = BIZ[curBiz].cases[idx];
+  if(!c) return;
+  if(!confirm(`"${c.client||c.num||idx+1}번" 건을 삭제할까요?`)) return;
+  BIZ[curBiz].cases.splice(idx, 1);
+  renderResolPanel();
+  renderDashboard();
+  showToast("삭제됐습니다");
 }
 
 function fillResolForm(c) {
