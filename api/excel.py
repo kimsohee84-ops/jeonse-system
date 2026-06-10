@@ -36,7 +36,7 @@ def apply_merge_list(ws, merge_strings, row_offset=0):
         try: ws.merge_cells(new_mc)
         except: pass
 
-def fill_page(ws, o, page, page_total, biz_title, yy, mm, dd):
+def fill_page(ws, o, page, page_total, biz_title, yy, mm, dd, page_num=0):
     center = Alignment(horizontal="center", vertical="center", wrap_text=True)
     set_val(ws,1+o,2,"지   출   결   의   서 ")
     set_val(ws,3+o,1,biz_title)
@@ -52,7 +52,7 @@ def fill_page(ws, o, page, page_total, biz_title, yy, mm, dd):
     set_val(ws,10+o,1,"순번"); set_val(ws,10+o,2,"계 정 과 목")
     set_val(ws,10+o,5,"적         요"); set_val(ws,10+o,13,"금       액"); set_val(ws,10+o,16,"비 고")
     for i in range(20):
-        r=11+i+o; set_val(ws,r,1,i+1)
+        r=11+i+o; set_val(ws,r,1,page_num*20+i+1)  # 순번: 1페이지 1~20, 2페이지 21~40...
         if i<len(page):
             c=page[i]
             amt=(c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
@@ -113,7 +113,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd):
                     nc.fill=copy.copy(cell.fill); nc.number_format=cell.number_format
                     nc.alignment=copy.copy(cell.alignment)
 
-        fill_page(ws_new,o,page,page_total,biz_title,yy,mm,dd)
+        fill_page(ws_new,o,page,page_total,biz_title,yy,mm,dd,p_idx)
 
     # 변호사 계좌 정보
     ws_acct_src=wb_src_list["변호사 계좌 정보"]
@@ -181,7 +181,9 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd):
         ]: ws_list_new.cell(row,col).value=val
     ws_list_new.cell(6+len(cases_data),11).value=total
 
-    # 저장 전 핵심 병합셀 누락 확인 후 강제 추가
+    # 저장 전 핵심 병합셀 강제 확인 및 재추가
+    # 충돌하는 기존 병합 제거 후 정확한 범위로 재추가
+    from openpyxl.utils import range_boundaries
     ws_resol = wb_new[new_name]
     required_merges_per_page = [
         "A3:E3", "E10:L10", "A31:K31"
@@ -195,10 +197,21 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd):
             c2 = ''.join(c for c in parts[1] if c.isalpha())
             r2 = int(''.join(c for c in parts[1] if c.isdigit())) + o
             mc_shifted = f"{c1}{r1}:{c2}{r2}"
-            mc_str_set = {str(m) for m in ws_resol.merged_cells.ranges}
-            if mc_shifted not in mc_str_set:
-                try: ws_resol.merge_cells(mc_shifted)
+            # 목표 범위의 경계값
+            min_col = column_index_from_string(c1)
+            max_col = column_index_from_string(c2)
+            # 같은 행+열 범위에 겹치는 기존 병합 제거
+            to_remove = []
+            for existing in list(ws_resol.merged_cells.ranges):
+                if (existing.min_row <= r2 and existing.max_row >= r1 and
+                    existing.min_col <= max_col and existing.max_col >= min_col):
+                    to_remove.append(str(existing))
+            for rm in to_remove:
+                try: ws_resol.unmerge_cells(rm)
                 except: pass
+            # 정확한 범위로 재추가
+            try: ws_resol.merge_cells(mc_shifted)
+            except: pass
 
     buf=io.BytesIO(); wb_new.save(buf)
     return base64.b64encode(buf.getvalue()).decode()
