@@ -393,11 +393,77 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
             <i class="ti ti-file-off" style="font-size:36px;display:block;margin-bottom:.75rem;opacity:.35" aria-hidden="true"></i>
             <div style="font-size:13px">등록된 청구서가 없습니다. 먼저 업로드 탭에서 등록해주세요.</div>
           </div>
+          <!-- 수동 추가 모달 -->
+          <div id="add-resol-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:500px;max-width:94vw;box-shadow:var(--shadow-md);max-height:90vh;overflow-y:auto">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
+                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-plus"></i> 사건 수동 추가</h3>
+                <button onclick="closeAddResolModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem">
+                <div class="field" style="grid-column:1/-1">
+                  <label>접수번호 <span style="color:#DC2626">*</span></label>
+                  <input class="form-input" id="add-num" placeholder="예: 26-176">
+                </div>
+                <div class="field">
+                  <label>변호사 <span style="color:#DC2626">*</span></label>
+                  <input class="form-input" id="add-lawyer" placeholder="변호사 성명">
+                </div>
+                <div class="field">
+                  <label>의뢰인 <span style="color:#DC2626">*</span></label>
+                  <input class="form-input" id="add-client" placeholder="의뢰인 성명">
+                </div>
+                <div class="field" style="grid-column:1/-1">
+                  <label>사건명</label>
+                  <input class="form-input" id="add-case" placeholder="예: 임대차보증금반환소송">
+                </div>
+                <div class="field">
+                  <label>사건 유형</label>
+                  <select class="form-input" id="add-type">
+                    <option>민사</option>
+                    <option>형사</option>
+                    <option>신청</option>
+                    <option>행정</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>청구일</label>
+                  <input class="form-input" type="date" id="add-date">
+                </div>
+                <div class="field">
+                  <label>변호사보수 (원)</label>
+                  <input class="form-input" type="number" id="add-fee" placeholder="0">
+                </div>
+                <div class="field">
+                  <label>인지대 (원)</label>
+                  <input class="form-input" type="number" id="add-stamp" placeholder="0">
+                </div>
+                <div class="field">
+                  <label>송달료 (원)</label>
+                  <input class="form-input" type="number" id="add-delivery" placeholder="0">
+                </div>
+                <div class="field">
+                  <label>비고</label>
+                  <input class="form-input" id="add-note" placeholder="메모">
+                </div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn" style="flex:1;justify-content:center" onclick="closeAddResolModal()">취소</button>
+                <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveAddResol()">
+                  <i class="ti ti-check"></i> 추가
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div id="scan-resol-content" style="display:none">
             <!-- 상단 버튼 -->
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem">
               <span id="resol-nav-text" style="font-size:13px;color:var(--muted);font-weight:500"></span>
               <div style="flex:1"></div>
+              <button class="btn btn-sm" onclick="openAddResolModal()" style="border-color:var(--navy);color:var(--navy)">
+                <i class="ti ti-plus" aria-hidden="true"></i> 수동 추가
+              </button>
               <button class="btn btn-sm btn-primary" onclick="addAllToList()" style="background:#166534;border-color:#166534">
                 <i class="ti ti-download" aria-hidden="true"></i> 전체 엑셀 저장
               </button>
@@ -1860,6 +1926,57 @@ document.addEventListener('click', function(e) {
     if(e.key === 'Escape') { renderResolPanel(); }
   });
 });
+
+// ── 수동 추가 모달 ──
+function openAddResolModal() {
+  const modal = document.getElementById("add-resol-modal");
+  modal.style.display = "flex";
+  // 기본값 설정
+  document.getElementById("add-date").value = new Date().toISOString().slice(0,10);
+  document.getElementById("add-fee").value = "";
+  document.getElementById("add-stamp").value = "";
+  document.getElementById("add-delivery").value = "";
+  document.getElementById("add-num").value = "";
+  document.getElementById("add-lawyer").value = "";
+  document.getElementById("add-client").value = "";
+  document.getElementById("add-case").value = "";
+  document.getElementById("add-note").value = "";
+}
+
+function closeAddResolModal() {
+  document.getElementById("add-resol-modal").style.display = "none";
+}
+
+function saveAddResol() {
+  const num    = document.getElementById("add-num").value.trim();
+  const lawyer = document.getElementById("add-lawyer").value.trim();
+  const client = document.getElementById("add-client").value.trim();
+  if(!num)    { showToast("접수번호를 입력해주세요"); return; }
+  if(!lawyer) { showToast("변호사를 입력해주세요"); return; }
+  if(!client) { showToast("의뢰인을 입력해주세요"); return; }
+
+  const newCase = {
+    num:      BIZ[curBiz].prefix + " " + num,
+    lawyer,
+    client,
+    case:     document.getElementById("add-case").value.trim(),
+    caseName: document.getElementById("add-case").value.trim(),
+    type:     document.getElementById("add-type").value,
+    fee:      parseInt(document.getElementById("add-fee").value) || 0,
+    stamp:    parseInt(document.getElementById("add-stamp").value) || 0,
+    delivery: parseInt(document.getElementById("add-delivery").value) || 0,
+    date:     document.getElementById("add-date").value,
+    note:     document.getElementById("add-note").value.trim(),
+    tax:      "전자세금계산서",
+    _manual:  true
+  };
+
+  BIZ[curBiz].cases.push(newCase);
+  closeAddResolModal();
+  renderResolPanel();
+  renderDashboard();
+  showToast(`${num} ${client} 추가됐습니다`);
+}
 
 // ── 행 삭제 ──
 function deleteResolRow(idx) {
