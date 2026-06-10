@@ -1800,14 +1800,18 @@ function switchScanTab(tab) {
   if(tab==="list") renderScanListPanel();
 }
 
+// 정렬 상태
+let resolSortField = 'num';
+let resolSortAsc   = true;
+
 function renderResolPanel() {
   const empty   = document.getElementById("scan-resol-empty");
   const cont    = document.getElementById("scan-resol-content");
   const tableEl = document.getElementById("scan-resol-table");
   const formEl  = document.getElementById("scan-resol-form-wrap");
-  const all     = [...BIZ[curBiz].cases, ...resolList[curBiz]];
+  const raw     = [...BIZ[curBiz].cases, ...resolList[curBiz]];
 
-  if (!all.length) {
+  if (!raw.length) {
     if(empty) empty.style.display = "";
     if(cont)  cont.style.display  = "none";
     return;
@@ -1815,115 +1819,157 @@ function renderResolPanel() {
   if(empty) empty.style.display = "none";
   if(cont)  cont.style.display  = "";
   if(formEl) formEl.style.display = "none";
-
-  const nav = document.getElementById("resol-nav-text");
-  if(nav) nav.textContent = `총 ${all.length}건`;
-
   if(!tableEl) return;
 
-  const total = all.reduce((s,c) => s+(c.fee||0)+(c.stamp||0)+(c.delivery||0), 0);
+  // 정렬 적용 (원본 인덱스 보존)
+  const indexed = raw.map((c, i) => ({ c, i }));
+  indexed.sort((a, b) => {
+    let va, vb;
+    if (resolSortField === 'num') {
+      va = parseInt((a.c.num||'').replace(/\D/g,'').slice(-6)) || 0;
+      vb = parseInt((b.c.num||'').replace(/\D/g,'').slice(-6)) || 0;
+    } else if (resolSortField === 'amt') {
+      va = (a.c.fee||0)+(a.c.stamp||0)+(a.c.delivery||0);
+      vb = (b.c.fee||0)+(b.c.stamp||0)+(b.c.delivery||0);
+    } else {
+      va = (a.c[resolSortField]||'').toString().toLowerCase();
+      vb = (b.c[resolSortField]||'').toString().toLowerCase();
+    }
+    if (va < vb) return resolSortAsc ? -1 : 1;
+    if (va > vb) return resolSortAsc ?  1 : -1;
+    return 0;
+  });
 
-  // 인라인 편집 방식: 셀 클릭 → input으로 바뀜 → 포커스 잃으면 저장
-  const cellStyle = "padding:6px 8px;border-bottom:1px solid var(--border)";
-  const inputStyle = "width:100%;border:none;outline:none;background:transparent;font-size:12px;font-family:inherit;padding:0";
+  const total = raw.reduce((s,c) => s+(c.fee||0)+(c.stamp||0)+(c.delivery||0), 0);
+  const nav   = document.getElementById("resol-nav-text");
+  if(nav) nav.textContent = `총 ${raw.length}건 / ${total.toLocaleString()}원`;
+
+  // 정렬 헤더 헬퍼
+  const th = (field, label, align='left') => {
+    const active = resolSortField === field;
+    const arrow  = active ? (resolSortAsc ? ' ▲' : ' ▼') : '';
+    return `<th onclick="resolSort('${field}')" style="padding:8px;text-align:${align};border-bottom:2px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;${active?'color:#2563EB;':''}font-weight:600">${label}${arrow}</th>`;
+  };
+
+  const cs = "padding:7px 8px;border-bottom:1px solid var(--border)";
 
   tableEl.innerHTML = `
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">
-      <i class="ti ti-info-circle"></i> 셀을 클릭하면 바로 수정할 수 있어요
-    </div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:6px">
+      <i class="ti ti-info-circle"></i> 헤더 클릭 → 정렬 &nbsp;|&nbsp; 셀 클릭 → 수정
+    </p>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
         <tr style="background:var(--light)">
-          <th style="${cellStyle};border-bottom:2px solid var(--border);white-space:nowrap">접수번호</th>
-          <th style="${cellStyle};border-bottom:2px solid var(--border)">변호사</th>
-          <th style="${cellStyle};border-bottom:2px solid var(--border)">의뢰인</th>
-          <th style="${cellStyle};border-bottom:2px solid var(--border)">사건명</th>
-          <th style="${cellStyle};border-bottom:2px solid var(--border);text-align:right">금액</th>
-          <th style="${cellStyle};border-bottom:2px solid var(--border);text-align:center">삭제</th>
+          ${th('num',    '접수번호')}
+          ${th('lawyer', '변호사')}
+          ${th('client', '의뢰인')}
+          ${th('case',   '사건명')}
+          ${th('amt',    '금액', 'right')}
+          ${th('type',   '유형')}
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center">삭제</th>
         </tr>
       </thead>
       <tbody>
-        ${all.map((c, i) => {
-          const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
-          const num = (c.num||"").replace(/^(국부|서금)\s*/,"");
+        ${indexed.map(({ c, i }) => {
+          const amt     = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+          const num     = (c.num||'').replace(/^(국부|서금)\s*/,'');
           const missing = !c.lawyer || !c.client || !amt;
-          const bg = missing ? "background:#FFF7F7" : (i%2===0?"":"background:#F9FAFB");
-          // 각 셀: 클릭하면 input 표시, blur시 저장
-          // onclick에 값 직접 전달하면 특수문자로 깨짐 → data-* 속성 사용
-          return `<tr id="resol-row-${i}" style="${bg}" data-idx="${i}">
-            <td style="${cellStyle};font-weight:600;cursor:pointer" data-field="num" data-idx="${i}">${num||'<span style="color:#DC2626;font-size:11px">미인식 (클릭하여 입력)</span>'}</td>
-            <td style="${cellStyle};cursor:pointer" data-field="lawyer" data-idx="${i}">${c.lawyer||'<span style="color:#DC2626;font-size:11px">클릭하여 입력</span>'}</td>
-            <td style="${cellStyle};cursor:pointer" data-field="client" data-idx="${i}">${c.client||'<span style="color:#DC2626;font-size:11px">클릭하여 입력</span>'}</td>
-            <td style="${cellStyle};cursor:pointer;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" data-field="case" data-idx="${i}">${c.case||c.caseName||'<span style="color:#6B7280;font-size:11px">클릭하여 입력</span>'}</td>
-            <td style="${cellStyle};cursor:pointer;text-align:right" data-field="fee" data-idx="${i}">${amt?amt.toLocaleString():'<span style="color:#DC2626;font-size:11px">0 (클릭수정)</span>'}</td>
-            <td style="${cellStyle};text-align:center">
-              <button onclick="event.stopPropagation();deleteResolRow(${i})" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:14px" title="삭제">🗑</button>
+          const bg      = missing ? 'background:#FFF7F7' : '';
+          const numTxt  = num
+            ? `<strong>${num}</strong>`
+            : '<span style="color:#DC2626;font-size:11px">미인식</span>';
+          const typeColor = c.type==='형사' ? '#7C3AED' : c.type==='신청' ? '#B45309' : '#1D4ED8';
+          return `<tr style="border-bottom:1px solid var(--border);${bg}">
+            <td style="${cs};font-weight:500;cursor:pointer" data-field="num"    data-idx="${i}">${numTxt}</td>
+            <td style="${cs};cursor:pointer"                 data-field="lawyer" data-idx="${i}">${c.lawyer||'<span style="color:#DC2626;font-size:11px">클릭입력</span>'}</td>
+            <td style="${cs};cursor:pointer"                 data-field="client" data-idx="${i}">${c.client||'<span style="color:#DC2626;font-size:11px">클릭입력</span>'}</td>
+            <td style="${cs};cursor:pointer;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(c.case||'').replace(/"/g,'')}" data-field="case" data-idx="${i}">${c.case||c.caseName||'<span style="color:#6B7280;font-size:11px">클릭입력</span>'}</td>
+            <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="fee" data-idx="${i}">${amt ? amt.toLocaleString() : '<span style="color:#DC2626;font-size:11px">0</span>'}</td>
+            <td style="${cs};cursor:pointer;text-align:center" data-field="type" data-idx="${i}">
+              <span style="font-size:10px;padding:2px 7px;border-radius:99px;background:#EEF2FF;color:${typeColor}">${c.type||'민사'}</span>
+            </td>
+            <td style="${cs};text-align:center">
+              <button onclick="event.stopPropagation();deleteResolRow(${i})" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:13px;padding:2px 4px">🗑</button>
             </td>
           </tr>`;
-        }).join("")}
+        }).join('')}
         <tr style="border-top:2px solid var(--border);background:var(--light);font-weight:600">
-          <td colspan="4" style="padding:8px;text-align:right">합계</td>
+          <td colspan="4" style="padding:8px;text-align:right;color:var(--muted);font-size:11px">합 계</td>
           <td style="padding:8px;text-align:right;font-family:monospace">${total.toLocaleString()}</td>
-          <td></td>
+          <td colspan="2"></td>
         </tr>
       </tbody>
     </table>`;
 }
 
-// ── 셀 클릭 인라인 편집 (이벤트 위임 방식) ──
-// 테이블에 클릭 이벤트 하나만 걸고 data-field, data-idx로 처리
+// 컬럼 정렬
+function resolSort(field) {
+  if (resolSortField === field) resolSortAsc = !resolSortAsc;
+  else { resolSortField = field; resolSortAsc = true; }
+  renderResolPanel();
+}
+
+// ── 셀 클릭 인라인 편집 ──
 document.addEventListener('click', function(e) {
-  const td = e.target.closest('td[data-field]');
+  const td = e.target.closest('td[data-field][data-idx]');
   if(!td) return;
-  if(td.querySelector('input')) return; // 이미 편집 중
+  if(td.querySelector('input,select')) return;
 
   const idx   = parseInt(td.dataset.idx);
   const field = td.dataset.field;
   const c     = BIZ[curBiz].cases[idx];
   if(!c) return;
 
-  // 현재 값 가져오기
   let currentVal = '';
-  if(field === 'num')    currentVal = (c.num||'').replace(/^(국부|서금)\s*/,'');
-  else if(field === 'fee') currentVal = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
-  else if(field === 'case') currentVal = c.case||c.caseName||'';
-  else currentVal = c[field]||'';
-
-  const isAmt = (field === 'fee');
+  if      (field === 'num')  currentVal = (c.num||'').replace(/^(국부|서금)\s*/,'');
+  else if (field === 'fee')  currentVal = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+  else if (field === 'case') currentVal = c.case||c.caseName||'';
+  else if (field === 'type') currentVal = c.type||'민사';
+  else                       currentVal = c[field]||'';
 
   td.innerHTML = '';
-  const input = document.createElement('input');
-  input.type  = isAmt ? 'number' : 'text';
-  input.value = currentVal;
-  input.style.cssText = 'width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:12px;font-family:inherit;padding:2px 4px;box-sizing:border-box;min-width:60px';
-  if(isAmt) input.style.textAlign = 'right';
+  let input;
+
+  if (field === 'type') {
+    input = document.createElement('select');
+    ['민사','형사','신청','행정'].forEach(opt => {
+      const o = document.createElement('option');
+      o.value=opt; o.textContent=opt;
+      if(opt===currentVal) o.selected=true;
+      input.appendChild(o);
+    });
+    input.style.cssText='width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:11px;padding:2px 4px';
+  } else {
+    input = document.createElement('input');
+    input.type  = (field==='fee') ? 'number' : 'text';
+    input.value = currentVal;
+    input.style.cssText='width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:12px;font-family:inherit;padding:2px 4px;box-sizing:border-box;min-width:60px';
+    if(field==='fee') input.style.textAlign='right';
+  }
 
   td.appendChild(input);
   input.focus();
-  input.select();
+  if(input.select) input.select();
 
   const save = () => {
-    const val = input.value.trim();
-    if(field === 'num') {
-      c.num = BIZ[curBiz].prefix + ' ' + val;
-    } else if(field === 'fee') {
-      const amt = parseInt(String(val).replace(/,/g,'')) || 0;
-      if((c.doctype||'') === '인지대 영수증')       { c.stamp=amt; c.fee=0; c.delivery=0; }
-      else if((c.doctype||'') === '송달료 영수증')   { c.delivery=amt; c.fee=0; c.stamp=0; }
-      else                                           { c.fee=amt; c.stamp=0; c.delivery=0; }
-    } else if(field === 'case') {
-      c.case=val; c.caseName=val;
-    } else {
-      c[field] = val;
+    const val = typeof input.value === 'string' ? input.value.trim() : input.value;
+    if      (field==='num')  { c.num = val ? BIZ[curBiz].prefix+' '+val : ''; }
+    else if (field==='fee')  {
+      const amt = parseInt(String(val).replace(/,/g,''))||0;
+      if     ((c.doctype||'')==='인지대 영수증') { c.stamp=amt;    c.fee=0; c.delivery=0; }
+      else if((c.doctype||'')==='송달료 영수증') { c.delivery=amt; c.fee=0; c.stamp=0; }
+      else                                        { c.fee=amt;      c.stamp=0; c.delivery=0; }
     }
+    else if (field==='case') { c.case=val; c.caseName=val; }
+    else                     { c[field]=val; }
     renderResolPanel();
     renderDashboard();
   };
 
   input.addEventListener('blur', save);
-  input.addEventListener('keydown', e => {
-    if(e.key === 'Enter')  { e.preventDefault(); input.blur(); }
-    if(e.key === 'Escape') { renderResolPanel(); }
+  input.addEventListener('keydown', ev => {
+    if(ev.key==='Enter')  { ev.preventDefault(); input.blur(); }
+    if(ev.key==='Escape') { renderResolPanel(); }
   });
 });
 
@@ -2381,62 +2427,70 @@ async function ocrWithGoogleDrive(file, base64Data, itemId, mimeType) {
   }
 }
 
-// ── OCR 결과로 자동 등록 ──
-// 인식된 데이터를 바로 cases에 저장 (확인 없이)
-// 틀린 건 지출결의서 탭 목록에서 수정
+// ── OCR 결과 자동 등록 ──
+// 규칙: 접수번호 있으면 정확 매칭 후 금액 누적, 없으면 변호사+의뢰인+금액 조합 중복 체크
 function autoSaveScanEntry(parsed, fileName) {
-  const today = new Date().toISOString().slice(0,10);
-  const num      = (parsed.accNum  || '').trim();
-  const lawyer   = (parsed.lawyer  || '').trim();
-  const client   = (parsed.client  || '').trim();
+  const today    = new Date().toISOString().slice(0,10);
+  const num      = (parsed.accNum   || '').trim();
+  const lawyer   = (parsed.lawyer   || '').trim();
+  const client   = (parsed.client   || '').trim();
   const amt      = parseInt(parsed.amount) || 0;
-  const caseName = (parsed.caseName|| '').trim();
-  const opponent = (parsed.opponent|| '').trim();
-  const firm     = (parsed.firm    || '').trim();
-  const acct     = (parsed.account || '').trim();
-  const doctype  = parsed.doctype  || '소송비용청구서';
+  const caseName = (parsed.caseName || '').trim();
+  const opponent = (parsed.opponent || '').trim();
+  const firm     = (parsed.firm     || '').trim();
+  const acct     = (parsed.account  || '').trim();
+  const doctype  = parsed.doctype   || '소송비용청구서';
 
   // 비용 분리
-  let fee = 0, stamp = 0, delivery = 0;
-  if (doctype === '인지대 영수증') stamp = amt;
-  else if (doctype === '송달료 영수증') delivery = amt;
-  else fee = amt;
+  let fee=0, stamp=0, delivery=0;
+  if      (doctype==='인지대 영수증') stamp    = amt;
+  else if (doctype==='송달료 영수증') delivery = amt;
+  else                                fee      = amt;
 
   // 사건 유형 추론
   let caseType = '민사';
-  if (caseName.includes('사기')||caseName.includes('횡령')||caseName.includes('배임')||caseName.includes('형사')) caseType = '형사';
-  else if (caseName.includes('집행')||caseName.includes('압류')||caseName.includes('추심')||caseName.includes('가처분')||caseName.includes('경매')) caseType = '신청';
+  if      (caseName.includes('사기')||caseName.includes('횡령')||caseName.includes('배임')||caseName.includes('형사')) caseType='형사';
+  else if (caseName.includes('집행')||caseName.includes('압류')||caseName.includes('추심')||caseName.includes('가처분')||caseName.includes('경매')||caseName.includes('신청')) caseType='신청';
 
-  const fullNum = num ? BIZ[curBiz].prefix + ' ' + num : '미인식-' + fileName;
+  const fullNum = num ? BIZ[curBiz].prefix+' '+num : '';
 
   const newCase = {
     num: fullNum, lawyer, firm, client, opponent,
     case: caseName, caseName, type: caseType,
     fee, stamp, delivery,
-    tax: '전자세금계산서',
-    resol: '대기', date: today,
-    account: acct, note: caseType, doctype,
-    _fromOcr: true  // OCR 자동 등록 표시
+    tax: '전자세금계산서', resol: '대기', date: today,
+    account: acct, note: caseType, doctype, _fromOcr: true
   };
 
-  // 기존 접수번호 있으면 금액만 추가, 없으면 새로 추가
-  // 정확한 접수번호 매칭 (예: "26-1"이 "26-10"에 매칭되는 오류 방지)
-  // 정확한 번호 매칭 (26-1이 26-10에 매칭되는 오류 방지)
-  const idx = num ? BIZ[curBiz].cases.findIndex(c => {
-    const cn = (c.num || "").replace(/^(국부|서금)\s*/, "").trim();
-    return cn === num.trim();
-  }) : -1;
-  if (idx >= 0) {
-    // 동일 접수번호면 인지대·송달료만 누적 (중복 등록 방지)
-    BIZ[curBiz].cases[idx].stamp    += stamp;
-    BIZ[curBiz].cases[idx].delivery += delivery;
-    if (fee > 0) BIZ[curBiz].cases[idx].fee = fee;
-    if (acct)    BIZ[curBiz].cases[idx].account = acct;
+  if (num) {
+    // 접수번호 있는 경우 - 정확한 번호 매칭
+    const idx = BIZ[curBiz].cases.findIndex(c => {
+      const cn = (c.num||'').replace(/^(국부|서금)\s*/,'').trim();
+      return cn === num;
+    });
+    if (idx >= 0) {
+      // 동일 번호 → 금액 누적
+      BIZ[curBiz].cases[idx].stamp    += stamp;
+      BIZ[curBiz].cases[idx].delivery += delivery;
+      if (fee>0)     BIZ[curBiz].cases[idx].fee     = fee;
+      if (acct)      BIZ[curBiz].cases[idx].account  = acct;
+      if (caseName)  BIZ[curBiz].cases[idx].case     = caseName;
+      if (caseName)  BIZ[curBiz].cases[idx].caseName = caseName;
+      if (lawyer)    BIZ[curBiz].cases[idx].lawyer   = lawyer;
+      if (client)    BIZ[curBiz].cases[idx].client   = client;
+    } else {
+      BIZ[curBiz].cases.push(newCase);
+    }
   } else {
-    BIZ[curBiz].cases.push(newCase);
+    // 접수번호 없는 경우 - 변호사+의뢰인+금액+사건명 조합으로 중복 체크
+    const isDup = BIZ[curBiz].cases.some(c =>
+      !c.num && c.lawyer===lawyer && c.client===client &&
+      (c.fee+c.stamp+c.delivery)===amt && c.caseName===caseName
+    );
+    if (!isDup) BIZ[curBiz].cases.push(newCase);
   }
 
-  scanDoneList.unshift({ num: fullNum, lawyer, client, amt, doctype, date: today, tax: '전자계산서' });
+  scanDoneList.unshift({ num: fullNum||'미인식', lawyer, client, amt, doctype, date: today, tax: '전자계산서' });
   renderScanDone();
   renderDashboard();
 
