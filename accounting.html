@@ -1783,14 +1783,15 @@ function renderResolPanel() {
           const missing = !c.lawyer || !c.client || !amt;
           const bg = missing ? "background:#FFF7F7" : (i%2===0?"":"background:#F9FAFB");
           // 각 셀: 클릭하면 input 표시, blur시 저장
-          return `<tr id="resol-row-${i}" style="${bg}">
-            <td style="${cellStyle};font-weight:600" onclick="resolEditCell(this,${i},'num','${num}')">${num||'<span style="color:#DC2626;font-size:11px">미인식(클릭수정)</span>'}</td>
-            <td style="${cellStyle}" onclick="resolEditCell(this,${i},'lawyer','${(c.lawyer||'').replace(/'/g,'')}')">${c.lawyer||'<span style="color:#DC2626">클릭하여 입력</span>'}</td>
-            <td style="${cellStyle}" onclick="resolEditCell(this,${i},'client','${(c.client||'').replace(/'/g,'')}')">${c.client||'<span style="color:#DC2626">클릭하여 입력</span>'}</td>
-            <td style="${cellStyle};max-width:200px" onclick="resolEditCell(this,${i},'case','${(c.case||c.caseName||'').replace(/'/g,'')}')">${c.case||c.caseName||'<span style="color:#6B7280">클릭하여 입력</span>'}</td>
-            <td style="${cellStyle};text-align:right" onclick="resolEditCell(this,${i},'fee',${amt})">${amt?amt.toLocaleString():'<span style="color:#DC2626">0(클릭수정)</span>'}</td>
+          // onclick에 값 직접 전달하면 특수문자로 깨짐 → data-* 속성 사용
+          return `<tr id="resol-row-${i}" style="${bg}" data-idx="${i}">
+            <td style="${cellStyle};font-weight:600;cursor:pointer" data-field="num" data-idx="${i}">${num||'<span style="color:#DC2626;font-size:11px">미인식 (클릭하여 입력)</span>'}</td>
+            <td style="${cellStyle};cursor:pointer" data-field="lawyer" data-idx="${i}">${c.lawyer||'<span style="color:#DC2626;font-size:11px">클릭하여 입력</span>'}</td>
+            <td style="${cellStyle};cursor:pointer" data-field="client" data-idx="${i}">${c.client||'<span style="color:#DC2626;font-size:11px">클릭하여 입력</span>'}</td>
+            <td style="${cellStyle};cursor:pointer;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" data-field="case" data-idx="${i}">${c.case||c.caseName||'<span style="color:#6B7280;font-size:11px">클릭하여 입력</span>'}</td>
+            <td style="${cellStyle};cursor:pointer;text-align:right" data-field="fee" data-idx="${i}">${amt?amt.toLocaleString():'<span style="color:#DC2626;font-size:11px">0 (클릭수정)</span>'}</td>
             <td style="${cellStyle};text-align:center">
-              <button onclick="deleteResolRow(${i})" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:14px" title="삭제">🗑</button>
+              <button onclick="event.stopPropagation();deleteResolRow(${i})" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:14px" title="삭제">🗑</button>
             </td>
           </tr>`;
         }).join("")}
@@ -1803,18 +1804,32 @@ function renderResolPanel() {
     </table>`;
 }
 
-// ── 셀 클릭 인라인 편집 ──
-function resolEditCell(td, idx, field, currentVal) {
+// ── 셀 클릭 인라인 편집 (이벤트 위임 방식) ──
+// 테이블에 클릭 이벤트 하나만 걸고 data-field, data-idx로 처리
+document.addEventListener('click', function(e) {
+  const td = e.target.closest('td[data-field]');
+  if(!td) return;
   if(td.querySelector('input')) return; // 이미 편집 중
 
-  const isAmt = (field === 'fee');
-  const displayVal = isAmt ? currentVal : (currentVal||'');
-  td.innerHTML = '';
+  const idx   = parseInt(td.dataset.idx);
+  const field = td.dataset.field;
+  const c     = BIZ[curBiz].cases[idx];
+  if(!c) return;
 
+  // 현재 값 가져오기
+  let currentVal = '';
+  if(field === 'num')    currentVal = (c.num||'').replace(/^(국부|서금)\s*/,'');
+  else if(field === 'fee') currentVal = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+  else if(field === 'case') currentVal = c.case||c.caseName||'';
+  else currentVal = c[field]||'';
+
+  const isAmt = (field === 'fee');
+
+  td.innerHTML = '';
   const input = document.createElement('input');
-  input.type = isAmt ? 'number' : 'text';
-  input.value = isAmt ? (currentVal||0) : displayVal;
-  input.style.cssText = 'width:100%;border:none;outline:2px solid var(--blue);border-radius:3px;background:#EFF6FF;font-size:12px;font-family:inherit;padding:2px 4px;box-sizing:border-box';
+  input.type  = isAmt ? 'number' : 'text';
+  input.value = currentVal;
+  input.style.cssText = 'width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:12px;font-family:inherit;padding:2px 4px;box-sizing:border-box;min-width:60px';
   if(isAmt) input.style.textAlign = 'right';
 
   td.appendChild(input);
@@ -1823,18 +1838,15 @@ function resolEditCell(td, idx, field, currentVal) {
 
   const save = () => {
     const val = input.value.trim();
-    const c = BIZ[curBiz].cases[idx];
-    if(!c) return;
-
     if(field === 'num') {
       c.num = BIZ[curBiz].prefix + ' ' + val;
     } else if(field === 'fee') {
-      const amt = parseInt(val.replace(/,/g,'')) || 0;
-      if((c.doctype||'') === '인지대 영수증')  { c.stamp = amt; c.fee = 0; c.delivery = 0; }
-      else if((c.doctype||'') === '송달료 영수증') { c.delivery = amt; c.fee = 0; c.stamp = 0; }
-      else { c.fee = amt; c.stamp = 0; c.delivery = 0; }
+      const amt = parseInt(String(val).replace(/,/g,'')) || 0;
+      if((c.doctype||'') === '인지대 영수증')       { c.stamp=amt; c.fee=0; c.delivery=0; }
+      else if((c.doctype||'') === '송달료 영수증')   { c.delivery=amt; c.fee=0; c.stamp=0; }
+      else                                           { c.fee=amt; c.stamp=0; c.delivery=0; }
     } else if(field === 'case') {
-      c.case = val; c.caseName = val;
+      c.case=val; c.caseName=val;
     } else {
       c[field] = val;
     }
@@ -1844,10 +1856,10 @@ function resolEditCell(td, idx, field, currentVal) {
 
   input.addEventListener('blur', save);
   input.addEventListener('keydown', e => {
-    if(e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if(e.key === 'Enter')  { e.preventDefault(); input.blur(); }
     if(e.key === 'Escape') { renderResolPanel(); }
   });
-}
+});
 
 // ── 행 삭제 ──
 function deleteResolRow(idx) {
@@ -2292,9 +2304,10 @@ function autoSaveScanEntry(parsed, fileName) {
 
   // 기존 접수번호 있으면 금액만 추가, 없으면 새로 추가
   // 정확한 접수번호 매칭 (예: "26-1"이 "26-10"에 매칭되는 오류 방지)
+  // 정확한 번호 매칭 (26-1이 26-10에 매칭되는 오류 방지)
   const idx = num ? BIZ[curBiz].cases.findIndex(c => {
     const cn = (c.num || "").replace(/^(국부|서금)\s*/, "").trim();
-    return cn === num;
+    return cn === num.trim();
   }) : -1;
   if (idx >= 0) {
     // 동일 접수번호면 인지대·송달료만 누적 (중복 등록 방지)
