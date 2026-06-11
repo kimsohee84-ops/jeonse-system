@@ -54,11 +54,18 @@ function parseDoc(text) {
   const rawLines = text.split('\n').filter(l => l.trim());
 
   // 재단 접수번호
-  // OCR이 "국토부 26:110" 또는 "국부 26-110" 등 다양하게 읽음
-  // "-" 와 ":" 둘 다 허용
+  // OCR이 "국토부 26:110", "국부 26-110", "(국)26262" 등 다양하게 읽음
+  // "접수번호" 바로 뒤(최대 12자) 숫자만 추출 → 같은 줄의 계좌번호 등 오인식 방지
   for (const line of lines) {
     if (/재단\s*접수번호/.test(line)) {
-      const m = line.match(/(\d{2})\s*[-:]\s*(\d+)/);
+      const after = line.replace(/.*재단\s*접수번호/, '').slice(0, 12);
+      let m = after.match(/(\d{2})\s*[-:]\s*(\d+)/);
+      if (m) { r.accNum = m[1] + '-' + m[2]; break; }
+      // "(국)26262" / "(서)26262" 형식 (구분자 없음)
+      m = after.match(/[\(（]\s*(?:국|서)\s*[\)）]\s*(\d{2})(\d{3,4})(?!\d)/);
+      if (m) { r.accNum = m[1] + '-' + m[2]; break; }
+      // 괄호 없이 구분자 없는 5~6자리 숫자: 26262 → 26-262
+      m = after.match(/^\s*(\d{2})(\d{3,4})(?!\d)/);
       if (m) { r.accNum = m[1] + '-' + m[2]; break; }
     }
     const m1 = line.match(/(국\s*부|서\s*금)\s*(\d{2})\s*[-:]\s*(\d+)/);
