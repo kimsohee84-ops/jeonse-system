@@ -54,12 +54,13 @@ function parseDoc(text) {
   const rawLines = text.split('\n').filter(l => l.trim());
 
   // 재단 접수번호
-  // OCR이 "국토부 26:110", "국부 26-110", "(국)26262" 등 다양하게 읽음
-  // "접수번호" 바로 뒤(최대 12자) 숫자만 추출 → 같은 줄의 계좌번호 등 오인식 방지
+  // OCR이 "국토부 26:110", "국부 26-110", "(국)26262", "국토부 26.215"(마침표) 등 다양하게 읽음
+  // "접수번호" 바로 뒤(최대 20자) 숫자만 추출 → 같은 줄의 계좌번호 등 오인식 방지
   for (const line of lines) {
     if (/재단\s*접수번호/.test(line)) {
-      const after = line.replace(/.*재단\s*접수번호/, '').slice(0, 12);
-      let m = after.match(/(\d{2})\s*[-:]\s*(\d+)/);
+      const after = line.replace(/.*재단\s*접수번호/, '').slice(0, 20);
+      // "-", ":", "." 모두 구분자로 허용 (예: 26-110, 26:110, 26.215)
+      let m = after.match(/(\d{2})\s*[-:.]\s*(\d+)/);
       if (m) { r.accNum = m[1] + '-' + m[2]; break; }
       // "(국)26262" / "(서)26262" 형식 (구분자 없음)
       m = after.match(/[\(（]\s*(?:국|서)\s*[\)）]\s*(\d{2})(\d{3,4})(?!\d)/);
@@ -68,15 +69,15 @@ function parseDoc(text) {
       m = after.match(/^\s*(\d{2})(\d{3,4})(?!\d)/);
       if (m) { r.accNum = m[1] + '-' + m[2]; break; }
     }
-    const m1 = line.match(/(국\s*부|서\s*금)\s*(\d{2})\s*[-:]\s*(\d+)/);
+    const m1 = line.match(/(국\s*부|서\s*금)\s*(\d{2})\s*[-:.]\s*(\d+)/);
     if (m1) {
       const prefix = m1[1].replace(/\s/g,'') === '국부' ? '국부' : '서금';
       r.accNum = prefix + ' ' + m1[2] + '-' + m1[3];
       break;
     }
-    const m2 = line.match(/국토부[^\d]*(\d{2})\s*[-:]\s*(\d+)/);
+    const m2 = line.match(/국토부[^\d]*(\d{2})\s*[-:.]\s*(\d+)/);
     if (m2) { r.accNum = m2[1] + '-' + m2[2]; break; }
-    const m3 = line.match(/서민금융[^\d]*(\d{2})\s*[-:]\s*(\d+)/);
+    const m3 = line.match(/서민금융[^\d]*(\d{2})\s*[-:.]\s*(\d+)/);
     if (m3) { r.accNum = m3[1] + '-' + m3[2]; break; }
   }
   if (!r.accNum) {
