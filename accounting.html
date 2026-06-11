@@ -1803,6 +1803,8 @@ function switchScanTab(tab) {
 // 정렬 상태
 let resolSortField = 'num';
 let resolSortAsc   = true;
+// 행 선택 상태 (체크박스)
+let resolSelected = new Set();
 
 function renderResolPanel() {
   const empty   = document.getElementById("scan-resol-empty");
@@ -1855,11 +1857,22 @@ function renderResolPanel() {
 
   tableEl.innerHTML = `
     <p style="font-size:11px;color:var(--muted);margin-bottom:6px">
-      <i class="ti ti-info-circle"></i> 헤더 클릭 → 정렬 &nbsp;|&nbsp; 셀 클릭 → 수정
+      <i class="ti ti-info-circle"></i> 헤더 클릭 → 정렬 &nbsp;|&nbsp; 셀 클릭 → 수정 &nbsp;|&nbsp; 체크박스로 여러 건 선택 후 합치기/삭제 가능
     </p>
+    <div id="resol-bulk-bar" style="display:none;align-items:center;gap:8px;margin-bottom:8px;padding:8px 10px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;font-size:12px">
+      <span id="resol-bulk-count" style="font-weight:600;color:#1D4ED8"></span>
+      <button onclick="mergeSelectedRows()" class="btn btn-sm" style="background:#1D4ED8;color:#fff;border-color:#1D4ED8">
+        <i class="ti ti-arrows-join"></i> 선택 항목 합치기
+      </button>
+      <button onclick="deleteSelectedRows()" class="btn btn-sm" style="border-color:#FCA5A5;color:#DC2626">
+        <i class="ti ti-trash"></i> 선택 삭제
+      </button>
+      <button onclick="clearRowSelection()" class="btn btn-sm" style="margin-left:auto">선택 해제</button>
+    </div>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
         <tr style="background:var(--light)">
+          <th style="padding:8px;border-bottom:2px solid var(--border);width:28px"></th>
           ${th('num',    '접수번호')}
           ${th('lawyer', '변호사')}
           ${th('client', '의뢰인')}
@@ -1879,7 +1892,11 @@ function renderResolPanel() {
             ? `<strong>${num}</strong>`
             : '<span style="color:#DC2626;font-size:11px">미인식</span>';
           const typeColor = c.type==='형사' ? '#7C3AED' : c.type==='신청' ? '#B45309' : '#1D4ED8';
+          const checked = resolSelected.has(i) ? 'checked' : '';
           return `<tr style="border-bottom:1px solid var(--border);${bg}">
+            <td style="${cs};text-align:center">
+              <input type="checkbox" class="resol-row-check" data-idx="${i}" ${checked} style="cursor:pointer">
+            </td>
             <td style="${cs};font-weight:500;cursor:pointer" data-field="num"    data-idx="${i}">${numTxt}</td>
             <td style="${cs};cursor:pointer"                 data-field="lawyer" data-idx="${i}">${c.lawyer||'<span style="color:#DC2626;font-size:11px">클릭입력</span>'}</td>
             <td style="${cs};cursor:pointer"                 data-field="client" data-idx="${i}">${c.client||'<span style="color:#DC2626;font-size:11px">클릭입력</span>'}</td>
@@ -1894,12 +1911,93 @@ function renderResolPanel() {
           </tr>`;
         }).join('')}
         <tr style="border-top:2px solid var(--border);background:var(--light);font-weight:600">
+          <td></td>
           <td colspan="4" style="padding:8px;text-align:right;color:var(--muted);font-size:11px">합 계</td>
           <td style="padding:8px;text-align:right;font-family:monospace">${total.toLocaleString()}</td>
           <td colspan="2"></td>
         </tr>
       </tbody>
     </table>`;
+
+  updateBulkBar();
+}
+
+// ── 행 선택 관리 ──
+function updateBulkBar() {
+  const bar = document.getElementById('resol-bulk-bar');
+  const cnt = document.getElementById('resol-bulk-count');
+  if (!bar) return;
+  if (resolSelected.size > 0) {
+    bar.style.display = 'flex';
+    if(cnt) cnt.textContent = `${resolSelected.size}건 선택됨`;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function clearRowSelection() {
+  resolSelected.clear();
+  renderResolPanel();
+}
+
+// 체크박스 클릭 이벤트 위임
+document.addEventListener('change', function(e) {
+  if (!e.target.classList.contains('resol-row-check')) return;
+  const idx = parseInt(e.target.dataset.idx);
+  if (e.target.checked) resolSelected.add(idx);
+  else resolSelected.delete(idx);
+  updateBulkBar();
+});
+
+// ── 선택 항목 합치기 ──
+// 선택된 행들의 보수/인지대/송달료를 모두 합산해 첫 번째(접수번호 있는 것 우선) 행에 몰아주고
+// 나머지는 삭제
+function mergeSelectedRows() {
+  if (resolSelected.size < 2) {
+    showToast('2개 이상 선택해주세요');
+    return;
+  }
+  const idxs = [...resolSelected].sort((a,b)=>a-b);
+  const cases = BIZ[curBiz].cases;
+
+  // 접수번호가 있는 행을 기준(베이스)으로 선택, 없으면 첫 번째
+  let baseIdx = idxs.find(i => cases[i] && (cases[i].num||'').replace(/^(국부|서금)\s*/,'').trim());
+  if (baseIdx === undefined) baseIdx = idxs[0];
+
+  const base = cases[baseIdx];
+  let sumFee=0, sumStamp=0, sumDelivery=0;
+  idxs.forEach(i => {
+    const c = cases[i];
+    if (!c) return;
+    sumFee      += c.fee||0;
+    sumStamp    += c.stamp||0;
+    sumDelivery += c.delivery||0;
+    // 비어있는 정보는 다른 선택 행에서 채워넣기
+    if (!base.lawyer && c.lawyer) base.lawyer = c.lawyer;
+    if (!base.client && c.client) base.client = c.client;
+    if (!base.case   && (c.case||c.caseName)) { base.case = c.case||c.caseName; base.caseName = base.case; }
+  });
+  base.fee = sumFee; base.stamp = sumStamp; base.delivery = sumDelivery;
+
+  // base를 제외한 나머지 삭제 (인덱스 큰 것부터 삭제해야 인덱스 안 꼬임)
+  idxs.filter(i => i !== baseIdx).sort((a,b)=>b-a).forEach(i => cases.splice(i,1));
+
+  resolSelected.clear();
+  renderResolPanel();
+  renderDashboard();
+  showToast(`${idxs.length}건을 1건으로 합쳤습니다`);
+}
+
+// ── 선택 항목 삭제 ──
+function deleteSelectedRows() {
+  if (resolSelected.size === 0) return;
+  if (!confirm(`선택한 ${resolSelected.size}건을 삭제할까요?`)) return;
+  const idxs = [...resolSelected].sort((a,b)=>b-a); // 큰 인덱스부터 삭제
+  idxs.forEach(i => BIZ[curBiz].cases.splice(i,1));
+  resolSelected.clear();
+  renderResolPanel();
+  renderDashboard();
+  showToast(`${idxs.length}건 삭제됐습니다`);
 }
 
 // 컬럼 정렬
@@ -2179,6 +2277,8 @@ function clearScanList() {
 
   scanQueue = [];
   scanProcessing = false;
+  lastCaseIdx = -1;
+  resolSelected.clear();
   showToast("초기화됐습니다");
 }
 
@@ -2187,6 +2287,8 @@ function clearScanList() {
 // (Vercel 4.5MB 요청 제한 + 동시 요청 과부하 방지)
 let scanQueue = [];
 let scanProcessing = false;
+// 직전에 처리한 사건의 cases 인덱스 (식별정보 없는 영수증 페이지를 합산할 대상)
+let lastCaseIdx = -1;
 
 function handleScanFile(e) {
   const files = Array.from(e.target.files);
@@ -2275,6 +2377,9 @@ async function compressAndOcr(file, itemId) {
     if (file.type === 'application/pdf') {
       // PDF → 전체 페이지를 각각 JPEG으로 렌더링 후 순서대로 OCR
       setStatus('변환 중...', '#FEF3C7', '#92400E');
+
+      // 새 PDF 시작 - 직전 사건 참조 초기화 (다른 파일의 사건과 섞이지 않도록)
+      lastCaseIdx = -1;
 
       const arrayBuf = await file.arrayBuffer();
       const pdfData  = new Uint8Array(arrayBuf);
@@ -2428,7 +2533,11 @@ async function ocrWithGoogleDrive(file, base64Data, itemId, mimeType) {
 }
 
 // ── OCR 결과 자동 등록 ──
-// 규칙: 접수번호 있으면 정확 매칭 후 금액 누적, 없으면 변호사+의뢰인+금액 조합 중복 체크
+// 규칙:
+// 1. 접수번호 있으면 정확 매칭 후 금액 누적
+// 2. 접수번호 없지만 변호사/의뢰인/사건명도 전부 비어있고 금액만 있으면
+//    → 직전에 처리한 건의 영수증(인지대/송달료)으로 보고 그 건에 합산
+// 3. 그 외(정보는 있지만 접수번호만 없음)는 변호사+의뢰인+금액+사건명 조합 중복 체크
 function autoSaveScanEntry(parsed, fileName) {
   const today    = new Date().toISOString().slice(0,10);
   const num      = (parsed.accNum   || '').trim();
@@ -2454,6 +2563,28 @@ function autoSaveScanEntry(parsed, fileName) {
 
   const fullNum = num ? BIZ[curBiz].prefix+' '+num : '';
 
+  // ── 케이스 0: 식별 정보가 전혀 없는 페이지 (접수번호/변호사/의뢰인/사건명 모두 빈값) ──
+  // → 영수증(인지대/송달료) 페이지로 보고 직전 처리한 건에 합산
+  const noInfo = !num && !lawyer && !client && !caseName;
+  if (noInfo && amt > 0 && lastCaseIdx >= 0 && BIZ[curBiz].cases[lastCaseIdx]) {
+    const prev = BIZ[curBiz].cases[lastCaseIdx];
+    prev.stamp    += stamp;
+    prev.delivery += delivery;
+    if (fee > 0) prev.fee = fee;
+    if (acct && !prev.account) prev.account = acct;
+
+    scanDoneList.unshift({ num: prev.num||'미인식(영수증→이전건합산)', lawyer:prev.lawyer, client:prev.client, amt, doctype, date: today, tax: '전자계산서' });
+    renderScanDone();
+    renderDashboard();
+    const badge = document.getElementById('scan-resol-badge');
+    if (badge) {
+      const total = BIZ[curBiz].cases.length;
+      badge.textContent = total;
+      badge.style.display = 'inline';
+    }
+    return;
+  }
+
   const newCase = {
     num: fullNum, lawyer, firm, client, opponent,
     case: caseName, caseName, type: caseType,
@@ -2461,6 +2592,8 @@ function autoSaveScanEntry(parsed, fileName) {
     tax: '전자세금계산서', resol: '대기', date: today,
     account: acct, note: caseType, doctype, _fromOcr: true
   };
+
+  let resultIdx = -1;
 
   if (num) {
     // 접수번호 있는 경우 - 정확한 번호 매칭
@@ -2478,16 +2611,28 @@ function autoSaveScanEntry(parsed, fileName) {
       if (caseName)  BIZ[curBiz].cases[idx].caseName = caseName;
       if (lawyer)    BIZ[curBiz].cases[idx].lawyer   = lawyer;
       if (client)    BIZ[curBiz].cases[idx].client   = client;
+      resultIdx = idx;
     } else {
       BIZ[curBiz].cases.push(newCase);
+      resultIdx = BIZ[curBiz].cases.length - 1;
     }
   } else {
     // 접수번호 없는 경우 - 변호사+의뢰인+금액+사건명 조합으로 중복 체크
-    const isDup = BIZ[curBiz].cases.some(c =>
+    const dupIdx = BIZ[curBiz].cases.findIndex(c =>
       !c.num && c.lawyer===lawyer && c.client===client &&
       (c.fee+c.stamp+c.delivery)===amt && c.caseName===caseName
     );
-    if (!isDup) BIZ[curBiz].cases.push(newCase);
+    if (dupIdx >= 0) {
+      resultIdx = dupIdx;
+    } else {
+      BIZ[curBiz].cases.push(newCase);
+      resultIdx = BIZ[curBiz].cases.length - 1;
+    }
+  }
+
+  // 식별 정보가 있는 건만 "직전 건"으로 기록 (영수증 합산 대상으로 사용)
+  if (lawyer || client || caseName || num) {
+    lastCaseIdx = resultIdx;
   }
 
   scanDoneList.unshift({ num: fullNum||'미인식', lawyer, client, amt, doctype, date: today, tax: '전자계산서' });
