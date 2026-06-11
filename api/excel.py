@@ -115,6 +115,31 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd):
 
         fill_page(ws_new,o,page,page_total,biz_title,yy,mm,dd,p_idx)
 
+    # ── 인쇄 설정: A4, 페이지당 31행씩 자동 분할 ──
+    from openpyxl.worksheet.properties import PageSetupProperties
+    ws_new.page_setup.orientation = 'portrait'
+    ws_new.page_setup.paperSize   = 9   # A4
+    ws_new.page_setup.fitToHeight = 0
+    ws_new.page_setup.fitToWidth  = 1
+    ws_new.page_setup.scale       = 90
+    ws_new.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+    ws_new.page_margins.top    = 0.49
+    ws_new.page_margins.bottom = 0.1968503937007874
+    ws_new.page_margins.left   = 0.7086614173228347
+    ws_new.page_margins.right  = 0.7086614173228347
+    ws_new.page_margins.header = 0
+    ws_new.page_margins.footer = 0
+
+    # print_area: 각 페이지(31행) 전체를 포함
+    last_row = 31 + (len(pages)-1) * 32
+    ws_new.print_area = f"A1:Q{last_row}"
+
+    # 페이지 구분선(인쇄 페이지 나누기): 각 페이지 끝(31행) 뒤에 강제 페이지브레이크
+    from openpyxl.worksheet.pagebreak import Break
+    for p_idx in range(len(pages)-1):
+        break_row = 31 + p_idx*32  # 1페이지 끝 = 31, 2페이지 끝 = 63...
+        ws_new.row_breaks.append(Break(id=break_row))
+
     # 변호사 계좌 정보
     ws_acct_src=wb_src_list["변호사 계좌 정보"]
     ws_acct_new=wb_new.create_sheet("변호사 계좌 정보")
