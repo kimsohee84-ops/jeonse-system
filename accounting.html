@@ -978,6 +978,7 @@ function setBiz(biz) {
   renderCaseList();
   renderBudget();
   renderLawyers();
+  if (document.getElementById("view-exec")?.classList.contains("active")) renderExecHistory();
 }
 
 function showView(name) {
@@ -1468,6 +1469,18 @@ const EXEC_DATA = {
     ],
     budget: 432000000,
     executed: 112580000,
+  },
+  sf: {
+    income: [
+      {date:"2026-03-23", amt:181542617, note:"전년도 이월금"},
+      {date:"2026-03-23", amt:37500000, note:"국토부 가지급금"},
+      {date:"2026-04-16", amt:26600000, note:"국토부 가지급금"},
+    ],
+    monthly: [
+      {month:"2026-04", label:"4월", count:0, total:75000000, date:"2026-04-30"},
+    ],
+    budget: 181577312,
+    executed: 75000000,
   }
 };
 
@@ -1561,19 +1574,29 @@ const PAID_CASES_KT = [
   {date:"2026-05-26",num:"26-201",client:"최은영",lawyer:"홍성호",firm:"홍성호",amt:1200000,type:"민사"},
 ];
 
+// ── biz별 건별 집행 내역 통합 객체 ──
+// kt(국토부)는 기존 PAID_CASES_KT(3~5월 실제 데이터)로 초기화
+// sf(서민금융)는 빈 배열로 시작, 엑셀 저장 시 채워짐
+const PAID_CASES = {
+  kt: [...PAID_CASES_KT],
+  sf: []
+};
+
 // 집행내역 뷰 렌더링
 function renderExecHistory() {
-  const monthly = EXEC_DATA.kt.monthly;
-  const income = EXEC_DATA.kt.income;
+  const monthly = EXEC_DATA[curBiz] ? EXEC_DATA[curBiz].monthly : [];
+  const income  = EXEC_DATA[curBiz] ? EXEC_DATA[curBiz].income  : [];
   const totalIncome = income.reduce((s,r)=>s+r.amt,0);
-  const totalOut = EXEC_DATA.kt.executed;
-  const balance = totalIncome - totalOut;
+  const totalOut    = EXEC_DATA[curBiz] ? EXEC_DATA[curBiz].executed : 0;
+  const budget      = BIZ[curBiz].budget;
+  const balance     = totalIncome - totalOut;
+  const prefix      = BIZ[curBiz].prefix;
 
   document.getElementById("exec-summary").innerHTML = `
     <div class="stat-card"><div class="stat-val">${totalIncome.toLocaleString()}</div><div class="stat-label">총 수입 (원)</div></div>
     <div class="stat-card"><div class="stat-val" style="color:#B45309">${totalOut.toLocaleString()}</div><div class="stat-label">총 지출 (원)</div></div>
     <div class="stat-card"><div class="stat-val" style="color:var(--teal)">${balance.toLocaleString()}</div><div class="stat-label">현재 잔액 (원)</div></div>
-    <div class="stat-card"><div class="stat-val">${Math.round(totalOut/432000000*100)}%</div><div class="stat-label">예산 집행률</div></div>
+    <div class="stat-card"><div class="stat-val">${budget?Math.round(totalOut/budget*100):0}%</div><div class="stat-label">예산 집행률</div></div>
   `;
 
   document.getElementById("exec-monthly").innerHTML = `
@@ -1597,23 +1620,20 @@ function renderExecHistory() {
           <td class="mono">${totalOut.toLocaleString()}</td>
           <td></td>
         </tr>
-        <tr style="background:#EFF6FF">
-          <td colspan="2" style="color:var(--blue-txt);font-weight:500">6월 예정</td>
-          <td colspan="3" style="color:var(--blue-txt);font-size:12px">6월 결의서 작성 후 확정</td>
-        </tr>
       </tbody>
     </table>
   `;
 
   // 전체 지급 내역 상세
+  const paid = PAID_CASES[curBiz] || [];
   document.getElementById("exec-detail").innerHTML = `
     <table class="tbl">
       <thead><tr><th>지급일</th><th>접수번호</th><th>의뢰인</th><th>변호사</th><th>사건유형</th><th>금액</th><th>비고</th></tr></thead>
       <tbody>
-        ${PAID_CASES_KT.map(c=>`
+        ${paid.map(c=>`
           <tr>
             <td style="font-size:11px;color:var(--muted)">${c.date}</td>
-            <td class="mono" style="font-size:11px">국부 ${c.num}</td>
+            <td class="mono" style="font-size:11px">${prefix} ${c.num}</td>
             <td>${c.client}</td>
             <td style="font-size:12px">${c.lawyer}</td>
             <td><span class="badge ${c.type==="민사"?"bn":c.type==="형사"?"br":c.type==="수당"?"bg":"badge"}">${c.type}</span></td>
@@ -2906,10 +2926,70 @@ async function downloadBatchExcel() {
 
     showToast(`저장 완료: 전세피해자_${b.short}_${yy}년${mm}월_지출결의서.xlsx`);
 
+    // ── 대시보드/집행내역에 반영 ──
+    recordExecution(cases, b, yy, mm, dd);
+
   } catch (err) {
     console.error('엑셀 저장 오류:', err);
     showToast('오류: ' + err.message);
   }
+}
+
+// ── 엑셀 저장 완료 후: 집행내역/대시보드에 이번 달 데이터 반영 ──
+// 1. 이번 달 합계를 EXEC_DATA[biz].monthly에 추가(이미 같은 월 있으면 갱신)
+// 2. EXEC_DATA[biz].executed, BIZ[biz].executed 갱신
+// 3. 건별 상세를 PAID_CASES에 누적
+// 4. 지출결의서 작업 목록(BIZ[biz].cases) 비우기 → 다음 달 준비
+function recordExecution(cases, b, yy, mm, dd) {
+  const monthKey   = `${yy}-${String(mm).padStart(2,'0')}`;
+  const monthLabel = `${mm}월`;
+  const monthTotal = cases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0), 0);
+  const dateStr    = `${yy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+
+  if (!EXEC_DATA[curBiz]) {
+    EXEC_DATA[curBiz] = { income: [], monthly: [], budget: b.budget, executed: 0 };
+  }
+  const ex = EXEC_DATA[curBiz];
+
+  // 같은 월 데이터 있으면 갱신, 없으면 추가
+  const existingIdx = ex.monthly.findIndex(m => m.month === monthKey);
+  const monthEntry = { month: monthKey, label: monthLabel, count: cases.length, total: monthTotal, date: dateStr };
+  if (existingIdx >= 0) {
+    // 기존 월 데이터를 새 데이터로 교체 (executed 재계산을 위해 차액 처리)
+    ex.executed -= ex.monthly[existingIdx].total;
+    ex.monthly[existingIdx] = monthEntry;
+  } else {
+    ex.monthly.push(monthEntry);
+  }
+  ex.executed += monthTotal;
+  ex.budget = b.budget;
+
+  // BIZ 예산 집행액도 동기화
+  b.executed = ex.executed;
+
+  // ── 건별 상세 누적 (전체 집행내역 탭) ──
+  if (!PAID_CASES[curBiz]) PAID_CASES[curBiz] = [];
+  // 같은 월에 이미 기록된 건들 제거 후 새로 추가 (재저장 시 중복 방지)
+  PAID_CASES[curBiz] = PAID_CASES[curBiz].filter(p => !p.date.startsWith(monthKey));
+  cases.forEach(c => {
+    const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+    const num = (c.num||'').replace(/^(국부|서금)\s*/,'');
+    PAID_CASES[curBiz].push({
+      date: dateStr, num, client: c.client||'', lawyer: c.lawyer||'',
+      firm: c.firm||'', amt, type: c.type||'민사', note: c.note||''
+    });
+  });
+
+  // ── 작업 목록 비우기: 완료 처리된 건은 resolList로 옮기고 cases는 초기화 ──
+  resolList[curBiz] = [];  // 이번 달 건들은 이제 PAID_CASES에 기록됐으므로 resolList도 비움
+  BIZ[curBiz].cases = [];
+  resolSelected.clear();
+
+  renderResolPanel();
+  renderDashboard();
+  if (document.getElementById('exec-summary')) renderExecHistory();
+
+  showToast(`${monthLabel} 집행내역에 ${cases.length}건(${monthTotal.toLocaleString()}원) 반영 완료`);
 }
 
 
