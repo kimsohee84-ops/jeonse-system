@@ -189,67 +189,89 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
     </div>
   </nav>
 
-  <!-- 사업 탭 -->
-  <div class="biz-tabs">
-    <div class="biz-tab active" id="tab-kt" onclick="setBiz('kt')">
-      <i class="ti ti-building-bank" aria-hidden="true"></i> 전세피해자 소송구조 (국토부)
-    </div>
-    <div class="biz-tab" id="tab-sf" onclick="setBiz('sf')">
-      <i class="ti ti-coin" aria-hidden="true"></i> 전세피해자 소송구조 (서민금융재단)
-    </div>
-  </div>
+  <!-- 사업 탭 제거 → 사이드바로 이동 -->
 
   <div class="layout">
     <aside class="sidenav">
-      <div class="nav-section">업무</div>
-      <div class="nav-item active" onclick="showView('dashboard')"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> 대시보드</div>
-      <div class="nav-item" onclick="showView('scan')"><i class="ti ti-scan" aria-hidden="true"></i> 청구서 등록</div>
-      <div class="nav-item" onclick="showView('input')"><i class="ti ti-edit" aria-hidden="true"></i> 비용 입력</div>
-      <div class="nav-item" onclick="showView('resol')"><i class="ti ti-clipboard-list" aria-hidden="true"></i> 지출결의서</div>
-      <div class="nav-item" onclick="showView('list')"><i class="ti ti-list" aria-hidden="true"></i> 지출 목록</div>
-      <div class="nav-section" style="margin-top:8px">회계</div>
-      <div class="nav-item" onclick="showView('budget')"><i class="ti ti-chart-bar" aria-hidden="true"></i> 집행 현황</div>
-      <div class="nav-item" onclick="showView('exec');renderExecHistory()"><i class="ti ti-history" aria-hidden="true"></i> 전체 집행내역</div>
-      <div class="nav-item" onclick="showView('lawyer')"><i class="ti ti-user-check" aria-hidden="true"></i> 변호사 계좌</div>
+      <!-- 전체 사업 현황 -->
+      <div class="nav-section">전체</div>
+      <div class="nav-item" id="nav-allbiz" onclick="showView('allbiz')"><i class="ti ti-building-bank" aria-hidden="true"></i> 전체 사업 현황</div>
+
+      <!-- 사업 선택 -->
+      <div class="nav-section" style="margin-top:8px">사업 선택</div>
+      <div class="nav-item biz-nav active" id="nav-biz-kt" onclick="selectBizNav('kt')">
+        <i class="ti ti-home" aria-hidden="true"></i> 전세(국토부)
+      </div>
+      <div class="nav-item biz-nav" id="nav-biz-sf" onclick="selectBizNav('sf')">
+        <i class="ti ti-coin" aria-hidden="true"></i> 전세(서민금융)
+      </div>
+      <div class="nav-item biz-nav" id="nav-biz-yangik" onclick="selectBizNav('yangik')">
+        <i class="ti ti-heart" aria-hidden="true"></i> 양육비이행관리원
+      </div>
+      <div class="nav-item biz-nav" id="nav-biz-court" onclick="selectBizNav('court')">
+        <i class="ti ti-scale" aria-hidden="true"></i> 대법원
+      </div>
+      <div class="nav-item biz-nav" id="nav-biz-moj" onclick="selectBizNav('moj')">
+        <i class="ti ti-building" aria-hidden="true"></i> 법무부(보장원)
+      </div>
+      <div class="nav-item biz-nav" id="nav-biz-gender" onclick="selectBizNav('gender')">
+        <i class="ti ti-users" aria-hidden="true"></i> 성평등가족부
+      </div>
+      <div class="nav-item biz-nav" id="nav-biz-mois" onclick="selectBizNav('mois')">
+        <i class="ti ti-building-community" aria-hidden="true"></i> 행안부(이태원)
+      </div>
+      <div class="nav-item biz-nav" id="nav-biz-seoul" onclick="selectBizNav('seoul')">
+        <i class="ti ti-map-pin" aria-hidden="true"></i> 서울시복지재단
+      </div>
+      <div class="nav-item biz-nav" id="nav-biz-green" onclick="selectBizNav('green')">
+        <i class="ti ti-tree" aria-hidden="true"></i> 초록우산
+      </div>
+      <div class="nav-item biz-nav" id="nav-biz-air" onclick="selectBizNav('air')">
+        <i class="ti ti-plane" aria-hidden="true"></i> 여객기(국토부)
+      </div>
+
+      <!-- 선택 사업 메뉴 -->
+      <div id="biz-menu" style="margin-top:4px">
+        <div class="nav-section" style="margin-top:8px">업무</div>
+        <div class="nav-item active" id="nav-dashboard" onclick="showView('dashboard')"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> 대시보드</div>
+        <div class="nav-item" onclick="showView('scan')"><i class="ti ti-scan" aria-hidden="true"></i> 청구서 등록</div>
+        <div class="nav-item" onclick="showView('input')"><i class="ti ti-edit" aria-hidden="true"></i> 비용 입력</div>
+        <div class="nav-item" onclick="showView('resol')"><i class="ti ti-clipboard-list" aria-hidden="true"></i> 지출결의서</div>
+        <div class="nav-item" onclick="showView('list')"><i class="ti ti-list" aria-hidden="true"></i> 지출 목록</div>
+        <div class="nav-section" style="margin-top:8px">회계</div>
+        <div class="nav-item" onclick="showView('budget')"><i class="ti ti-chart-bar" aria-hidden="true"></i> 집행 현황</div>
+        <div class="nav-item" onclick="showView('exec');renderExecHistory()"><i class="ti ti-history" aria-hidden="true"></i> 전체 집행내역</div>
+        <div class="nav-item" onclick="showView('lawyer')"><i class="ti ti-user-check" aria-hidden="true"></i> 변호사 계좌</div>
+      </div>
     </aside>
 
     <main class="main">
 
-      <!-- 대시보드 -->
-      <div class="view active" id="view-dashboard">
-        <p class="page-title" id="dash-title">대시보드</p>
-        <p class="page-sub" id="dash-sub">2026년 · 대한변협법률구조재단</p>
+      <!-- 전체 사업 현황 뷰 (별도) -->
+      <div class="view" id="view-allbiz">
+        <p class="page-title">전체 사업 현황</p>
+        <p class="page-sub">대한변협법률구조재단 · 2026년 기준</p>
 
-        <!-- 전체 사업 요약 -->
         <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:1rem">
-          <div class="stat-card">
-            <div class="stat-val" id="total-budget-val">-</div>
-            <div class="stat-label">전체 예산 합계</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-val" style="color:#B45309" id="total-exec-val">-</div>
-            <div class="stat-label">전체 집행액</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-val" style="color:var(--teal)" id="total-balance-val">-</div>
-            <div class="stat-label">전체 잔액</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-val" id="total-exec-pct">-</div>
-            <div class="stat-label">평균 집행률</div>
-          </div>
+          <div class="stat-card"><div class="stat-val" id="total-budget-val">-</div><div class="stat-label">전체 예산 합계</div></div>
+          <div class="stat-card"><div class="stat-val" style="color:#B45309" id="total-exec-val">-</div><div class="stat-label">전체 집행액</div></div>
+          <div class="stat-card"><div class="stat-val" style="color:var(--teal)" id="total-balance-val">-</div><div class="stat-label">전체 잔액</div></div>
+          <div class="stat-card"><div class="stat-val" id="total-exec-pct">-</div><div class="stat-label">평균 집행률</div></div>
         </div>
 
-        <!-- 전체 사업 현황 테이블 -->
-        <div class="card" style="margin-bottom:1rem;overflow-x:auto">
+        <div class="card" style="overflow-x:auto">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <div class="card-title" style="margin-bottom:0"><i class="ti ti-building-bank" aria-hidden="true"></i> 전체 사업 현황 <span style="font-size:11px;color:var(--muted);font-weight:400">기준일: 2026.06.08.</span></div>
+            <div class="card-title" style="margin-bottom:0"><i class="ti ti-building-bank" aria-hidden="true"></i> 사업별 현황 <span style="font-size:11px;color:var(--muted);font-weight:400">기준일: 2026.06.08.</span></div>
             <button onclick="openBizEditModal()" class="btn btn-sm" style="font-size:11px"><i class="ti ti-edit"></i> 현황 업데이트</button>
           </div>
           <div id="all-biz-table"></div>
         </div>
+      </div>
 
-        <!-- 현재 선택 사업 현황 -->
+      <!-- 사업별 대시보드 -->
+      <div class="view active" id="view-dashboard">
+        <p class="page-title" id="dash-title">대시보드</p>
+        <p class="page-sub" id="dash-sub"></p>
         <div class="stat-grid" id="dash-stats"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
           <div class="card">
@@ -1097,12 +1119,60 @@ const BIZ = {
       {month:"4월", count:"—", paid:"75,000,000", income:"26,600,000 (가지급)", balance:"170,642,617", note:"국토부"},
       {month:"5월", count:"예정", paid:"예정", income:"—", balance:"—", note:"진행중"},
     ]
+  },
+  yangik: {
+    name: "양육비이행관리원 소송구조", short: "양육비", prefix: "양이원",
+    budget: 200000000, executed: 63289870,
+    payMethod: "계좌이체",
+    lawyers: [], cases: [], monthly: []
+  },
+  court: {
+    name: "대법원 소송구조", short: "대법원", prefix: "대법원",
+    budget: 118000000, executed: 17342900,
+    payMethod: "계좌이체",
+    lawyers: [], cases: [], monthly: []
+  },
+  moj: {
+    name: "법무부(보장원) 소송구조 등", short: "법무부", prefix: "법무부",
+    budget: 500000000, executed: 88798000,
+    payMethod: "e-나라도움",
+    lawyers: [], cases: [], monthly: []
+  },
+  gender: {
+    name: "성평등가족부 소송구조", short: "성평등부", prefix: "성평등",
+    budget: 605000000, executed: 184018092,
+    payMethod: "e-나라도움",
+    lawyers: [], cases: [], monthly: []
+  },
+  mois: {
+    name: "행안부(이태원) 법률지원", short: "행안부", prefix: "이태원",
+    budget: 80000000, executed: 9200000,
+    payMethod: "e-나라도움",
+    lawyers: [], cases: [], monthly: []
+  },
+  seoul: {
+    name: "서울시복지재단 소송구조", short: "서울시", prefix: "서울시",
+    budget: 40000000, executed: 17151500,
+    payMethod: "계좌이체",
+    lawyers: [], cases: [], monthly: []
+  },
+  green: {
+    name: "초록우산 소송구조", short: "초록우산", prefix: "초록우산",
+    budget: 30000000, executed: 0,
+    payMethod: "계좌이체",
+    lawyers: [], cases: [], monthly: []
+  },
+  air: {
+    name: "여객기(국토부) 법률지원", short: "여객기", prefix: "여객기",
+    budget: 40000000, executed: 0,
+    payMethod: "e-나라도움",
+    lawyers: [], cases: [], monthly: []
   }
 };
 
 let curBiz = "kt";
 let curUser = null;
-let resolList = {kt:[], sf:[]};
+let resolList = {kt:[], sf:[], yangik:[], court:[], moj:[], gender:[], mois:[], seoul:[], green:[], air:[]};
 
 // ── 직원 수당 (매월 고정) ──
 const STAFF_ALLOWANCE = [
@@ -1148,7 +1218,11 @@ function doLogout() {
 
 function init() {
   loadPersistedData();
-  setBiz(curBiz);
+  setBiz('kt');
+  // 시작은 국토부 대시보드
+  document.getElementById('nav-biz-kt')?.classList.add('active');
+  document.getElementById('nav-dashboard')?.classList.add('active');
+  renderDashboard();
 }
 
 // ── 데이터 영속성 (localStorage) ──
@@ -1205,8 +1279,6 @@ function loadPersistedData() {
 
 function setBiz(biz) {
   curBiz = biz;
-  document.getElementById("tab-kt").classList.toggle("active", biz==="kt");
-  document.getElementById("tab-sf").classList.toggle("active", biz==="sf");
   renderDashboard();
   renderLawyerSelect();
   renderResolList();
@@ -1216,23 +1288,43 @@ function setBiz(biz) {
   if (document.getElementById("view-exec")?.classList.contains("active")) renderExecHistory();
 }
 
+// 사이드바 사업 선택
+function selectBizNav(biz) {
+  document.querySelectorAll('.biz-nav').forEach(el => el.classList.remove('active'));
+  const navEl = document.getElementById('nav-biz-' + biz);
+  if (navEl) navEl.classList.add('active');
+  setBiz(biz);
+  showView('dashboard');
+}
+
 function showView(name) {
-  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
-  document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
-  document.getElementById("view-"+name).classList.add("active");
-  const map = {dashboard:0,scan:1,input:2,resol:3,list:4,budget:5,exec:6,lawyer:7};
-  document.querySelectorAll(".nav-item")[map[name]]?.classList.add("active");
-  if(name==="resol") renderResolList();
-  if(name==="exec") renderExecHistory();
-  if(name==="list") renderCaseList();
-  if(name==="budget") renderBudget();
-  if(name==="lawyer") renderLawyers();
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.querySelectorAll(".nav-item:not(.biz-nav)").forEach(n => n.classList.remove("active"));
+  const viewEl = document.getElementById("view-" + name);
+  if (viewEl) viewEl.classList.add("active");
+
+  // 전체 사업 현황
+  if (name === 'allbiz') {
+    document.getElementById('nav-allbiz')?.classList.add('active');
+    renderAllBizTable();
+    return;
+  }
+  // BIZ_EXTRA 사업 현황
+  if (name === 'biz-info') return;
+  // 사업별 메뉴 active 처리
+  const map = { dashboard:'nav-dashboard', scan:null, input:null, resol:null, list:null, budget:null, exec:null, lawyer:null };
+  if (map[name]) document.getElementById(map[name])?.classList.add('active');
+
+  if (name === "resol")   renderResolList();
+  if (name === "exec")    renderExecHistory();
+  if (name === "list")    renderCaseList();
+  if (name === "budget")  renderBudget();
+  if (name === "lawyer")  renderLawyers();
+  if (name === "dashboard") renderDashboard();
 }
 
 function renderDashboard() {
   savePersistedData();
-  renderAllBizTable();  // 전체 사업 현황 테이블
-
   const b = BIZ[curBiz];
   const allCases = [...b.cases, ...resolList[curBiz]];
   const recv = allCases.filter(c=>c.tax==="수령").length;
@@ -1278,6 +1370,52 @@ function renderDashboard() {
       </div>
     </div>
   `;
+}
+
+// ── BIZ_EXTRA 사업 현황 뷰 ──
+function renderBizInfo(biz) {
+  const b = BIZ_EXTRA[biz];
+  if (!b) return;
+  document.getElementById('biz-info-title').textContent = b.name;
+  document.getElementById('biz-info-sub').textContent = `${b.agency} · ${b.type}`;
+
+  const pct = b.budget ? Math.round(b.executed / b.budget * 100) : 0;
+  const pctColor = pct >= 80 ? '#DC2626' : pct >= 50 ? '#B45309' : '#1D4ED8';
+  const statusBadge = b.status === '신규'
+    ? `<span style="font-size:11px;padding:3px 8px;border-radius:99px;background:var(--color-background-info);color:var(--color-text-info)">신규</span>`
+    : `<span style="font-size:11px;padding:3px 8px;border-radius:99px;background:var(--color-background-success);color:var(--color-text-success)">진행중</span>`;
+
+  document.getElementById('biz-info-content').innerHTML = `
+    <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:1rem">
+      <div class="stat-card"><div class="stat-val">${b.budget.toLocaleString()}</div><div class="stat-label">배정 예산 (원)</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:#B45309">${b.executed.toLocaleString()}</div><div class="stat-label">집행액 (원)</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--teal)">${(b.budget-b.executed).toLocaleString()}</div><div class="stat-label">잔액 (원)</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:${pctColor}">${pct}%</div><div class="stat-label">집행률</div></div>
+    </div>
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title"><i class="ti ti-info-circle"></i> 사업 개요</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr style="border-bottom:0.5px solid var(--border)"><td style="padding:8px;color:var(--muted);width:120px">사업 유형</td><td style="padding:8px">${b.type} &nbsp; ${statusBadge}</td></tr>
+        <tr style="border-bottom:0.5px solid var(--border)"><td style="padding:8px;color:var(--muted)">지원 기관</td><td style="padding:8px">${b.agency}</td></tr>
+        <tr style="border-bottom:0.5px solid var(--border)"><td style="padding:8px;color:var(--muted)">목표 건수</td><td style="padding:8px">${b.done}건 완료 / ${b.target}건 목표</td></tr>
+        <tr style="border-bottom:0.5px solid var(--border)"><td style="padding:8px;color:var(--muted)">세부 예산</td><td style="padding:8px;font-size:12px;line-height:1.7">${b.detail.replace(/\//g,'<br>')}</td></tr>
+        <tr><td style="padding:8px;color:var(--muted)">진행 현황</td><td style="padding:8px;font-size:12px;color:var(--muted)">${b.note}</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="ti ti-chart-bar"></i> 예산 집행 현황</div>
+      <div style="margin-bottom:6px;font-size:12px;color:var(--muted)">집행률 ${pct}%</div>
+      <div style="height:12px;background:var(--light);border-radius:6px;overflow:hidden;margin-bottom:8px">
+        <div style="height:100%;width:${Math.min(pct,100)}%;background:${pctColor};border-radius:6px;transition:width .5s"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">
+        <span>집행: ${b.executed.toLocaleString()}원</span>
+        <span>잔액: ${(b.budget-b.executed).toLocaleString()}원</span>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:var(--light);border-radius:8px;font-size:12px;color:var(--muted);text-align:center">
+        <i class="ti ti-tools"></i> 이 사업의 회계 기능은 준비 중입니다
+      </div>
+    </div>`;
 }
 
 // ── 전체 사업 현황 테이블 렌더링 ──
@@ -1342,7 +1480,7 @@ function renderAllBizTable() {
         ${typeCell}
         <td style="padding:8px;max-width:160px">
           <div style="font-weight:500">${isLinked}${b.agency}</div>
-          <div style="font-size:11px;color:var(--muted)">${b.manager ? `담당: ${b.manager}` : ''}</div>
+
         </td>
         <td style="padding:8px;text-align:right;font-family:monospace;font-size:11px">${(b.budget/100000000).toFixed(2)}억</td>
         <td style="padding:8px;text-align:right;font-family:monospace;font-size:11px;color:${pctColor}">${b.exec.toLocaleString()}</td>
@@ -1823,7 +1961,7 @@ function showToast(msg) {
 // status: '진행중' | '신규' | '마감예정'
 const ALL_BIZ_DATA = [
   // 국고보조금
-  { type:'국고보조금', agency:'법무부(보장원)', name:'법무부 소송구조 등', manager:'우형',
+  { type:'국고보조금', agency:'법무부(보장원)', name:'법무부 소송구조 등', manager:'',
     budget:500000000, exec:88798000, target:250, done:25,
     paid:400000000, pending:100000000,
     detail:'소송구조 287,800,000 / 법률상담 30,000,000 / 법률교육 20,000,000 / 홍보영상 4,500,000 / 임차료 27,600,000 / 인건비 126,000,000 / 경상비 4,100,000',
@@ -1833,12 +1971,12 @@ const ALL_BIZ_DATA = [
     paid:59000000, pending:59000000,
     detail:'소송구조 117,100,000 / 검증비 574,000 / 사무용품비 326,000',
     status:'진행중', note:'연장평가 완료. 상반기 교부신청 제출' },
-  { type:'국고보조금', agency:'성평등가족부', name:'성평등가족부 소송구조', manager:'민지',
+  { type:'국고보조금', agency:'성평등가족부', name:'성평등가족부 소송구조', manager:'',
     budget:605000000, exec:184018092, target:330, done:95,
     paid:302500000, pending:302500000,
     detail:'소송구조 512,700,000 / 사무용품비 2,300,000 / 인건비 90,000,000',
     status:'진행중', note:'상반기 교부신청 제출. 25년도 실적 및 정산보고 제출' },
-  { type:'국고보조금', agency:'행안부(이태원)', name:'이태원 법률지원', manager:'예림',
+  { type:'국고보조금', agency:'행안부(이태원)', name:'이태원 법률지원', manager:'',
     budget:80000000, exec:9200000, target:37, done:2,
     paid:64000000, pending:16000000,
     detail:'법률지원 50,527,600 / 인건비 25,472,400 / 일반관리비 4,000,000',
@@ -1849,17 +1987,17 @@ const ALL_BIZ_DATA = [
     paid:200000000, pending:0,
     detail:'소송구조 173,000,000 / 교통비 250,000 / 통신비 350,000 / 인건비 26,400,000',
     status:'진행중', note:'26년도 사업계획 및 교부신청 제출' },
-  { type:'위탁협약', agency:'국토부(전세)', name:'전세피해자 소송구조(국토부)', manager:'소희',
+  { type:'위탁협약', agency:'국토부(전세)', name:'전세피해자 소송구조(국토부)', manager:'',
     budget:480267174, exec:112580000, target:432, done:104,
     paid:195000000, pending:285267174,
     detail:'소송구조 432,000,000 / 인건비(보조) 26,328,493 / 일반관리비 21,999,768 / 부가세 48,032,826',
     status:'진행중', note:'매주/매월 사업 및 집행보고 중. 예산 40% 지급받음', linked:'kt' },
-  { type:'위탁협약', agency:'서민금융재단(전세)', name:'전세피해자 소송구조(서민)', manager:'소희',
+  { type:'위탁협약', agency:'서민금융재단(전세)', name:'전세피해자 소송구조(서민)', manager:'',
     budget:181542617, exec:61770520, target:210, done:34,
     paid:181542617, pending:0,
     detail:'소송구조 181,542,617 (전년도 잔액)',
     status:'진행중', note:'25년도 잔액 사업. 상담잔액 반납완료(4.28.)', linked:'sf' },
-  { type:'위탁협약', agency:'서울시복지재단', name:'서울시 소송구조', manager:'해나',
+  { type:'위탁협약', agency:'서울시복지재단', name:'서울시 소송구조', manager:'',
     budget:40000000, exec:17151500, target:10, done:4,
     paid:40000000, pending:0,
     detail:'소송구조 36,000,000 / 운영비 800,000 / 일반관리비 3,200,000',
@@ -1903,7 +2041,15 @@ const EXEC_DATA = {
     ],
     budget: 181577312,
     executed: 75000000,
-  }
+  },
+  yangik: { income:[], monthly:[], budget:200000000, executed:63289870 },
+  court:  { income:[], monthly:[], budget:118000000, executed:17342900 },
+  moj:    { income:[], monthly:[], budget:500000000, executed:88798000 },
+  gender: { income:[], monthly:[], budget:605000000, executed:184018092 },
+  mois:   { income:[], monthly:[], budget:80000000,  executed:9200000 },
+  seoul:  { income:[], monthly:[], budget:40000000,  executed:17151500 },
+  green:  { income:[], monthly:[], budget:30000000,  executed:0 },
+  air:    { income:[], monthly:[], budget:40000000,  executed:0 },
 };
 
 // ── 5월까지 지급된 실제 사건 목록 (국토부) ──
@@ -2001,7 +2147,7 @@ const PAID_CASES_KT = [
 // sf(서민금융)는 빈 배열로 시작, 엑셀 저장 시 채워짐
 const PAID_CASES = {
   kt: [...PAID_CASES_KT],
-  sf: []
+  sf: [], yangik:[], court:[], moj:[], gender:[], mois:[], seoul:[], green:[], air:[]
 };
 
 // 집행내역 뷰 렌더링
