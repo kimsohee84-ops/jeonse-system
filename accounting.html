@@ -259,6 +259,13 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
           <div class="stat-card"><div class="stat-val" id="total-exec-pct">-</div><div class="stat-label">평균 집행률</div></div>
         </div>
 
+        <div class="card" style="overflow-x:auto;margin-bottom:1rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div class="card-title" style="margin-bottom:0"><i class="ti ti-chart-bar" aria-hidden="true"></i> 사업별 집행률</div>
+          </div>
+          <div id="all-biz-chart"></div>
+        </div>
+
         <div class="card" style="overflow-x:auto">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <div class="card-title" style="margin-bottom:0"><i class="ti ti-building-bank" aria-hidden="true"></i> 사업별 현황 <span style="font-size:11px;color:var(--muted);font-weight:400">기준일: 2026.06.08.</span></div>
@@ -1449,6 +1456,29 @@ function renderAllBizTable() {
     return b;
   });
 
+  // ── 집행률 가로 막대 그래프 ──
+  const chartEl = document.getElementById('all-biz-chart');
+  if (chartEl) {
+    const maxBudget = Math.max(...data.map(b => b.budget));
+    chartEl.innerHTML = data.map(b => {
+      const pct = b.budget ? Math.round(b.exec / b.budget * 100) : 0;
+      const barColor = pct >= 80 ? '#DC2626' : pct >= 50 ? '#D97706' : pct >= 30 ? '#2563EB' : '#6B7280';
+      const shortName = b.agency.length > 10 ? b.agency.slice(0,10)+'…' : b.agency;
+      return `
+        <div style="display:grid;grid-template-columns:140px 1fr 60px 70px;gap:8px;align-items:center;margin-bottom:10px">
+          <div style="font-size:12px;text-align:right;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+               title="${b.agency}">${shortName}</div>
+          <div style="background:var(--color-background-secondary);border-radius:4px;height:22px;overflow:hidden;position:relative">
+            <div style="height:100%;width:${Math.min(pct,100)}%;background:${barColor};border-radius:4px;transition:width .5s;display:flex;align-items:center;padding-left:6px;min-width:${pct>5?'auto':'0'}">
+              ${pct > 8 ? `<span style="font-size:10px;color:#fff;font-weight:500">${pct}%</span>` : ''}
+            </div>
+          </div>
+          <div style="font-size:11px;color:${barColor};font-weight:600;text-align:right">${pct}%</div>
+          <div style="font-size:10px;color:var(--color-text-tertiary);text-align:right">${(b.exec/100000000).toFixed(2)}억</div>
+        </div>`;
+    }).join('');
+  }
+
   // 요약 카드 업데이트
   const totalBudget = data.reduce((s,b) => s+b.budget, 0);
   const totalExec   = data.reduce((s,b) => s+b.exec,   0);
@@ -2423,7 +2453,7 @@ function saveMonthly() {
   EXEC_DATA[curBiz].executed = EXEC_DATA[curBiz].monthly.reduce((s,x)=>s+(x.total||0),0);
   BIZ[curBiz].executed = EXEC_DATA[curBiz].executed;
   closeMonthlyModal();
-  renderExecHistory(); renderDashboard(); savePersistedData();
+  renderExecHistory(); renderBudget(); renderDashboard(); savePersistedData();
   showToast('수정됐습니다');
 }
 function deleteMonthly(idx) {
@@ -2431,7 +2461,7 @@ function deleteMonthly(idx) {
   EXEC_DATA[curBiz].monthly.splice(idx, 1);
   EXEC_DATA[curBiz].executed = EXEC_DATA[curBiz].monthly.reduce((s,x)=>s+(x.total||0),0);
   BIZ[curBiz].executed = EXEC_DATA[curBiz].executed;
-  renderExecHistory(); renderDashboard(); savePersistedData();
+  renderExecHistory(); renderBudget(); renderDashboard(); savePersistedData();
   showToast('삭제됐습니다');
 }
 
