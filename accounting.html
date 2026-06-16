@@ -922,7 +922,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
         <div class="card">
           <div class="card-title"><i class="ti ti-table" aria-hidden="true"></i> 월별 집행 내역</div>
           <table class="tbl" id="budget-tbl">
-            <thead><tr><th>월</th><th>지급건수</th><th>지급금액</th><th>수입</th><th>잔액</th><th>비고</th></tr></thead>
+            <thead><tr><th>지급일</th><th>건수</th><th>지급금액</th><th>상태</th><th>비고</th><th style="width:90px">관리</th></tr></thead>
             <tbody id="budget-tbody"></tbody>
           </table>
         </div>
@@ -1774,23 +1774,49 @@ function renderCaseList() {
 }
 
 function renderBudget() {
-  const b = BIZ[curBiz];
-  const pct = Math.round(b.executed/b.budget*100);
+  const b  = BIZ[curBiz];
+  const ex = EXEC_DATA[curBiz] || { income:[], monthly:[], budget:b.budget, executed:b.executed };
+  const pct = b.budget ? Math.round(b.executed/b.budget*100) : 0;
+
   document.getElementById("budget-sub").textContent = b.name + " · 예산 집행 현황";
   document.getElementById("budget-stats").innerHTML = `
     <div class="stat-card"><div class="stat-val">${b.budget.toLocaleString()}</div><div class="stat-label">배정 예산 (원)</div></div>
-    <div class="stat-card"><div class="stat-val">${b.executed.toLocaleString()}</div><div class="stat-label">기집행액 (원)</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:var(--green-txt)">${(b.budget-b.executed).toLocaleString()}</div><div class="stat-label">잔여 예산 (원)</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#B45309">${b.executed.toLocaleString()}</div><div class="stat-label">기집행액 (원)</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--teal)">${(b.budget-b.executed).toLocaleString()}</div><div class="stat-label">잔여 예산 (원)</div></div>
     <div class="stat-card"><div class="stat-val">${pct}%</div><div class="stat-label">집행률</div></div>
   `;
-  document.getElementById("budget-tbody").innerHTML = b.monthly.map(m=>`
-    <tr>
-      <td>${m.month}</td><td>${m.count}</td>
-      <td class="mono">${m.paid}</td>
-      <td class="mono" style="font-size:11px">${m.income}</td>
-      <td class="mono">${m.balance}</td>
-      <td style="font-size:11px;color:var(--muted)">${m.note}</td>
-    </tr>`).join("");
+
+  // 월별 집행 내역 — EXEC_DATA.monthly 기반
+  const monthly = ex.monthly || [];
+  document.getElementById("budget-tbody").innerHTML = monthly.length
+    ? monthly.map((m,i) => {
+        const isDone = m.status === '완료';
+        const statusBadge = isDone
+          ? `<span style="font-size:10px;padding:2px 6px;border-radius:99px;background:var(--color-background-success);color:var(--color-text-success)">완료</span>`
+          : `<span style="font-size:10px;padding:2px 6px;border-radius:99px;background:var(--color-background-warning);color:var(--color-text-warning)">예정</span>`;
+        return `<tr>
+          <td style="font-size:12px">${m.date||m.label||''}</td>
+          <td>${m.count||0}건</td>
+          <td class="mono">${(m.total||0).toLocaleString()}</td>
+          <td>${statusBadge}</td>
+          <td style="font-size:11px;color:var(--muted)">${m.label||''} 결의서</td>
+          <td style="text-align:center;white-space:nowrap">
+            <button onclick="regenExcel(${i})" title="지출결의서 재생성" style="background:none;border:none;cursor:pointer;color:#166534;font-size:12px;padding:2px 4px">📥</button>
+            <button onclick="editMonthly(${i})" style="background:none;border:none;cursor:pointer;color:var(--navy);font-size:12px;padding:2px 4px">✏️</button>
+            <button onclick="deleteMonthly(${i})" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:12px;padding:2px 4px">🗑</button>
+          </td>
+        </tr>`;
+      }).join("") + `
+      <tr style="font-weight:600;background:var(--light)">
+        <td>합계</td>
+        <td>${monthly.reduce((s,m)=>s+(m.count||0),0)}건</td>
+        <td class="mono">${b.executed.toLocaleString()}</td>
+        <td colspan="3"></td>
+      </tr>`
+    : `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;font-size:13px">
+        등록된 집행 내역이 없습니다<br>
+        <small>지출결의서 저장 후 "집행내역에 등록" 버튼을 눌러주세요</small>
+      </td></tr>`;
 }
 
 // ── 변호사 계좌 목록 렌더 ──
@@ -3932,7 +3958,9 @@ function recordExecution(cases, b, yy, mm, dd) {
   savePersistedData();
   renderResolPanel();
   renderDashboard();
-  // 집행현황 탭이 열려있으면 갱신
+  // 집행현황/전체집행내역 탭이 열려있으면 갱신
+  const budgetView = document.getElementById('view-budget');
+  if (budgetView && budgetView.classList.contains('active')) renderBudget();
   const execView = document.getElementById('view-exec');
   if (execView && execView.classList.contains('active')) renderExecHistory();
 }
