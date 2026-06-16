@@ -402,6 +402,46 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
             </div>
           </div>
           <!-- 수동 추가 모달 -->
+          <!-- 시트 선택 모달 -->
+          <div id="sheet-select-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:380px;max-width:94vw;box-shadow:var(--shadow-md)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-table-export"></i> 엑셀 시트 선택</h3>
+                <button onclick="closeSheetSelectModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+              </div>
+              <p id="sheet-modal-info" style="font-size:12px;color:var(--muted);margin-bottom:1rem"></p>
+              <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:1.2rem">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border:0.5px solid var(--border);border-radius:8px">
+                  <input type="checkbox" id="chk-resol" checked disabled style="width:16px;height:16px">
+                  <div>
+                    <div style="font-size:13px;font-weight:500">지출결의서</div>
+                    <div style="font-size:11px;color:var(--muted)">20건씩 페이지 분할, A4 인쇄 설정 포함 (필수)</div>
+                  </div>
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border:0.5px solid var(--border);border-radius:8px">
+                  <input type="checkbox" id="chk-lawyer" checked style="width:16px;height:16px">
+                  <div>
+                    <div style="font-size:13px;font-weight:500">변호사 리스트 정보</div>
+                    <div style="font-size:11px;color:var(--muted)">인적사항 + 금액 + 원천세 + 실지급액</div>
+                  </div>
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border:0.5px solid var(--border);border-radius:8px">
+                  <input type="checkbox" id="chk-transfer" checked style="width:16px;height:16px">
+                  <div>
+                    <div style="font-size:13px;font-weight:500">대량이체</div>
+                    <div style="font-size:11px;color:var(--muted)">은행코드 / 계좌 / 실지급액 (사업소득 3.3% 차감)</div>
+                  </div>
+                </label>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn" style="flex:1;justify-content:center" onclick="closeSheetSelectModal()">취소</button>
+                <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmSheetDownload()">
+                  <i class="ti ti-download"></i> 다운로드
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div id="add-resol-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
 
           <!-- 수입 등록/수정 모달 -->
@@ -2143,6 +2183,7 @@ function renderResolPanel() {
           ${th('case',   '사건명')}
           ${th('amt',    '금액', 'right')}
           ${th('type',   '유형')}
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center;white-space:nowrap">세금</th>
           <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center;white-space:nowrap">계산서</th>
           <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center">삭제</th>
         </tr>
@@ -2169,6 +2210,13 @@ function renderResolPanel() {
             <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="fee" data-idx="${i}">${amt ? amt.toLocaleString() : '<span style="color:#DC2626;font-size:11px">0</span>'}</td>
             <td style="${cs};cursor:pointer;text-align:center" data-field="type" data-idx="${i}">
               <span style="font-size:10px;padding:2px 7px;border-radius:99px;background:#EEF2FF;color:${typeColor}">${c.type||'민사'}</span>
+            </td>
+            <td style="${cs};cursor:pointer;text-align:center;font-size:10px" data-field="tax" data-idx="${i}">
+              ${c.tax==='사업소득'
+                ? `<span style="padding:2px 6px;border-radius:99px;background:#FEF3C7;color:#92400E">사업소득</span>`
+                : c.tax==='미수령'
+                  ? `<span style="padding:2px 6px;border-radius:99px;background:#FFF7F7;color:#DC2626">미수령</span>`
+                  : `<span style="padding:2px 6px;border-radius:99px;background:#F0FDF4;color:#166534">세금계산서</span>`}
             </td>
             <td style="${cs};text-align:center">
               <button onclick="toggleTax(${i})" title="${c.tax==='수령'?'수령완료':'미수령'}"
@@ -2294,12 +2342,22 @@ document.addEventListener('click', function(e) {
   else if (field === 'fee')  currentVal = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
   else if (field === 'case') currentVal = c.case||c.caseName||'';
   else if (field === 'type') currentVal = c.type||'민사';
+  else if (field === 'tax')  currentVal = c.tax||'전자세금계산서';
   else                       currentVal = c[field]||'';
 
   td.innerHTML = '';
   let input;
 
-  if (field === 'type') {
+  if (field === 'tax') {
+    input = document.createElement('select');
+    ['전자세금계산서','사업소득','미수령'].forEach(opt => {
+      const o = document.createElement('option');
+      o.value=opt; o.textContent=opt;
+      if(opt===currentVal) o.selected=true;
+      input.appendChild(o);
+    });
+    input.style.cssText='width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:11px;padding:2px 4px';
+  } else if (field === 'type') {
     input = document.createElement('select');
     ['민사','형사','신청','행정','수당'].forEach(opt => {
       const o = document.createElement('option');
@@ -3185,24 +3243,44 @@ async function downloadBatchExcel() {
   const cases = [...BIZ[curBiz].cases, ...resolList[curBiz]];
   if (!cases.length) { showToast('등록된 사건이 없습니다'); return; }
 
+  // 시트 선택 모달 열기
+  openSheetSelectModal(cases);
+}
+
+// ── 시트 선택 모달 ──
+function openSheetSelectModal(cases) {
+  const biz = BIZ[curBiz];
+  document.getElementById('sheet-select-modal').style.display = 'flex';
+  document.getElementById('sheet-modal-info').textContent =
+    `${biz.short} · 총 ${cases.length}건 · ${cases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0).toLocaleString()}원`;
+}
+
+function closeSheetSelectModal() {
+  document.getElementById('sheet-select-modal').style.display = 'none';
+}
+
+async function confirmSheetDownload() {
+  const sheets = [];
+  if (document.getElementById('chk-resol').checked)    sheets.push('resol');
+  if (document.getElementById('chk-lawyer').checked)   sheets.push('lawyer');
+  if (document.getElementById('chk-transfer').checked) sheets.push('transfer');
+  if (!sheets.includes('resol')) { showToast('지출결의서 시트는 필수예요'); return; }
+
+  closeSheetSelectModal();
+  const cases = [...BIZ[curBiz].cases, ...resolList[curBiz]];
   const b     = BIZ[curBiz];
   const today = new Date();
-  const yy    = today.getFullYear();
-  const mm    = today.getMonth() + 1;
-  const dd    = today.getDate();
+  const yy = today.getFullYear(), mm = today.getMonth()+1, dd = today.getDate();
 
   showToast('엑셀 생성 중...');
 
   try {
-    // 서버에 사건 데이터 + 변호사 계좌 정보 전송
     const res = await fetch('/api/excel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        cases:    cases,
-        lawyers:  BIZ[curBiz].lawyers,  // 변호사 계좌 정보 함께 전달
-        bizShort: b.short,
-        yy, mm, dd
+        cases, lawyers: BIZ[curBiz].lawyers,
+        bizShort: b.short, yy, mm, dd, sheets
       })
     });
 
@@ -3211,7 +3289,6 @@ async function downloadBatchExcel() {
       throw new Error(err.error || '서버 오류');
     }
 
-    // base64 xlsx → 파일 다운로드
     const data  = await res.json();
     const bin   = atob(data.xlsx);
     const bytes = new Uint8Array(bin.length);
@@ -3220,16 +3297,14 @@ async function downloadBatchExcel() {
     const blob = new Blob([bytes], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
     a.href     = url;
     a.download = `전세피해자_${b.short}_${yy}년${mm}월_지출결의서.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
 
     showToast(`저장 완료: 전세피해자_${b.short}_${yy}년${mm}월_지출결의서.xlsx`);
-
-    // ── 대시보드/집행내역에 반영 ──
     recordExecution(cases, b, yy, mm, dd);
 
   } catch (err) {
