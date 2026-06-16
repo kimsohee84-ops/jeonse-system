@@ -59,12 +59,17 @@ def fill_page(ws, o, page, page_total, biz_title, yy, mm, dd, page_num=0):
             num=(c.get("num","") or "").replace("국부 ","").replace("서금 ","")
             if num.startswith("미인식"): num=""
             lawyer=c.get("lawyer","") or ""
+            # 계정과목: 기본은 법률구조사업비, accountType이 일반관리비면 변경
+            acct_type = c.get("accountType","법률구조사업비")
+            if acct_type == "일반관리비":
+                acct_label = "일반관리비\n전세피해자사업비"
+            else:
+                acct_label = "법률구조사업비\n전세피해자사업비"
             if not lawyer and not num:
-                # 직원 수당 등 변호사/접수번호가 없는 항목: "OOO 직원수당" 형식
                 desc=(c.get("client","") or "")+" "+(c.get("case","") or c.get("caseName","") or "")
             else:
                 desc=lawyer+" 弁 "+num+"호 "+(c.get("client","") or "")+" "+(c.get("case","") or c.get("caseName","") or "")
-            set_val(ws,r,2,"법률구조사업비\n전세피해자사업비",center)
+            set_val(ws,r,2,acct_label,center)
             set_val(ws,r,5,desc); set_val(ws,r,13,amt)
             set_val(ws,r,16,c.get("note","") or c.get("type",""))
         else:
