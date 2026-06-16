@@ -3424,6 +3424,36 @@ function autoSaveScanEntry(parsed, fileName) {
 
   const fullNum = num ? BIZ[curBiz].prefix+' '+num : '';
 
+  // ── 변호사 계좌 자동 업데이트 ──
+  // OCR에서 변호사명 + 계좌정보가 인식됐으면 lawyers 목록에 자동 반영
+  if (lawyer && acct) {
+    const lawyers = BIZ[curBiz].lawyers;
+    const lIdx = lawyers.findIndex(l => l.name === lawyer);
+    // 계좌번호에서 은행명/은행코드 추출
+    const bankMatch = acct.match(/(신한|국민|기업|농협|우리|하나|새마을|SC|카카오|토스|씨티)/);
+    const bankName  = bankMatch ? bankMatch[1] : '';
+    const bankCodes = {'신한':'088','국민':'004','기업':'003','농협':'011','우리':'020','하나':'081','새마을':'045','SC':'023','카카오':'090','토스':'092','씨티':'027'};
+    const bankCode  = bankName ? (bankCodes[bankName]||'') : '';
+    // 계좌번호만 추출 (숫자와 하이픈)
+    const acctNum   = acct.match(/[\d\-]{8,}/) ? acct.match(/[\d\-]{8,}/)[0] : acct;
+
+    if (lIdx >= 0) {
+      // 기존 변호사 - 빈 필드만 채우기
+      const l = lawyers[lIdx];
+      if (!l.acct    && acctNum)  l.acct     = acctNum;
+      if (!l.bank    && bankName) l.bank     = bankName;
+      if (!l.bankCode&& bankCode) l.bankCode = bankCode;
+      if (!l.owner   && firm)     l.owner    = firm;
+      if (!l.firm    && firm)     l.firm     = firm;
+    } else {
+      // 신규 변호사 추가
+      lawyers.push({
+        name: lawyer, bank: bankName, bankCode, acct: acctNum,
+        owner: firm || lawyer, firm: firm||'', email: '', tax: '전자세금계산서'
+      });
+    }
+  }
+
   // ── 케이스 0: 식별 정보가 전혀 없는 페이지 (접수번호/변호사/의뢰인/사건명 모두 빈값) ──
   // → 영수증(인지대/송달료) 페이지로 보고 직전 처리한 건에 합산
   const noInfo = !num && !lawyer && !client && !caseName;
@@ -3806,17 +3836,19 @@ function openExecConfirmModal(cases, b, yy, mm, dd, monthTotal) {
   const el = document.getElementById('exec-confirm-content');
   const dateStr = `${yy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
   const lawCases = cases.filter(c => !c._allowance);
-  const allowances = cases.filter(c => c._allowance);
   el.innerHTML = `
     <div style="background:var(--light);border-radius:8px;padding:12px;margin-bottom:12px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
         <div><span style="color:var(--muted)">사업</span><br><strong>${b.name}</strong></div>
-        <div><span style="color:var(--muted)">지급일</span><br><strong>${dateStr}</strong></div>
         <div><span style="color:var(--muted)">지급 건수</span><br><strong>${lawCases.length}건</strong></div>
-        <div><span style="color:var(--muted)">총 지급액</span><br>
+        <div style="grid-column:1/-1"><span style="color:var(--muted)">총 지급액</span><br>
           <strong style="font-size:16px;color:var(--navy)">${monthTotal.toLocaleString()}원</strong>
         </div>
       </div>
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--muted);margin-bottom:4px;display:block">지급일 <span style="color:#DC2626">*</span></label>
+      <input class="form-input" type="date" id="exec-confirm-date" value="${dateStr}">
     </div>
     <p style="color:var(--muted);font-size:12px">
       <i class="ti ti-info-circle"></i> 집행내역에 등록하면 집행 현황에 자동 반영되고,<br>
@@ -3832,69 +3864,77 @@ function closeExecConfirmModal() {
 
 function confirmRecordExecution() {
   if (!_execConfirmArgs) return;
-  const { cases, b, yy, mm, dd } = _execConfirmArgs;
+  const { cases, b, yy, mm } = _execConfirmArgs;
+  // 입력된 지급일에서 dd 추출
+  const dateInput = document.getElementById('exec-confirm-date')?.value || '';
+  const dateParts = dateInput.split('-');
+  const newYy = parseInt(dateParts[0]) || yy;
+  const newMm = parseInt(dateParts[1]) || mm;
+  const newDd = parseInt(dateParts[2]) || new Date().getDate();
   closeExecConfirmModal();
-  recordExecution(cases, b, yy, mm, dd);
-  showToast(`✅ ${mm}월 집행내역에 등록됐습니다`);
+  recordExecution(cases, b, newYy, newMm, newDd);
+  showToast(`✅ ${newMm}월 집행내역에 등록됐습니다`);
 }
 
 // ── 엑셀 저장 완료 후: 집행내역/대시보드에 이번 달 데이터 반영 ──
-// 1. 이번 달 합계를 EXEC_DATA[biz].monthly에 추가(이미 같은 월 있으면 갱신)
-// 2. EXEC_DATA[biz].executed, BIZ[biz].executed 갱신
-// 3. 건별 상세를 PAID_CASES에 누적
-// 4. 지출결의서 작업 목록(BIZ[biz].cases) 비우기 → 다음 달 준비
 function recordExecution(cases, b, yy, mm, dd) {
   const monthKey   = `${yy}-${String(mm).padStart(2,'0')}`;
   const monthLabel = `${mm}월`;
-  const monthTotal = cases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0), 0);
   const dateStr    = `${yy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
 
+  // 수당 제외 건수, 전체 합계 계산
+  const lawCases   = cases.filter(c => !c._allowance);
+  const monthTotal = cases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0), 0);
+
   if (!EXEC_DATA[curBiz]) {
-    EXEC_DATA[curBiz] = { income: [], monthly: [], budget: b.budget, executed: 0 };
+    EXEC_DATA[curBiz] = { income:[], monthly:[], budget:b.budget, executed:0 };
   }
   const ex = EXEC_DATA[curBiz];
 
-  // 같은 월 데이터 있으면 갱신, 없으면 추가
+  // 같은 월 있으면 갱신, 없으면 추가
   const existingIdx = ex.monthly.findIndex(m => m.month === monthKey);
-  const monthEntry = { month: monthKey, label: monthLabel, count: cases.length, total: monthTotal, date: dateStr };
+  const monthEntry  = {
+    month: monthKey, label: monthLabel,
+    count: lawCases.length,   // 수당 제외 변호사 사건 건수만
+    total: monthTotal, date: dateStr, status: '완료'
+  };
   if (existingIdx >= 0) {
-    // 기존 월 데이터를 새 데이터로 교체 (executed 재계산을 위해 차액 처리)
-    ex.executed -= ex.monthly[existingIdx].total;
+    ex.executed -= (ex.monthly[existingIdx].total || 0);
     ex.monthly[existingIdx] = monthEntry;
   } else {
     ex.monthly.push(monthEntry);
   }
   ex.executed += monthTotal;
-  ex.budget = b.budget;
+  ex.budget    = b.budget;
 
-  // BIZ 예산 집행액도 동기화
-  b.executed = ex.executed;
+  // BIZ 집행액 동기화
+  BIZ[curBiz].executed = ex.executed;
 
-  // ── 건별 상세 누적 (전체 집행내역 탭) ──
+  // 건별 상세 저장 (재생성용)
   if (!PAID_CASES[curBiz]) PAID_CASES[curBiz] = [];
-  // 같은 월에 이미 기록된 건들 제거 후 새로 추가 (재저장 시 중복 방지)
-  PAID_CASES[curBiz] = PAID_CASES[curBiz].filter(p => !p.date.startsWith(monthKey));
+  PAID_CASES[curBiz] = PAID_CASES[curBiz].filter(p => !(p.date||'').startsWith(monthKey));
   cases.forEach(c => {
     const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
-    const num = (c.num||'').replace(/^(국부|서금)\s*/,'');
+    const num = (c.num||'').replace(/^(국부|서금|양이원|대법원|법무부|성평등|이태원|서울시|초록우산|여객기)\s*/,'');
     PAID_CASES[curBiz].push({
       date: dateStr, num, client: c.client||'', lawyer: c.lawyer||'',
       firm: c.firm||'', amt, type: c.type||'민사',
-      note: c.case||c.caseName||c.note||'',  // 사건명 저장 (재생성에 활용)
+      note: c.case||c.caseName||c.note||'',
       _allowance: c._allowance||false
     });
   });
 
-  // ── 작업 목록 비우기: 완료 처리된 건은 resolList로 옮기고 cases는 초기화 ──
-  resolList[curBiz] = [];  // 이번 달 건들은 이제 PAID_CASES에 기록됐으므로 resolList도 비움
+  // 작업 목록 초기화
+  resolList[curBiz] = [];
   BIZ[curBiz].cases = [];
   resolSelected.clear();
 
+  savePersistedData();
   renderResolPanel();
   renderDashboard();
-  if (document.getElementById('exec-summary')) renderExecHistory();
-
-  showToast(`${monthLabel} 집행내역에 ${cases.length}건(${monthTotal.toLocaleString()}원) 반영 완료`);
+  // 집행현황 탭이 열려있으면 갱신
+  const execView = document.getElementById('view-exec');
+  if (execView && execView.classList.contains('active')) renderExecHistory();
 }
 
 
