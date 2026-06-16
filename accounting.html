@@ -2219,7 +2219,7 @@ function renderExecHistory() {
       <strong style="font-size:13px">월별 지출 내역</strong>
     </div>
     <table class="tbl">
-      <thead><tr><th>지급일</th><th>건수</th><th>지급액</th><th>상태</th><th>비고</th><th style="width:60px"></th></tr></thead>
+      <thead><tr><th>지급일</th><th>건수</th><th>지급액</th><th>상태</th><th>비고</th><th style="width:90px">관리</th></tr></thead>
       <tbody>
         ${monthly.map((m,i)=>{
           const isDone = m.status === '완료';
@@ -2232,7 +2232,8 @@ function renderExecHistory() {
             <td class="mono">${(m.total||0).toLocaleString()}</td>
             <td>${statusBadge}</td>
             <td style="font-size:11px;color:var(--muted)">${m.label||''} 결의서</td>
-            <td style="text-align:center">
+            <td style="text-align:center;white-space:nowrap">
+              <button onclick="regenExcel(${i})" title="지출결의서 재생성" style="background:none;border:none;cursor:pointer;color:#166534;font-size:12px;padding:2px 4px">📥</button>
               <button onclick="editMonthly(${i})" style="background:none;border:none;cursor:pointer;color:var(--navy);font-size:12px;padding:2px 4px">✏️</button>
               <button onclick="deleteMonthly(${i})" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:12px;padding:2px 4px">🗑</button>
             </td>
@@ -2303,6 +2304,72 @@ function deleteIncome(idx) {
   EXEC_DATA[curBiz].income.splice(idx, 1);
   renderExecHistory(); savePersistedData();
   showToast('삭제됐습니다');
+}
+
+// ── 집행내역에서 지출결의서 재생성 ──
+async function regenExcel(monthlyIdx) {
+  const m = EXEC_DATA[curBiz]?.monthly[monthlyIdx];
+  if (!m) return;
+
+  // PAID_CASES에서 해당 월 건수 찾기
+  const monthKey = m.month; // "2026-06"
+  const paid = (PAID_CASES[curBiz] || []).filter(c => c.date && c.date.startsWith(monthKey));
+
+  if (!paid.length) {
+    showToast('저장된 건별 데이터가 없어 재생성할 수 없어요');
+    return;
+  }
+
+  // PAID_CASES 데이터를 cases 형식으로 변환
+  const cases = paid.map(c => ({
+    num:      c.num ? BIZ[curBiz].prefix + ' ' + c.num : '',
+    lawyer:   c.lawyer || '',
+    client:   c.client || '',
+    case:     c.note || '',
+    caseName: c.note || '',
+    type:     c.type || '민사',
+    fee:      c.amt || 0,
+    stamp:    0,
+    delivery: 0,
+    date:     c.date || m.date,
+    tax:      '전자세금계산서',
+    _allowance: c.type === '수당'
+  }));
+
+  const b   = BIZ[curBiz];
+  const dateArr = (m.date || '').split('-');
+  const yy  = parseInt(dateArr[0]) || new Date().getFullYear();
+  const mm2 = parseInt(dateArr[1]) || new Date().getMonth()+1;
+  const dd  = parseInt(dateArr[2]) || new Date().getDate();
+
+  showToast(`${m.label} 지출결의서 재생성 중...`);
+
+  try {
+    const res = await fetch('/api/excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cases, lawyers: b.lawyers,
+        bizShort: b.short, yy, mm: mm2, dd,
+        sheets: ['resol', 'lawyer', 'transfer']
+      })
+    });
+    if (!res.ok) throw new Error('서버 오류');
+    const data = await res.json();
+    const bin  = atob(data.xlsx);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const blob = new Blob([bytes], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `전세피해자_${b.short}_${yy}년${mm2}월_지출결의서.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`✅ ${m.label} 지출결의서 재생성 완료`);
+  } catch(err) {
+    showToast('오류: ' + err.message);
+  }
 }
 
 // ── 월별 지출 수정/삭제 ──
@@ -3745,9 +3812,8 @@ function openExecConfirmModal(cases, b, yy, mm, dd, monthTotal) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
         <div><span style="color:var(--muted)">사업</span><br><strong>${b.name}</strong></div>
         <div><span style="color:var(--muted)">지급일</span><br><strong>${dateStr}</strong></div>
-        <div><span style="color:var(--muted)">변호사 사건</span><br><strong>${lawCases.length}건</strong></div>
-        <div><span style="color:var(--muted)">직원 수당</span><br><strong>${allowances.length}명</strong></div>
-        <div style="grid-column:1/-1"><span style="color:var(--muted)">총 지급액</span><br>
+        <div><span style="color:var(--muted)">지급 건수</span><br><strong>${lawCases.length}건</strong></div>
+        <div><span style="color:var(--muted)">총 지급액</span><br>
           <strong style="font-size:16px;color:var(--navy)">${monthTotal.toLocaleString()}원</strong>
         </div>
       </div>
@@ -3813,7 +3879,9 @@ function recordExecution(cases, b, yy, mm, dd) {
     const num = (c.num||'').replace(/^(국부|서금)\s*/,'');
     PAID_CASES[curBiz].push({
       date: dateStr, num, client: c.client||'', lawyer: c.lawyer||'',
-      firm: c.firm||'', amt, type: c.type||'민사', note: c.note||''
+      firm: c.firm||'', amt, type: c.type||'민사',
+      note: c.case||c.caseName||c.note||'',  // 사건명 저장 (재생성에 활용)
+      _allowance: c._allowance||false
     });
   });
 
