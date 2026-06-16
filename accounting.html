@@ -218,7 +218,38 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
       <!-- 대시보드 -->
       <div class="view active" id="view-dashboard">
         <p class="page-title" id="dash-title">대시보드</p>
-        <p class="page-sub" id="dash-sub">2026년 · 전세피해자 소송구조</p>
+        <p class="page-sub" id="dash-sub">2026년 · 대한변협법률구조재단</p>
+
+        <!-- 전체 사업 요약 -->
+        <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:1rem">
+          <div class="stat-card">
+            <div class="stat-val" id="total-budget-val">-</div>
+            <div class="stat-label">전체 예산 합계</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val" style="color:#B45309" id="total-exec-val">-</div>
+            <div class="stat-label">전체 집행액</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val" style="color:var(--teal)" id="total-balance-val">-</div>
+            <div class="stat-label">전체 잔액</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val" id="total-exec-pct">-</div>
+            <div class="stat-label">평균 집행률</div>
+          </div>
+        </div>
+
+        <!-- 전체 사업 현황 테이블 -->
+        <div class="card" style="margin-bottom:1rem;overflow-x:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div class="card-title" style="margin-bottom:0"><i class="ti ti-building-bank" aria-hidden="true"></i> 전체 사업 현황 <span style="font-size:11px;color:var(--muted);font-weight:400">기준일: 2026.06.08.</span></div>
+            <button onclick="openBizEditModal()" class="btn btn-sm" style="font-size:11px"><i class="ti ti-edit"></i> 현황 업데이트</button>
+          </div>
+          <div id="all-biz-table"></div>
+        </div>
+
+        <!-- 현재 선택 사업 현황 -->
         <div class="stat-grid" id="dash-stats"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
           <div class="card">
@@ -438,6 +469,39 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
                 <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmSheetDownload()">
                   <i class="ti ti-download"></i> 다운로드
                 </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 사업 현황 수정 모달 -->
+          <div id="biz-edit-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:380px;max-width:94vw;box-shadow:var(--shadow-md)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-edit"></i> 사업 현황 수정</h3>
+                <button onclick="closeBizEditModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+              </div>
+              <div style="font-size:13px;font-weight:500;margin-bottom:1rem;color:var(--navy)" id="biz-edit-name"></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem">
+                <div class="field" style="grid-column:1/-1">
+                  <label>현 집행액 (원)</label>
+                  <input class="form-input" type="number" id="biz-edit-exec">
+                </div>
+                <div class="field">
+                  <label>집행 건수</label>
+                  <input class="form-input" type="number" id="biz-edit-done">
+                </div>
+                <div class="field">
+                  <label>상태</label>
+                  <select class="form-input" id="biz-edit-status">
+                    <option value="진행중">진행중</option>
+                    <option value="신규">신규</option>
+                    <option value="마감예정">마감예정</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn" style="flex:1;justify-content:center" onclick="closeBizEditModal()">취소</button>
+                <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveBizEdit()"><i class="ti ti-check"></i> 저장</button>
               </div>
             </div>
           </div>
@@ -1166,7 +1230,9 @@ function showView(name) {
 }
 
 function renderDashboard() {
-  savePersistedData(); // 데이터 변경 시점마다 호출되므로 여기서 자동 저장
+  savePersistedData();
+  renderAllBizTable();  // 전체 사업 현황 테이블
+
   const b = BIZ[curBiz];
   const allCases = [...b.cases, ...resolList[curBiz]];
   const recv = allCases.filter(c=>c.tax==="수령").length;
@@ -1212,6 +1278,132 @@ function renderDashboard() {
       </div>
     </div>
   `;
+}
+
+// ── 전체 사업 현황 테이블 렌더링 ──
+function renderAllBizTable() {
+  const el = document.getElementById('all-biz-table');
+  if (!el) return;
+
+  // ALL_BIZ_DATA에서 연결된 사업의 실제 집행액 반영
+  const data = ALL_BIZ_DATA.map(b => {
+    if (b.linked) {
+      const ex = EXEC_DATA[b.linked];
+      return { ...b, exec: ex ? ex.executed : b.exec };
+    }
+    return b;
+  });
+
+  // 요약 카드 업데이트
+  const totalBudget = data.reduce((s,b) => s+b.budget, 0);
+  const totalExec   = data.reduce((s,b) => s+b.exec,   0);
+  const totalBal    = totalBudget - totalExec;
+  const avgPct      = Math.round(totalExec / totalBudget * 100);
+  const _tb=document.getElementById('total-budget-val');  if(_tb)  _tb.innerHTML=`<span style="font-size:14px">${(totalBudget/100000000).toFixed(1)}억</span>`;
+  const _te=document.getElementById('total-exec-val');    if(_te)  _te.innerHTML=`<span style="font-size:14px">${(totalExec/100000000).toFixed(1)}억</span>`;
+  const _tbl=document.getElementById('total-balance-val');if(_tbl) _tbl.innerHTML=`<span style="font-size:14px">${(totalBal/100000000).toFixed(1)}억</span>`;
+  const _tp=document.getElementById('total-exec-pct');    if(_tp)  _tp.innerHTML=`<span style="font-size:20px">${avgPct}%</span>`;
+
+  // 유형별 그룹
+  const groups = ['국고보조금','위탁협약'];
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
+    <thead>
+      <tr style="background:var(--light)">
+        <th style="padding:8px;border-bottom:2px solid var(--border);white-space:nowrap">유형</th>
+        <th style="padding:8px;border-bottom:2px solid var(--border)">사업</th>
+        <th style="padding:8px;border-bottom:2px solid var(--border);text-align:right">예산</th>
+        <th style="padding:8px;border-bottom:2px solid var(--border);text-align:right">집행액</th>
+        <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center;width:80px">집행률</th>
+        <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center">목표/완료</th>
+        <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center">상태</th>
+        <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center">수정</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  groups.forEach(grp => {
+    const items = data.filter(b => b.type === grp);
+    if (!items.length) return;
+
+    items.forEach((b, i) => {
+      const pct = b.budget ? Math.round(b.exec / b.budget * 100) : 0;
+      const pctColor = pct >= 80 ? '#DC2626' : pct >= 50 ? '#B45309' : '#1D4ED8';
+      const statusBadge = b.status === '신규'
+        ? `<span style="font-size:10px;padding:2px 6px;border-radius:99px;background:var(--color-background-info);color:var(--color-text-info)">신규</span>`
+        : b.status === '마감예정'
+          ? `<span style="font-size:10px;padding:2px 6px;border-radius:99px;background:var(--color-background-warning);color:var(--color-text-warning)">마감예정</span>`
+          : `<span style="font-size:10px;padding:2px 6px;border-radius:99px;background:var(--color-background-success);color:var(--color-text-success)">진행중</span>`;
+      const isLinked = b.linked ? `<i class="ti ti-link" style="color:var(--color-text-info);font-size:11px" title="회계 연동됨"></i> ` : '';
+      const typeCell = i === 0
+        ? `<td rowspan="${items.length}" style="padding:8px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-weight:500;font-size:11px;background:var(--light);text-align:center;vertical-align:middle;white-space:nowrap">${grp}</td>`
+        : '';
+
+      html += `<tr style="border-bottom:1px solid var(--border)${b.linked ? ';background:#F8FAFF' : ''}">
+        ${typeCell}
+        <td style="padding:8px;max-width:160px">
+          <div style="font-weight:500">${isLinked}${b.agency}</div>
+          <div style="font-size:11px;color:var(--muted)">${b.manager ? `담당: ${b.manager}` : ''}</div>
+        </td>
+        <td style="padding:8px;text-align:right;font-family:monospace;font-size:11px">${(b.budget/100000000).toFixed(2)}억</td>
+        <td style="padding:8px;text-align:right;font-family:monospace;font-size:11px;color:${pctColor}">${b.exec.toLocaleString()}</td>
+        <td style="padding:8px">
+          <div style="display:flex;align-items:center;gap:4px">
+            <div style="flex:1;height:6px;background:var(--light);border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:${Math.min(pct,100)}%;background:${pctColor};border-radius:3px"></div>
+            </div>
+            <span style="font-size:11px;font-weight:500;color:${pctColor};min-width:28px;text-align:right">${pct}%</span>
+          </div>
+        </td>
+        <td style="padding:8px;text-align:center;font-size:11px">${b.done}<span style="color:var(--muted)">/${b.target}</span></td>
+        <td style="padding:8px;text-align:center">${statusBadge}</td>
+        <td style="padding:8px;text-align:center">
+          <button onclick="editBizRow(${ALL_BIZ_DATA.indexOf(b)})" style="background:none;border:none;cursor:pointer;color:var(--navy);font-size:12px;padding:2px 4px">✏️</button>
+        </td>
+      </tr>`;
+    });
+  });
+
+  // 합계 행
+  html += `<tr style="border-top:2px solid var(--border);background:var(--light);font-weight:600">
+    <td colspan="2" style="padding:8px;text-align:right">합계</td>
+    <td style="padding:8px;text-align:right;font-family:monospace;font-size:11px">${(totalBudget/100000000).toFixed(2)}억</td>
+    <td style="padding:8px;text-align:right;font-family:monospace;font-size:11px;color:#B45309">${totalExec.toLocaleString()}</td>
+    <td style="padding:8px;text-align:center;font-size:11px;color:#B45309">${avgPct}%</td>
+    <td colspan="3"></td>
+  </tr>`;
+
+  html += `</tbody></table>`;
+  el.innerHTML = html;
+}
+
+// ── 사업 현황 수정 모달 ──
+let _editBizIdx = -1;
+function editBizRow(idx) {
+  _editBizIdx = idx;
+  const b = ALL_BIZ_DATA[idx];
+  if (!b) return;
+  document.getElementById('biz-edit-name').textContent  = b.agency;
+  document.getElementById('biz-edit-exec').value  = b.exec;
+  document.getElementById('biz-edit-done').value  = b.done;
+  document.getElementById('biz-edit-status').value = b.status;
+  document.getElementById('biz-edit-modal').style.display = 'flex';
+}
+function openBizEditModal() {
+  // 전체 목록 수정은 추후 추가
+  showToast('개별 행의 ✏️ 버튼으로 수정해주세요');
+}
+function closeBizEditModal() {
+  document.getElementById('biz-edit-modal').style.display = 'none';
+}
+function saveBizEdit() {
+  const b = ALL_BIZ_DATA[_editBizIdx];
+  if (!b) return;
+  b.exec   = parseInt(document.getElementById('biz-edit-exec').value.replace(/,/g,'')) || b.exec;
+  b.done   = parseInt(document.getElementById('biz-edit-done').value) || b.done;
+  b.status = document.getElementById('biz-edit-status').value;
+  closeBizEditModal();
+  renderDashboard();
+  showToast('업데이트됐습니다');
 }
 
 function renderLawyerSelect() {
@@ -1626,6 +1818,64 @@ function showToast(msg) {
 
 
 // ── 실제 집행 내역 데이터 (국토부 2026년) ──
+// ── 전체 사업 현황 데이터 (2026.06.08 기준) ──
+// type: '국고보조금' | '위탁협약' | '내부운영'
+// status: '진행중' | '신규' | '마감예정'
+const ALL_BIZ_DATA = [
+  // 국고보조금
+  { type:'국고보조금', agency:'법무부(보장원)', name:'법무부 소송구조 등', manager:'우형',
+    budget:500000000, exec:88798000, target:250, done:25,
+    paid:400000000, pending:100000000,
+    detail:'소송구조 287,800,000 / 법률상담 30,000,000 / 법률교육 20,000,000 / 홍보영상 4,500,000 / 임차료 27,600,000 / 인건비 126,000,000 / 경상비 4,100,000',
+    status:'진행중', note:'1분기,2분기 교부신청 제출. 27년도 산출내역(5억원 동결) 제출' },
+  { type:'국고보조금', agency:'대법원', name:'대법원 소송구조', manager:'',
+    budget:118000000, exec:17342900, target:126, done:20,
+    paid:59000000, pending:59000000,
+    detail:'소송구조 117,100,000 / 검증비 574,000 / 사무용품비 326,000',
+    status:'진행중', note:'연장평가 완료. 상반기 교부신청 제출' },
+  { type:'국고보조금', agency:'성평등가족부', name:'성평등가족부 소송구조', manager:'민지',
+    budget:605000000, exec:184018092, target:330, done:95,
+    paid:302500000, pending:302500000,
+    detail:'소송구조 512,700,000 / 사무용품비 2,300,000 / 인건비 90,000,000',
+    status:'진행중', note:'상반기 교부신청 제출. 25년도 실적 및 정산보고 제출' },
+  { type:'국고보조금', agency:'행안부(이태원)', name:'이태원 법률지원', manager:'예림',
+    budget:80000000, exec:9200000, target:37, done:2,
+    paid:64000000, pending:16000000,
+    detail:'법률지원 50,527,600 / 인건비 25,472,400 / 일반관리비 4,000,000',
+    status:'신규', note:'신규사업. e나라도움 등록완료. 예산 80% 교부완료' },
+  // 위탁협약
+  { type:'위탁협약', agency:'양육비이행관리원', name:'양육비 소송구조', manager:'',
+    budget:200000000, exec:63289870, target:210, done:47,
+    paid:200000000, pending:0,
+    detail:'소송구조 173,000,000 / 교통비 250,000 / 통신비 350,000 / 인건비 26,400,000',
+    status:'진행중', note:'26년도 사업계획 및 교부신청 제출' },
+  { type:'위탁협약', agency:'국토부(전세)', name:'전세피해자 소송구조(국토부)', manager:'소희',
+    budget:480267174, exec:112580000, target:432, done:104,
+    paid:195000000, pending:285267174,
+    detail:'소송구조 432,000,000 / 인건비(보조) 26,328,493 / 일반관리비 21,999,768 / 부가세 48,032,826',
+    status:'진행중', note:'매주/매월 사업 및 집행보고 중. 예산 40% 지급받음', linked:'kt' },
+  { type:'위탁협약', agency:'서민금융재단(전세)', name:'전세피해자 소송구조(서민)', manager:'소희',
+    budget:181542617, exec:61770520, target:210, done:34,
+    paid:181542617, pending:0,
+    detail:'소송구조 181,542,617 (전년도 잔액)',
+    status:'진행중', note:'25년도 잔액 사업. 상담잔액 반납완료(4.28.)', linked:'sf' },
+  { type:'위탁협약', agency:'서울시복지재단', name:'서울시 소송구조', manager:'해나',
+    budget:40000000, exec:17151500, target:10, done:4,
+    paid:40000000, pending:0,
+    detail:'소송구조 36,000,000 / 운영비 800,000 / 일반관리비 3,200,000',
+    status:'진행중', note:'2월 협약완료. 전체 예산 지급받음' },
+  { type:'위탁협약', agency:'국토부(여객기)', name:'여객기 법률지원', manager:'',
+    budget:40000000, exec:0, target:12, done:0,
+    paid:0, pending:40000000,
+    detail:'법률지원 23,000,000 (12/9)',
+    status:'신규', note:'신규사업. 예산 80% 교부완료' },
+  { type:'위탁협약', agency:'초록우산', name:'초록우산 소송구조', manager:'',
+    budget:30000000, exec:0, target:10, done:0,
+    paid:0, pending:30000000,
+    detail:'소송구조 23,000,000 / 홍보영상 7,000,000',
+    status:'진행중', note:'26년도 사업계획 및 교부신청 제출' },
+];
+
 const EXEC_DATA = {
   kt: {
     income: [
