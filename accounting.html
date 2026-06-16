@@ -413,6 +413,13 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
                   <label>접수번호 <span style="color:#DC2626">*</span></label>
                   <input class="form-input" id="add-num" placeholder="예: 26-176">
                 </div>
+                <div class="field" style="grid-column:1/-1">
+                  <label>계정과목</label>
+                  <select class="form-input" id="add-account-type">
+                    <option value="법률구조사업비">법률구조사업비</option>
+                    <option value="일반관리비">일반관리비</option>
+                  </select>
+                </div>
                 <div class="field">
                   <label>변호사 <span style="color:#DC2626">*</span></label>
                   <input class="form-input" id="add-lawyer" placeholder="변호사 성명">
@@ -990,7 +997,60 @@ function doLogout() {
 }
 
 function init() {
+  loadPersistedData();
   setBiz(curBiz);
+}
+
+// ── 데이터 영속성 (localStorage) ──
+// 새로고침/탭이동 후에도 작업 데이터가 유지되도록
+// 저장 대상: 각 biz의 cases(작업중인 지출결의서), resolList, EXEC_DATA, PAID_CASES, executed
+const STORAGE_KEY = 'jeonse_acc_data_v1';
+
+function savePersistedData() {
+  try {
+    const data = {
+      cases: { kt: BIZ.kt.cases, sf: BIZ.sf.cases },
+      executed: { kt: BIZ.kt.executed, sf: BIZ.sf.executed },
+      resolList,
+      EXEC_DATA,
+      PAID_CASES,
+      savedAt: new Date().toISOString()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error('데이터 저장 오류:', e);
+  }
+}
+
+function loadPersistedData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+
+    if (data.cases) {
+      if (Array.isArray(data.cases.kt)) BIZ.kt.cases = data.cases.kt;
+      if (Array.isArray(data.cases.sf)) BIZ.sf.cases = data.cases.sf;
+    }
+    if (data.executed) {
+      if (typeof data.executed.kt === 'number') BIZ.kt.executed = data.executed.kt;
+      if (typeof data.executed.sf === 'number') BIZ.sf.executed = data.executed.sf;
+    }
+    if (data.resolList) {
+      if (Array.isArray(data.resolList.kt)) resolList.kt = data.resolList.kt;
+      if (Array.isArray(data.resolList.sf)) resolList.sf = data.resolList.sf;
+    }
+    if (data.EXEC_DATA) {
+      Object.assign(EXEC_DATA.kt, data.EXEC_DATA.kt || {});
+      if (data.EXEC_DATA.sf) Object.assign(EXEC_DATA.sf, data.EXEC_DATA.sf);
+    }
+    if (data.PAID_CASES) {
+      if (Array.isArray(data.PAID_CASES.kt)) PAID_CASES.kt = data.PAID_CASES.kt;
+      if (Array.isArray(data.PAID_CASES.sf)) PAID_CASES.sf = data.PAID_CASES.sf;
+    }
+  } catch (e) {
+    console.error('데이터 복원 오류:', e);
+  }
 }
 
 function setBiz(biz) {
@@ -1020,6 +1080,7 @@ function showView(name) {
 }
 
 function renderDashboard() {
+  savePersistedData(); // 데이터 변경 시점마다 호출되므로 여기서 자동 저장
   const b = BIZ[curBiz];
   const allCases = [...b.cases, ...resolList[curBiz]];
   const recv = allCases.filter(c=>c.tax==="수령").length;
@@ -2140,6 +2201,7 @@ function addStaffAllowance() {
       fee: s.amt, stamp: 0, delivery: 0,
       tax: '비과세', resol: '대기', date: today,
       account: '', note: '직원 수당', doctype: '직원수당',
+      accountType: '일반관리비',  // 계정과목
       _allowance: true
     });
     added++;
@@ -2154,7 +2216,7 @@ function addStaffAllowance() {
 function openAddResolModal() {
   const modal = document.getElementById("add-resol-modal");
   modal.style.display = "flex";
-  // 기본값 설정
+  document.getElementById("add-account-type").value = "법률구조사업비"; // 기본값
   document.getElementById("add-date").value = new Date().toISOString().slice(0,10);
   document.getElementById("add-fee").value = "";
   document.getElementById("add-stamp").value = "";
@@ -2171,34 +2233,41 @@ function closeAddResolModal() {
 }
 
 function saveAddResol() {
-  const num    = document.getElementById("add-num").value.trim();
-  const lawyer = document.getElementById("add-lawyer").value.trim();
-  const client = document.getElementById("add-client").value.trim();
-  if(!num)    { showToast("접수번호를 입력해주세요"); return; }
-  if(!lawyer) { showToast("변호사를 입력해주세요"); return; }
-  if(!client) { showToast("의뢰인을 입력해주세요"); return; }
+  const num         = document.getElementById("add-num").value.trim();
+  const lawyer      = document.getElementById("add-lawyer").value.trim();
+  const client      = document.getElementById("add-client").value.trim();
+  const accountType = document.getElementById("add-account-type").value;
+
+  // 일반관리비는 변호사/접수번호 없어도 됨, 법률구조사업비는 필수
+  if (accountType === '법률구조사업비') {
+    if(!lawyer) { showToast("변호사를 입력해주세요"); return; }
+    if(!client) { showToast("의뢰인을 입력해주세요"); return; }
+  } else {
+    if(!client) { showToast("이름/항목을 입력해주세요"); return; }
+  }
 
   const newCase = {
-    num:      BIZ[curBiz].prefix + " " + num,
+    num:         num ? BIZ[curBiz].prefix + " " + num : "",
     lawyer,
     client,
-    case:     document.getElementById("add-case").value.trim(),
-    caseName: document.getElementById("add-case").value.trim(),
-    type:     document.getElementById("add-type").value,
-    fee:      parseInt(document.getElementById("add-fee").value) || 0,
-    stamp:    parseInt(document.getElementById("add-stamp").value) || 0,
-    delivery: parseInt(document.getElementById("add-delivery").value) || 0,
-    date:     document.getElementById("add-date").value,
-    note:     document.getElementById("add-note").value.trim(),
-    tax:      "전자세금계산서",
-    _manual:  true
+    case:        document.getElementById("add-case").value.trim(),
+    caseName:    document.getElementById("add-case").value.trim(),
+    type:        document.getElementById("add-type").value,
+    fee:         parseInt(document.getElementById("add-fee").value) || 0,
+    stamp:       parseInt(document.getElementById("add-stamp").value) || 0,
+    delivery:    parseInt(document.getElementById("add-delivery").value) || 0,
+    date:        document.getElementById("add-date").value,
+    note:        document.getElementById("add-note").value.trim(),
+    accountType, // 계정과목: '법률구조사업비' or '일반관리비'
+    tax:         "전자세금계산서",
+    _manual:     true
   };
 
   BIZ[curBiz].cases.push(newCase);
   closeAddResolModal();
   renderResolPanel();
   renderDashboard();
-  showToast(`${num} ${client} 추가됐습니다`);
+  showToast(`${client} 추가됐습니다`);
 }
 
 // ── 행 삭제 ──
