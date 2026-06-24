@@ -2052,6 +2052,12 @@ function handleExecUpload(event) {
       const mmList  = Object.keys(monthly).sort();
       preview.innerHTML = `
         <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--light);border-bottom:1px solid var(--border)">
+            <span style="font-size:12px;font-weight:500">${mmList.length}개월 데이터 감지</span>
+            <button onclick="importAllExecMonths()" class="btn btn-sm btn-primary" style="font-size:11px">
+              <i class="ti ti-download"></i> 전체 등록
+            </button>
+          </div>
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead><tr style="background:var(--light)">
               <th style="padding:8px;text-align:left">월</th>
@@ -2070,7 +2076,7 @@ function handleExecUpload(event) {
                   <td style="padding:8px;text-align:right;font-family:monospace">${m.total.toLocaleString()}</td>
                   <td style="padding:8px;text-align:center">
                     ${exists
-                      ? `<span style="font-size:10px;color:var(--muted)">이미 등록됨</span>`
+                      ? `<span style="font-size:10px;color:var(--muted)">✅ 등록됨</span>`
                       : `<button onclick="importExecMonth('${mm}', ${JSON.stringify(m).replace(/'/g,"\\'")})" class="btn btn-sm" style="font-size:11px">등록</button>`}
                   </td>
                 </tr>`;
@@ -2092,6 +2098,28 @@ function handleExecUpload(event) {
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// 전체 월 한번에 등록
+function importAllExecMonths() {
+  const data = window._parsedExecData;
+  if (!data) return;
+  const { monthly, incomeRows } = data;
+  const mmList = Object.keys(monthly).sort();
+  let registered = 0;
+
+  mmList.forEach(mm => {
+    const exists = (EXEC_DATA[curBiz]?.monthly||[]).some(x => x.month === mm);
+    if (!exists) {
+      importExecMonth(mm, monthly[mm]);
+      registered++;
+    }
+  });
+
+  // 수입도 자동 등록
+  if (incomeRows.length) importIncomeRows(incomeRows);
+
+  showToast(`✅ ${registered}개월 집행내역 + 수입 ${incomeRows.length}건 전체 등록 완료`);
 }
 
 // 특정 월 집행내역 등록
