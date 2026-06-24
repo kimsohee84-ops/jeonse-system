@@ -926,6 +926,27 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
         <p class="page-title">집행 현황</p>
         <p class="page-sub" id="budget-sub">예산 대비 집행 현황</p>
         <div class="stat-grid" id="budget-stats"></div>
+
+        <!-- 집행내역 엑셀 업로드 -->
+        <div class="card" style="margin-bottom:1rem">
+          <div class="card-title"><i class="ti ti-upload" aria-hidden="true"></i> 집행내역 엑셀 업로드</div>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+            집행내역 엑셀 파일(<code>2026년 집행내역</code> 시트) 또는 통장내역 엑셀을 업로드하면 자동으로 파싱해요
+          </p>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <label class="btn" style="cursor:pointer">
+              <i class="ti ti-file-spreadsheet"></i> 집행내역 파일 선택
+              <input type="file" id="exec-upload" accept=".xlsx,.xlsm,.xls,.csv" style="display:none" onchange="handleExecUpload(event)">
+            </label>
+            <label class="btn" style="cursor:pointer">
+              <i class="ti ti-building-bank"></i> 통장내역 파일 선택
+              <input type="file" id="bank-upload" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleBankUpload(event)">
+            </label>
+            <span id="exec-upload-status" style="font-size:12px;color:var(--muted)">파일 미선택</span>
+          </div>
+          <div id="exec-upload-preview" style="margin-top:12px"></div>
+        </div>
+
         <div class="card">
           <div class="card-title"><i class="ti ti-table" aria-hidden="true"></i> 월별 집행 내역</div>
           <table class="tbl" id="budget-tbl">
@@ -1955,6 +1976,218 @@ function deleteLawyer(idx) {
 }
 
 // ── 변호사 계좌 엑셀 업로드 처리 ──
+// ── 집행내역 엑셀 업로드 파싱 ──
+// 국토부 집행내역 양식: '2026년 집행내역' 시트
+// C열=날짜, D열=금액, F열=세목, G열=적요, H열=지급처, I열=변호사, K열=접수번호
+function handleExecUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('exec-upload-status');
+  status.textContent = '파싱 중...';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb   = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+
+      // '2026년 집행내역' 시트 찾기
+      const sheetName = wb.SheetNames.find(n => n.includes('집행내역')) || wb.SheetNames[0];
+      const ws   = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+
+      // 수입 파싱 (행4~18: 헤더=4, 데이터=5~18)
+      const incomeRows = [];
+      const outRows    = [];
+      let section = '';
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const a   = (row[0]||'').toString().trim();
+        if (a.includes('1.') && a.includes('수입')) { section = 'income'; continue; }
+        if (a.includes('2.') && a.includes('지출')) { section = 'out';    continue; }
+        if (a.includes('합계') || a.includes('소계')) continue;
+
+        const dateVal = row[2]; // C열
+        const amt     = parseFloat((row[3]||'').toString().replace(/[,원\s]/g,'')) || 0;
+        const memo    = (row[6]||'').toString().trim(); // G열 적요
+        if (!dateVal || !amt) continue;
+
+        // 날짜 파싱 (26.3.23. / 2026-03-23 / Date객체 등)
+        let dateStr = '';
+        if (dateVal instanceof Date) {
+          dateStr = dateVal.toISOString().slice(0,10);
+        } else {
+          const ds = dateVal.toString().replace(/\./g,'-').replace(/^(\d{2})-/, '20$1-').replace(/-$/, '');
+          dateStr = ds.length >= 10 ? ds.slice(0,10) : ds;
+        }
+
+        if (section === 'income' && amt !== 0) {
+          incomeRows.push({ date: dateStr, amt, note: memo });
+        } else if (section === 'out' && amt > 0) {
+          const lawyer  = (row[8]||'').toString().trim();  // I열
+          const accNum  = (row[10]||'').toString().trim(); // K열
+          const category= (row[5]||'').toString().trim();  // F열
+          outRows.push({ date: dateStr, amt, memo, lawyer, accNum, category });
+        }
+      }
+
+      // 월별로 집계
+      const monthly = {};
+      outRows.filter(r => r.category.includes('사업비')).forEach(r => {
+        const mm = r.date.slice(0,7); // "2026-03"
+        if (!monthly[mm]) monthly[mm] = { total:0, count:0, cases:[] };
+        monthly[mm].total += r.amt;
+        monthly[mm].count += 1;
+        if (r.lawyer && r.accNum) {
+          monthly[mm].cases.push({
+            num: `국부 26-${r.accNum}`, lawyer: r.lawyer,
+            client: r.memo.replace(/^26-\d+/, '').trim(),
+            amt: r.amt, date: r.date, type:'민사', note: r.category
+          });
+        }
+      });
+
+      // 미리보기 표시
+      const preview = document.getElementById('exec-upload-preview');
+      const mmList  = Object.keys(monthly).sort();
+      preview.innerHTML = `
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr style="background:var(--light)">
+              <th style="padding:8px;text-align:left">월</th>
+              <th style="padding:8px;text-align:right">건수</th>
+              <th style="padding:8px;text-align:right">지급액</th>
+              <th style="padding:8px;text-align:center">처리</th>
+            </tr></thead>
+            <tbody>
+              ${mmList.map(mm => {
+                const m = monthly[mm];
+                const label = parseInt(mm.split('-')[1])+'월';
+                const exists = (EXEC_DATA[curBiz]?.monthly||[]).some(x => x.month === mm);
+                return `<tr style="border-top:1px solid var(--border)">
+                  <td style="padding:8px">${label}</td>
+                  <td style="padding:8px;text-align:right">${m.count}건</td>
+                  <td style="padding:8px;text-align:right;font-family:monospace">${m.total.toLocaleString()}</td>
+                  <td style="padding:8px;text-align:center">
+                    ${exists
+                      ? `<span style="font-size:10px;color:var(--muted)">이미 등록됨</span>`
+                      : `<button onclick="importExecMonth('${mm}', ${JSON.stringify(m).replace(/'/g,"\\'")})" class="btn btn-sm" style="font-size:11px">등록</button>`}
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+          ${incomeRows.length ? `<div style="padding:10px;font-size:12px;color:var(--muted);border-top:1px solid var(--border)">
+            수입 내역 ${incomeRows.length}건도 발견됐어요 —
+            <button onclick="importIncomeRows(${JSON.stringify(incomeRows).replace(/'/g,"\\'")})" class="btn btn-sm" style="font-size:11px;margin-left:4px">수입 등록</button>
+          </div>` : ''}
+        </div>`;
+
+      status.textContent = `파싱 완료: ${mmList.length}개월 데이터`;
+      // 데이터 임시 저장
+      window._parsedExecData = { monthly, incomeRows };
+    } catch(err) {
+      console.error(err);
+      status.textContent = '파싱 오류: ' + err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// 특정 월 집행내역 등록
+function importExecMonth(mm, mData) {
+  if (!EXEC_DATA[curBiz]) EXEC_DATA[curBiz] = { income:[], monthly:[], budget:BIZ[curBiz].budget, executed:0 };
+  const ex    = EXEC_DATA[curBiz];
+  const label = parseInt(mm.split('-')[1]) + '월';
+  const entry = {
+    month: mm, label, count: mData.count, total: mData.total,
+    date: mData.cases[0]?.date || mm+'-01', status: '완료'
+  };
+  const idx = ex.monthly.findIndex(m => m.month === mm);
+  if (idx >= 0) { ex.executed -= ex.monthly[idx].total; ex.monthly[idx] = entry; }
+  else            ex.monthly.push(entry);
+  ex.executed += mData.total;
+  BIZ[curBiz].executed = ex.executed;
+
+  // PAID_CASES에도 건별 추가
+  if (!PAID_CASES[curBiz]) PAID_CASES[curBiz] = [];
+  PAID_CASES[curBiz] = PAID_CASES[curBiz].filter(p => !(p.date||'').startsWith(mm));
+  (mData.cases||[]).forEach(c => PAID_CASES[curBiz].push(c));
+
+  savePersistedData();
+  renderBudget(); renderDashboard();
+  showToast(`✅ ${label} 집행내역 등록 완료 (${mData.count}건, ${mData.total.toLocaleString()}원)`);
+  // 미리보기 다시 렌더
+  document.getElementById('exec-upload').dispatchEvent(new Event('change'));
+  handleExecUpload({ target: document.getElementById('exec-upload') });
+}
+
+// 수입 내역 등록
+function importIncomeRows(rows) {
+  if (!EXEC_DATA[curBiz]) EXEC_DATA[curBiz] = { income:[], monthly:[], budget:BIZ[curBiz].budget, executed:0 };
+  rows.forEach(r => {
+    const exists = EXEC_DATA[curBiz].income.some(i => i.date===r.date && i.amt===r.amt);
+    if (!exists) EXEC_DATA[curBiz].income.push(r);
+  });
+  savePersistedData(); renderBudget();
+  showToast(`✅ 수입 내역 ${rows.length}건 등록 완료`);
+}
+
+// ── 통장내역 엑셀 업로드 ──
+// 은행마다 형식이 다르므로 날짜/금액/적요 컬럼을 자동 감지
+function handleBankUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('exec-upload-status');
+  status.textContent = '통장내역 파싱 중...';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb   = XLSX.read(new Uint8Array(e.target.result), { type:'array', cellDates:true });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
+
+      // 헤더 찾기 (날짜/금액/잔액/적요 컬럼)
+      let headerRow = -1, dateCol = -1, amtCol = -1, memoCol = -1;
+      for (let i = 0; i < Math.min(10, rows.length); i++) {
+        const row = rows[i].map(v => v.toString().toLowerCase());
+        const dIdx = row.findIndex(v => v.includes('날짜') || v.includes('거래일') || v.includes('date'));
+        const aIdx = row.findIndex(v => v.includes('출금') || v.includes('금액') || v.includes('amount'));
+        const mIdx = row.findIndex(v => v.includes('적요') || v.includes('내용') || v.includes('memo'));
+        if (dIdx >= 0 && aIdx >= 0) {
+          headerRow = i; dateCol = dIdx; amtCol = aIdx; memoCol = mIdx >= 0 ? mIdx : -1;
+          break;
+        }
+      }
+      if (headerRow < 0) { status.textContent = '컬럼을 자동 감지하지 못했어요. 날짜/금액/적요 컬럼이 있는지 확인해주세요'; return; }
+
+      const txList = [];
+      for (let i = headerRow+1; i < rows.length; i++) {
+        const row  = rows[i];
+        const date = row[dateCol]?.toString().trim();
+        const amt  = parseFloat((row[amtCol]||'').toString().replace(/[,\s]/g,'')) || 0;
+        const memo = memoCol >= 0 ? (row[memoCol]||'').toString().trim() : '';
+        if (!date || !amt) continue;
+        txList.push({ date, amt, memo });
+      }
+
+      const preview = document.getElementById('exec-upload-preview');
+      preview.innerHTML = `
+        <div style="padding:12px;background:var(--light);border-radius:8px;font-size:12px;margin-top:8px">
+          <strong>통장내역 ${txList.length}건 감지</strong><br>
+          <span style="color:var(--muted)">수입(+): ${txList.filter(t=>t.amt>0).length}건 / 지출(-): ${txList.filter(t=>t.amt<0).length}건</span><br><br>
+          ${txList.slice(0,5).map(t=>`<div>${t.date} | ${t.amt.toLocaleString()}원 | ${t.memo}</div>`).join('')}
+          ${txList.length > 5 ? `<div style="color:var(--muted)">... 외 ${txList.length-5}건</div>` : ''}
+        </div>`;
+      status.textContent = `통장내역 ${txList.length}건 파싱 완료`;
+    } catch(err) {
+      status.textContent = '통장내역 파싱 오류: ' + err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 // SheetJS로 파일 읽기 → BIZ[curBiz].lawyers 업데이트
 function handleLawyerUpload(event) {
   const file = event.target.files[0];
