@@ -2075,6 +2075,9 @@ function handleExecUpload(event) {
       // 미리보기 표시
       const preview = document.getElementById('exec-upload-preview');
       const mmList  = Object.keys(monthly).sort();
+      // 파싱 데이터 전역 저장 (버튼 onclick에서 참조)
+      window._parsedExecData = { monthly, incomeRows };
+
       preview.innerHTML = `
         <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px">
           <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--light);border-bottom:1px solid var(--border)">
@@ -2091,7 +2094,7 @@ function handleExecUpload(event) {
               <th style="padding:8px;text-align:center">처리</th>
             </tr></thead>
             <tbody>
-              ${mmList.map(mm => {
+              ${mmList.map((mm, idx) => {
                 const m = monthly[mm];
                 const label = parseInt(mm.split('-')[1])+'월';
                 const exists = (EXEC_DATA[curBiz]?.monthly||[]).some(x => x.month === mm);
@@ -2102,7 +2105,7 @@ function handleExecUpload(event) {
                   <td style="padding:8px;text-align:center">
                     ${exists
                       ? `<span style="font-size:10px;color:var(--muted)">✅ 등록됨</span>`
-                      : `<button onclick="importExecMonth('${mm}', ${JSON.stringify(m).replace(/'/g,"\\'")})" class="btn btn-sm" style="font-size:11px">등록</button>`}
+                      : `<button onclick="importExecMonthByKey('${mm}')" class="btn btn-sm" style="font-size:11px">등록</button>`}
                   </td>
                 </tr>`;
               }).join('')}
@@ -2110,7 +2113,7 @@ function handleExecUpload(event) {
           </table>
           ${incomeRows.length ? `<div style="padding:10px;font-size:12px;color:var(--muted);border-top:1px solid var(--border)">
             수입 내역 ${incomeRows.length}건도 발견됐어요 —
-            <button onclick="importIncomeRows(${JSON.stringify(incomeRows).replace(/'/g,"\\'")})" class="btn btn-sm" style="font-size:11px;margin-left:4px">수입 등록</button>
+            <button onclick="importIncomeFromParsed()" class="btn btn-sm" style="font-size:11px;margin-left:4px">수입 등록</button>
           </div>` : ''}
         </div>`;
 
@@ -2123,6 +2126,20 @@ function handleExecUpload(event) {
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// 키로 특정 월 등록 (onclick에서 JSON 직접 전달 대신)
+function importExecMonthByKey(mm) {
+  const data = window._parsedExecData;
+  if (!data || !data.monthly[mm]) return;
+  importExecMonth(mm, data.monthly[mm]);
+}
+
+// 파싱된 수입 등록
+function importIncomeFromParsed() {
+  const data = window._parsedExecData;
+  if (!data || !data.incomeRows.length) return;
+  importIncomeRows(data.incomeRows);
 }
 
 // 전체 월 한번에 등록
