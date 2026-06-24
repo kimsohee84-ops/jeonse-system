@@ -1995,8 +1995,12 @@ function handleExecUpload(event) {
 
       console.log('시트 목록:', wb.SheetNames);
 
-      // '2026년 집행내역' 시트 찾기
-      const sheetName = wb.SheetNames.find(n => n.includes('집행내역')) || wb.SheetNames[0];
+      // '2026년 집행내역' 시트 찾기 - 정확한 이름 우선, 없으면 부분 매칭
+      const sheetName =
+        wb.SheetNames.find(n => n === '2026년 집행내역') ||
+        wb.SheetNames.find(n => n.includes('년') && n.includes('집행내역')) ||
+        wb.SheetNames.find(n => n.includes('집행내역') && !n.includes('총괄')) ||
+        wb.SheetNames[0];
       console.log('파싱 시트:', sheetName);
       const ws   = wb.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
