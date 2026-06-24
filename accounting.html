@@ -1988,17 +1988,43 @@ function handleExecUpload(event) {
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
-      const wb   = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+      // xlsm도 처리 가능하도록 옵션 설정
+      const wb = XLSX.read(new Uint8Array(e.target.result), {
+        type: 'array', cellDates: false, cellNF: false, cellStyles: false
+      });
+
+      console.log('시트 목록:', wb.SheetNames);
 
       // '2026년 집행내역' 시트 찾기
       const sheetName = wb.SheetNames.find(n => n.includes('집행내역')) || wb.SheetNames[0];
+      console.log('파싱 시트:', sheetName);
       const ws   = wb.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+      console.log('총 행수:', rows.length);
 
-      // 수입 파싱 (행4~18: 헤더=4, 데이터=5~18)
       const incomeRows = [];
       const outRows    = [];
       let section = '';
+
+      // 날짜 파싱 헬퍼 (Excel 날짜 숫자, 문자열 모두 처리)
+      const parseDate = (val) => {
+        if (!val) return '';
+        // Excel 날짜 숫자 (예: 46282)
+        if (typeof val === 'number') {
+          const d = XLSX.SSF.parse_date_code(val);
+          if (d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+        }
+        const s = val.toString().trim();
+        // "26.3.23." → "2026-03-23"
+        const m = s.match(/^(\d{2})\.(\d{1,2})\.(\d{1,2})/);
+        if (m) return `20${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+        // "2026-03-23" 형식
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+        // "2026.03.23" 형식
+        const m2 = s.match(/^(\d{4})\.(\d{1,2})\.(\d{1,2})/);
+        if (m2) return `${m2[1]}-${String(m2[2]).padStart(2,'0')}-${String(m2[3]).padStart(2,'0')}`;
+        return '';
+      };
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
@@ -2007,34 +2033,29 @@ function handleExecUpload(event) {
         if (a.includes('2.') && a.includes('지출')) { section = 'out';    continue; }
         if (a.includes('합계') || a.includes('소계')) continue;
 
-        const dateVal = row[2]; // C열
-        const amt     = parseFloat((row[3]||'').toString().replace(/[,원\s]/g,'')) || 0;
-        const memo    = (row[6]||'').toString().trim(); // G열 적요
-        if (!dateVal || !amt) continue;
+        const dateStr = parseDate(row[2]); // C열
+        const amt     = typeof row[3] === 'number' ? row[3] :
+                        parseFloat((row[3]||'').toString().replace(/[,원\s]/g,'')) || 0;
+        const memo    = (row[6]||'').toString().trim();
 
-        // 날짜 파싱 (26.3.23. / 2026-03-23 / Date객체 등)
-        let dateStr = '';
-        if (dateVal instanceof Date) {
-          dateStr = dateVal.toISOString().slice(0,10);
-        } else {
-          const ds = dateVal.toString().replace(/\./g,'-').replace(/^(\d{2})-/, '20$1-').replace(/-$/, '');
-          dateStr = ds.length >= 10 ? ds.slice(0,10) : ds;
-        }
+        if (!dateStr || !amt) continue;
 
         if (section === 'income' && amt !== 0) {
           incomeRows.push({ date: dateStr, amt, note: memo });
         } else if (section === 'out' && amt > 0) {
-          const lawyer  = (row[8]||'').toString().trim();  // I열
-          const accNum  = (row[10]||'').toString().trim(); // K열
-          const category= (row[5]||'').toString().trim();  // F열
+          const lawyer   = (row[8]||'').toString().trim();
+          const accNum   = (row[10]||'').toString().trim();
+          const category = (row[5]||'').toString().trim();
           outRows.push({ date: dateStr, amt, memo, lawyer, accNum, category });
         }
       }
 
-      // 월별로 집계
+      console.log('수입:', incomeRows.length, '지출:', outRows.length);
+
+      // 월별 집계 (사업비만)
       const monthly = {};
       outRows.filter(r => r.category.includes('사업비')).forEach(r => {
-        const mm = r.date.slice(0,7); // "2026-03"
+        const mm = r.date.slice(0,7);
         if (!monthly[mm]) monthly[mm] = { total:0, count:0, cases:[] };
         monthly[mm].total += r.amt;
         monthly[mm].count += 1;
