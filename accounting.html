@@ -536,6 +536,39 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
           </div>
 
           <!-- 집행내역 등록 확인 모달 -->
+          <!-- 건별 집행내역 수정 모달 -->
+          <div id="paid-case-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:480px;max-width:94vw;box-shadow:var(--shadow-md)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-edit"></i> 집행내역 수정</h3>
+                <button onclick="closePaidCaseModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem">
+                <div class="field"><label>지급일</label><input class="form-input" type="date" id="pc-date"></div>
+                <div class="field"><label>접수번호</label><input class="form-input" id="pc-num" placeholder="예: 26-139"></div>
+                <div class="field"><label>의뢰인</label><input class="form-input" id="pc-client"></div>
+                <div class="field"><label>변호사</label><input class="form-input" id="pc-lawyer"></div>
+                <div class="field"><label>금액 (원)</label><input class="form-input" type="number" id="pc-amt"></div>
+                <div class="field">
+                  <label>유형</label>
+                  <select class="form-input" id="pc-type">
+                    <option value="민사">민사</option>
+                    <option value="형사">형사</option>
+                    <option value="신청">신청</option>
+                    <option value="행정">행정</option>
+                    <option value="수당">수당</option>
+                    <option value="운영비">운영비</option>
+                  </select>
+                </div>
+                <div class="field" style="grid-column:1/-1"><label>비고</label><input class="form-input" id="pc-note"></div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn" style="flex:1;justify-content:center" onclick="closePaidCaseModal()">취소</button>
+                <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="savePaidCase()"><i class="ti ti-check"></i> 저장</button>
+              </div>
+            </div>
+          </div>
+
           <div id="exec-confirm-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
             <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:420px;max-width:94vw;box-shadow:var(--shadow-md)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
@@ -2703,21 +2736,82 @@ function renderExecHistory() {
   const paid = PAID_CASES[curBiz] || [];
   document.getElementById("exec-detail").innerHTML = `
     <table class="tbl">
-      <thead><tr><th>지급일</th><th>접수번호</th><th>의뢰인</th><th>변호사</th><th>사건유형</th><th>금액</th><th>비고</th></tr></thead>
+      <thead><tr>
+        <th>지급일</th><th>접수번호</th><th>의뢰인</th><th>변호사</th>
+        <th>유형</th><th>금액</th><th>비고</th><th style="width:60px">관리</th>
+      </tr></thead>
       <tbody>
-        ${paid.map(c=>`
+        ${paid.map((c,i)=>`
           <tr>
-            <td style="font-size:11px;color:var(--muted)">${c.date}</td>
-            <td class="mono" style="font-size:11px">${c.num ? prefix+' '+c.num : ''}</td>
+            <td style="font-size:11px;color:var(--muted)">${c.date||''}</td>
+            <td class="mono" style="font-size:11px">${c.num||''}</td>
             <td>${c.client||''}</td>
             <td style="font-size:12px">${c.lawyer||''}</td>
             <td><span class="badge ${c.type==='민사'?'bn':c.type==='형사'?'br':c.type==='수당'?'bg':'badge'}">${c.type||''}</span></td>
             <td class="mono">${(c.amt||0).toLocaleString()}</td>
             <td style="font-size:11px;color:var(--muted)">${c.note||''}</td>
+            <td style="text-align:center;white-space:nowrap">
+              <button onclick="editPaidCase(${i})" style="background:none;border:none;cursor:pointer;color:var(--navy);font-size:12px;padding:2px 3px">✏️</button>
+              <button onclick="deletePaidCase(${i})" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:12px;padding:2px 3px">🗑</button>
+            </td>
           </tr>`).join('')}
       </tbody>
     </table>
   `;
+}
+
+// ── 건별 집행내역 수정/삭제 ──
+let _editPaidIdx = -1;
+
+function editPaidCase(idx) {
+  _editPaidIdx = idx;
+  const c = (PAID_CASES[curBiz] || [])[idx];
+  if (!c) return;
+  document.getElementById('pc-date').value   = c.date   || '';
+  document.getElementById('pc-num').value    = (c.num||'').replace(/^(국부|서금|양이원|대법원|법무부|성평등|이태원|서울시|초록우산|여객기)\s*/,'');
+  document.getElementById('pc-client').value = c.client || '';
+  document.getElementById('pc-lawyer').value = c.lawyer || '';
+  document.getElementById('pc-amt').value    = c.amt    || 0;
+  document.getElementById('pc-type').value   = c.type   || '민사';
+  document.getElementById('pc-note').value   = c.note   || '';
+  document.getElementById('paid-case-modal').style.display = 'flex';
+}
+
+function closePaidCaseModal() {
+  document.getElementById('paid-case-modal').style.display = 'none';
+}
+
+function savePaidCase() {
+  const paid = PAID_CASES[curBiz] || [];
+  const c    = paid[_editPaidIdx];
+  if (!c) return;
+  const numRaw = document.getElementById('pc-num').value.trim();
+  c.date   = document.getElementById('pc-date').value;
+  c.num    = numRaw ? makeNum(numRaw) : '';
+  c.client = document.getElementById('pc-client').value.trim();
+  c.lawyer = document.getElementById('pc-lawyer').value.trim();
+  c.amt    = parseInt(document.getElementById('pc-amt').value) || 0;
+  c.type   = document.getElementById('pc-type').value;
+  c.note   = document.getElementById('pc-note').value.trim();
+  closePaidCaseModal();
+  savePersistedData();
+  renderExecHistory();
+  showToast('수정됐습니다');
+}
+
+function deletePaidCase(idx) {
+  if (!confirm('이 집행내역을 삭제할까요?')) return;
+  PAID_CASES[curBiz].splice(idx, 1);
+  // 해당 월 합계 재계산
+  const ex = EXEC_DATA[curBiz];
+  if (ex) {
+    ex.executed = ex.monthly.reduce((s,m)=>s+(m.total||0), 0);
+    BIZ[curBiz].executed = ex.executed;
+  }
+  savePersistedData();
+  renderExecHistory();
+  renderDashboard();
+  showToast('삭제됐습니다');
 }
 
 // ── 수입 모달 (추가/수정) ──
