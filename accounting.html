@@ -1217,6 +1217,15 @@ const BIZ = {
 
 let curBiz = "kt";
 let curUser = null;
+
+// 접수번호에 prefix 붙이기 - 이미 prefix가 있으면 중복 방지
+function makeNum(raw, biz) {
+  if (!raw) return '';
+  const b = biz || curBiz;
+  const prefix = BIZ[b]?.prefix || '';
+  const clean = raw.toString().replace(/^(국부|서금|양이원|대법원|법무부|성평등|이태원|서울시|초록우산|여객기)\s*/,'').trim();
+  return prefix ? prefix + ' ' + clean : clean;
+}
 let resolList = {kt:[], sf:[], yangik:[], court:[], moj:[], gender:[], mois:[], seoul:[], green:[], air:[]};
 
 // ── 직원 수당 (매월 고정) ──
@@ -1717,7 +1726,7 @@ function genResol() {
   showToast("지출결의서가 생성되었습니다");
 
   window._pendingResol = {
-    num: prefix+" "+num, lawyer, client, caseName, type, fee, stamp, delivery, tax,
+    num: makeNum(num), lawyer, client, caseName, type, fee, stamp, delivery, tax,
     total, resol:"완료", date:today.toISOString().slice(0,10), biz:curBiz
   };
 }
@@ -2042,6 +2051,11 @@ function handleExecUpload(event) {
         const rawAmt  = row[3];
         const amt     = typeof rawAmt === 'number' ? rawAmt :
                         parseFloat((rawAmt||'').toString().replace(/[,원\s]/g,'')) || 0;
+
+        // 디버그: 음수 건 로깅
+        if (amt < 0 || (rawAmt && rawAmt.toString().includes('-'))) {
+          console.log('음수 감지:', { rawAmt, amt, type: typeof rawAmt, memo: (row[6]||'').toString().trim(), dateStr });
+        }
         const memo    = (row[6]||'').toString().trim();
         const category= (row[4]||'').toString().trim();
         const subcat  = (row[5]||'').toString().trim();
@@ -2086,8 +2100,10 @@ function handleExecUpload(event) {
           if (isCase) {
             monthly[mm].count += 1;
             const accNumClean = r.accNum.replace(/^(국부|서금|양이원|대법원|법무부|성평등|이태원|서울시|초록우산|여객기)\s*/g,'').trim();
+            const prefix = BIZ[curBiz]?.prefix || '국부';
+            // 연도 처리: 26- / 25- 등 그대로 유지
             monthly[mm].cases.push({
-              num: `${BIZ[curBiz]?.prefix||'국부'} 26-${accNumClean}`,
+              num: `${prefix} ${accNumClean.match(/^\d{2}-\d+/) ? accNumClean : '26-'+accNumClean}`,
               lawyer: r.lawyer,
               client: r.memo.replace(/^[\d]{2}-\d+\s*/, '').trim(),
               amt: r.amt, date: r.date, type:'민사', note: r.category
@@ -3279,7 +3295,7 @@ document.addEventListener('click', function(e) {
 
   const save = () => {
     const val = typeof input.value === 'string' ? input.value.trim() : input.value;
-    if      (field==='num')  { c.num = val ? BIZ[curBiz].prefix+' '+val : ''; }
+    if      (field==='num')  { c.num = val ? makeNum(val) : ''; }
     else if (field==='fee')  {
       const amt = parseInt(String(val).replace(/,/g,''))||0;
       if     ((c.doctype||'')==='인지대 영수증') { c.stamp=amt;    c.fee=0; c.delivery=0; }
@@ -3369,7 +3385,7 @@ function saveAddResol() {
   }
 
   const newCase = {
-    num:         num ? BIZ[curBiz].prefix + " " + num : "",
+    num:         num ? makeNum(num) : "",
     lawyer,
     client,
     case:        document.getElementById("add-case").value.trim(),
@@ -3841,7 +3857,7 @@ function autoSaveScanEntry(parsed, fileName) {
   if      (caseName.includes('사기')||caseName.includes('횡령')||caseName.includes('배임')||caseName.includes('형사')) caseType='형사';
   else if (caseName.includes('집행')||caseName.includes('압류')||caseName.includes('추심')||caseName.includes('가처분')||caseName.includes('경매')||caseName.includes('신청')) caseType='신청';
 
-  const fullNum = num ? BIZ[curBiz].prefix+' '+num : '';
+  const fullNum = num ? makeNum(num) : '';
 
   // ── 변호사 계좌 자동 업데이트 ──
   // OCR에서 변호사명 + 계좌정보가 인식됐으면 lawyers 목록에 자동 반영
