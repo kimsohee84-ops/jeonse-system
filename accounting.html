@@ -2169,27 +2169,59 @@ function importExecMonth(mm, mData) {
   if (!EXEC_DATA[curBiz]) EXEC_DATA[curBiz] = { income:[], monthly:[], budget:BIZ[curBiz].budget, executed:0 };
   const ex    = EXEC_DATA[curBiz];
   const label = parseInt(mm.split('-')[1]) + '월';
+
+  // 기존 PAID_CASES/cases에서 접수번호로 유형 매칭
+  const caseTypeMap = {};
+  [...(PAID_CASES[curBiz]||[]), ...(BIZ[curBiz]?.cases||[])].forEach(c => {
+    if (c.num) {
+      const key = c.num.replace(/^[^\d]*\s*/,'').trim();
+      if (key) caseTypeMap[key] = c.type;
+    }
+  });
+
   const entry = {
     month: mm, label, count: mData.count, total: mData.total,
-    date: mData.cases[0]?.date || mm+'-01', status: '완료'
+    date: (mData.cases[0]?.date || mm+'-01'), status: '완료'
   };
   const idx = ex.monthly.findIndex(m => m.month === mm);
-  if (idx >= 0) { ex.executed -= ex.monthly[idx].total; ex.monthly[idx] = entry; }
+  if (idx >= 0) { ex.executed -= (ex.monthly[idx].total||0); ex.monthly[idx] = entry; }
   else            ex.monthly.push(entry);
   ex.executed += mData.total;
   BIZ[curBiz].executed = ex.executed;
 
-  // PAID_CASES에도 건별 추가
+  // PAID_CASES 저장 (접수번호로 유형 매칭)
   if (!PAID_CASES[curBiz]) PAID_CASES[curBiz] = [];
   PAID_CASES[curBiz] = PAID_CASES[curBiz].filter(p => !(p.date||'').startsWith(mm));
-  (mData.cases||[]).forEach(c => PAID_CASES[curBiz].push(c));
+  (mData.cases||[]).forEach(c => {
+    const numKey = (c.num||'').replace(/^국부\s*/,'');
+    const type   = caseTypeMap[numKey] || '민사';
+    PAID_CASES[curBiz].push({ ...c, type });
+  });
 
   savePersistedData();
   renderBudget(); renderDashboard();
   showToast(`✅ ${label} 집행내역 등록 완료 (${mData.count}건, ${mData.total.toLocaleString()}원)`);
-  // 미리보기 다시 렌더
-  document.getElementById('exec-upload').dispatchEvent(new Event('change'));
-  handleExecUpload({ target: document.getElementById('exec-upload') });
+  // 미리보기 상태 업데이트 (파일 재파싱 없이 버튼만 갱신)
+  refreshExecUploadPreview();
+}
+
+// 미리보기 등록 버튼 상태만 갱신 (파일 재파싱 없이)
+function refreshExecUploadPreview() {
+  const data = window._parsedExecData;
+  if (!data) return;
+  const rows = document.querySelectorAll('#exec-upload-preview tbody tr');
+  rows.forEach(tr => {
+    const td   = tr.querySelector('td:last-child');
+    const mmTd = tr.querySelector('td:first-child');
+    if (!td || !mmTd) return;
+    const label = mmTd.textContent.trim(); // "3월", "6월" 등
+    const mm    = Object.keys(data.monthly).find(k => parseInt(k.split('-')[1])+'월' === label);
+    if (!mm) return;
+    const exists = (EXEC_DATA[curBiz]?.monthly||[]).some(x => x.month === mm);
+    td.innerHTML = exists
+      ? `<span style="font-size:10px;color:var(--muted)">✅ 등록됨</span>`
+      : `<button onclick="importExecMonthByKey('${mm}')" class="btn btn-sm" style="font-size:11px">등록</button>`;
+  });
 }
 
 // 수입 내역 등록
