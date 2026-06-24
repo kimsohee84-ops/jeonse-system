@@ -2041,34 +2041,62 @@ function handleExecUpload(event) {
         const amt     = typeof row[3] === 'number' ? row[3] :
                         parseFloat((row[3]||'').toString().replace(/[,원\s]/g,'')) || 0;
         const memo    = (row[6]||'').toString().trim();
+        const category= (row[4]||'').toString().trim(); // E열 과제
+        const subcat  = (row[5]||'').toString().trim(); // F열 세목
+
+        // 이자: 날짜 대신 "이자" 텍스트가 있는 경우 → 수입으로 처리
+        const isInterest = (row[2]||'').toString().trim().includes('이자');
+        if (isInterest && section === 'income' && amt !== 0) {
+          incomeRows.push({ date: new Date().toISOString().slice(0,10), amt, note: memo || '이자수입' });
+          continue;
+        }
 
         if (!dateStr || !amt) continue;
 
         if (section === 'income' && amt !== 0) {
           incomeRows.push({ date: dateStr, amt, note: memo });
-        } else if (section === 'out' && amt > 0) {
+        } else if (section === 'out') {
           const lawyer   = (row[8]||'').toString().trim();
           const accNum   = (row[10]||'').toString().trim();
-          const category = (row[5]||'').toString().trim();
-          outRows.push({ date: dateStr, amt, memo, lawyer, accNum, category });
+
+          // 음수(반납)는 별도 처리
+          if (amt < 0) {
+            incomeRows.push({ date: dateStr, amt, note: memo + ' (반납)' });
+            continue;
+          }
+
+          if (amt > 0) {
+            outRows.push({ date: dateStr, amt, memo, lawyer, accNum, category, subcat });
+          }
         }
       }
 
       console.log('수입:', incomeRows.length, '지출:', outRows.length);
 
-      // 월별 집계 (사업비만)
+      // 월별 집계 (사업비 + 운영비 모두 포함)
       const monthly = {};
-      outRows.filter(r => r.category.includes('사업비')).forEach(r => {
+      outRows.forEach(r => {
         const mm = r.date.slice(0,7);
-        if (!monthly[mm]) monthly[mm] = { total:0, count:0, cases:[] };
-        monthly[mm].total += r.amt;
-        monthly[mm].count += 1;
-        if (r.lawyer && r.accNum) {
-          monthly[mm].cases.push({
-            num: `국부 26-${r.accNum}`, lawyer: r.lawyer,
-            client: r.memo.replace(/^26-\d+/, '').trim(),
-            amt: r.amt, date: r.date, type:'민사', note: r.category
-          });
+        if (!monthly[mm]) monthly[mm] = { total:0, count:0, cases:[], ops:0 };
+
+        if (r.category.includes('사업비') && r.amt > 0) {
+          // 수당/원천세/관리비 선금 제외하고 건수 카운트
+          const isCase = r.accNum && !r.memo.includes('수당') && !r.memo.includes('원천세') && !r.memo.includes('관리비');
+          monthly[mm].total += r.amt;
+          if (isCase) {
+            monthly[mm].count += 1;
+            const accNumClean = r.accNum.replace(/^(국부|서금|양이원|대법원|법무부|성평등|이태원|서울시|초록우산|여객기)\s*/g,'').trim();
+            monthly[mm].cases.push({
+              num: `${BIZ[curBiz]?.prefix||'국부'} 26-${accNumClean}`,
+              lawyer: r.lawyer,
+              client: r.memo.replace(/^[\d]{2}-\d+\s*/, '').trim(),
+              amt: r.amt, date: r.date, type:'민사', note: r.category
+            });
+          }
+        } else if (r.category.includes('운영비') || r.subcat.includes('운영') || r.subcat.includes('소모품')) {
+          // 운영비는 금액만 합산, 건수 제외
+          monthly[mm].total += r.amt;
+          monthly[mm].ops   += r.amt;
         }
       });
 
@@ -2100,8 +2128,8 @@ function handleExecUpload(event) {
                 const exists = (EXEC_DATA[curBiz]?.monthly||[]).some(x => x.month === mm);
                 return `<tr style="border-top:1px solid var(--border)">
                   <td style="padding:8px">${label}</td>
-                  <td style="padding:8px;text-align:right">${m.count}건</td>
-                  <td style="padding:8px;text-align:right;font-family:monospace">${m.total.toLocaleString()}</td>
+                  <td style="padding:8px;text-align:right">${m.count}건${m.ops ? ` <span style="font-size:10px;color:var(--muted)">(+운영비)</span>` : ''}</td>
+                  <td style="padding:8px;text-align:right;font-family:monospace">${m.total.toLocaleString()}${m.ops ? ` <span style="font-size:10px;color:var(--muted)">(운영비 ${m.ops.toLocaleString()}포함)</span>` : ''}</td>
                   <td style="padding:8px;text-align:center">
                     ${exists
                       ? `<span style="font-size:10px;color:var(--muted)">✅ 등록됨</span>`
