@@ -2037,37 +2037,37 @@ function handleExecUpload(event) {
         if (a.includes('2.') && a.includes('지출')) { section = 'out';    continue; }
         if (a.includes('합계') || a.includes('소계')) continue;
 
-        const dateStr = parseDate(row[2]); // C열
-        const amt     = typeof row[3] === 'number' ? row[3] :
-                        parseFloat((row[3]||'').toString().replace(/[,원\s]/g,'')) || 0;
+        // 금액 파싱 - 문자열/숫자 모두 처리, 음수 포함
+        const dateStr = parseDate(row[2]); // C열 날짜
+        const rawAmt  = row[3];
+        const amt     = typeof rawAmt === 'number' ? rawAmt :
+                        parseFloat((rawAmt||'').toString().replace(/[,원\s]/g,'')) || 0;
         const memo    = (row[6]||'').toString().trim();
-        const category= (row[4]||'').toString().trim(); // E열 과제
-        const subcat  = (row[5]||'').toString().trim(); // F열 세목
+        const category= (row[4]||'').toString().trim();
+        const subcat  = (row[5]||'').toString().trim();
 
-        // 이자: 날짜 대신 "이자" 텍스트가 있는 경우 → 수입으로 처리
+        // 이자: 날짜 대신 "이자" 텍스트 → 수입으로
         const isInterest = (row[2]||'').toString().trim().includes('이자');
         if (isInterest && section === 'income' && amt !== 0) {
           incomeRows.push({ date: new Date().toISOString().slice(0,10), amt, note: memo || '이자수입' });
           continue;
         }
 
-        if (!dateStr || !amt) continue;
+        if (!dateStr || amt === 0) continue;
 
-        if (section === 'income' && amt !== 0) {
+        if (section === 'income') {
           incomeRows.push({ date: dateStr, amt, note: memo });
         } else if (section === 'out') {
-          const lawyer   = (row[8]||'').toString().trim();
-          const accNum   = (row[10]||'').toString().trim();
+          const lawyer  = (row[8]||'').toString().trim();
+          const accNum  = (row[10]||'').toString().trim();
 
-          // 음수(반납)는 별도 처리
+          // 음수(반납) → 수입으로 이동, 지출 합계에서 제외
           if (amt < 0) {
             incomeRows.push({ date: dateStr, amt, note: memo + ' (반납)' });
             continue;
           }
 
-          if (amt > 0) {
-            outRows.push({ date: dateStr, amt, memo, lawyer, accNum, category, subcat });
-          }
+          outRows.push({ date: dateStr, amt, memo, lawyer, accNum, category, subcat });
         }
       }
 
