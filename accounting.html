@@ -60,8 +60,8 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
 .biz-tab i{font-size:15px}
 
 /* 레이아웃 */
-.layout{display:grid;grid-template-columns:190px 1fr;flex:1;align-items:start}
-.sidenav{background:var(--surface);border-right:1px solid var(--border);padding:1rem 0;overflow-y:auto;position:sticky;top:0;max-height:100vh}
+.layout{display:grid;grid-template-columns:190px 1fr;flex:1;overflow:hidden}
+.sidenav{background:var(--surface);border-right:1px solid var(--border);padding:1rem 0;overflow-y:auto}
 .nav-section{font-size:10px;font-weight:600;color:var(--muted);padding:8px 14px 4px;letter-spacing:.06em;text-transform:uppercase}
 .nav-item{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:13px;color:var(--muted);cursor:pointer;border-left:3px solid transparent}
 .nav-item:hover{background:var(--light);color:var(--text)}
@@ -198,36 +198,41 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
       <div class="nav-item" id="nav-allbiz" onclick="showView('allbiz')"><i class="ti ti-building-bank" aria-hidden="true"></i> 전체 사업 현황</div>
 
       <!-- 사업 선택 -->
-      <div class="nav-section" style="margin-top:8px">사업 선택</div>
-      <div class="nav-item biz-nav active" id="nav-biz-kt" onclick="selectBizNav('kt')">
-        <i class="ti ti-home" aria-hidden="true"></i> 전세(국토부)
+      <div class="nav-section" style="margin-top:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding-right:12px"
+           onclick="toggleBizList()">
+        사업 선택 <span id="biz-list-toggle" style="font-size:10px">▲</span>
       </div>
-      <div class="nav-item biz-nav" id="nav-biz-sf" onclick="selectBizNav('sf')">
-        <i class="ti ti-coin" aria-hidden="true"></i> 전세(서민금융)
-      </div>
-      <div class="nav-item biz-nav" id="nav-biz-yangik" onclick="selectBizNav('yangik')">
-        <i class="ti ti-heart" aria-hidden="true"></i> 양육비이행관리원
-      </div>
-      <div class="nav-item biz-nav" id="nav-biz-court" onclick="selectBizNav('court')">
-        <i class="ti ti-scale" aria-hidden="true"></i> 대법원
-      </div>
-      <div class="nav-item biz-nav" id="nav-biz-moj" onclick="selectBizNav('moj')">
-        <i class="ti ti-building" aria-hidden="true"></i> 법무부(보장원)
-      </div>
-      <div class="nav-item biz-nav" id="nav-biz-gender" onclick="selectBizNav('gender')">
-        <i class="ti ti-users" aria-hidden="true"></i> 성평등가족부
-      </div>
-      <div class="nav-item biz-nav" id="nav-biz-mois" onclick="selectBizNav('mois')">
-        <i class="ti ti-building-community" aria-hidden="true"></i> 행안부(이태원)
-      </div>
-      <div class="nav-item biz-nav" id="nav-biz-seoul" onclick="selectBizNav('seoul')">
-        <i class="ti ti-map-pin" aria-hidden="true"></i> 서울시복지재단
-      </div>
-      <div class="nav-item biz-nav" id="nav-biz-green" onclick="selectBizNav('green')">
-        <i class="ti ti-tree" aria-hidden="true"></i> 초록우산
-      </div>
-      <div class="nav-item biz-nav" id="nav-biz-air" onclick="selectBizNav('air')">
-        <i class="ti ti-plane" aria-hidden="true"></i> 여객기(국토부)
+      <div id="biz-list" style="overflow:hidden;transition:max-height .3s ease">
+        <div class="nav-item biz-nav active" id="nav-biz-kt" onclick="selectBizNav('kt')">
+          <i class="ti ti-home" aria-hidden="true"></i> 전세(국토부)
+        </div>
+        <div class="nav-item biz-nav" id="nav-biz-sf" onclick="selectBizNav('sf')">
+          <i class="ti ti-coin" aria-hidden="true"></i> 전세(서민금융)
+        </div>
+        <div class="nav-item biz-nav" id="nav-biz-yangik" onclick="selectBizNav('yangik')">
+          <i class="ti ti-heart" aria-hidden="true"></i> 양육비이행관리원
+        </div>
+        <div class="nav-item biz-nav" id="nav-biz-court" onclick="selectBizNav('court')">
+          <i class="ti ti-scale" aria-hidden="true"></i> 대법원
+        </div>
+        <div class="nav-item biz-nav" id="nav-biz-moj" onclick="selectBizNav('moj')">
+          <i class="ti ti-building" aria-hidden="true"></i> 법무부(보장원)
+        </div>
+        <div class="nav-item biz-nav" id="nav-biz-gender" onclick="selectBizNav('gender')">
+          <i class="ti ti-users" aria-hidden="true"></i> 성평등가족부
+        </div>
+        <div class="nav-item biz-nav" id="nav-biz-mois" onclick="selectBizNav('mois')">
+          <i class="ti ti-building-community" aria-hidden="true"></i> 행안부(이태원)
+        </div>
+        <div class="nav-item biz-nav" id="nav-biz-seoul" onclick="selectBizNav('seoul')">
+          <i class="ti ti-map-pin" aria-hidden="true"></i> 서울시복지재단
+        </div>
+        <div class="nav-item biz-nav" id="nav-biz-green" onclick="selectBizNav('green')">
+          <i class="ti ti-tree" aria-hidden="true"></i> 초록우산
+        </div>
+        <div class="nav-item biz-nav" id="nav-biz-air" onclick="selectBizNav('air')">
+          <i class="ti ti-plane" aria-hidden="true"></i> 여객기(국토부)
+        </div>
       </div>
 
       <!-- 선택 사업 메뉴 -->
@@ -1372,6 +1377,16 @@ function setBiz(biz) {
   renderBudget();
   renderLawyers();
   if (document.getElementById("view-exec")?.classList.contains("active")) renderExecHistory();
+}
+
+// 사업 목록 접기/펼치기
+let _bizListOpen = true;
+function toggleBizList() {
+  _bizListOpen = !_bizListOpen;
+  const list   = document.getElementById('biz-list');
+  const toggle = document.getElementById('biz-list-toggle');
+  if (list) list.style.display = _bizListOpen ? '' : 'none';
+  if (toggle) toggle.textContent = _bizListOpen ? '▲' : '▼';
 }
 
 // 사이드바 사업 선택
