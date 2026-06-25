@@ -504,7 +504,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
 
           <!-- 사업 현황 수정 모달 -->
           <div id="biz-edit-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
-            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:380px;max-width:94vw;box-shadow:var(--shadow-md)">
+            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:440px;max-width:94vw;box-shadow:var(--shadow-md)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
                 <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-edit"></i> 사업 현황 수정</h3>
                 <button onclick="closeBizEditModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
@@ -512,11 +512,19 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
               <div style="font-size:13px;font-weight:500;margin-bottom:1rem;color:var(--navy)" id="biz-edit-name"></div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem">
                 <div class="field" style="grid-column:1/-1">
+                  <label>배정 예산 (원) <span style="color:#DC2626">*</span></label>
+                  <input class="form-input" type="number" id="biz-edit-budget" placeholder="예: 432000000">
+                </div>
+                <div class="field" style="grid-column:1/-1">
                   <label>현 집행액 (원)</label>
                   <input class="form-input" type="number" id="biz-edit-exec">
                 </div>
                 <div class="field">
-                  <label>집행 건수</label>
+                  <label>목표 건수</label>
+                  <input class="form-input" type="number" id="biz-edit-target">
+                </div>
+                <div class="field">
+                  <label>완료 건수</label>
                   <input class="form-input" type="number" id="biz-edit-done">
                 </div>
                 <div class="field">
@@ -526,6 +534,14 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
                     <option value="신규">신규</option>
                     <option value="마감예정">마감예정</option>
                   </select>
+                </div>
+                <div class="field">
+                  <label>기준일</label>
+                  <input class="form-input" type="date" id="biz-edit-basedate">
+                </div>
+                <div class="field" style="grid-column:1/-1">
+                  <label>비고/진행현황</label>
+                  <input class="form-input" id="biz-edit-note" placeholder="예: 1차 교부 완료">
                 </div>
               </div>
               <div style="display:flex;gap:8px">
@@ -1654,14 +1670,17 @@ function editBizRow(idx) {
   _editBizIdx = idx;
   const b = ALL_BIZ_DATA[idx];
   if (!b) return;
-  document.getElementById('biz-edit-name').textContent  = b.agency;
-  document.getElementById('biz-edit-exec').value  = b.exec;
-  document.getElementById('biz-edit-done').value  = b.done;
-  document.getElementById('biz-edit-status').value = b.status;
+  document.getElementById('biz-edit-name').textContent       = b.agency;
+  document.getElementById('biz-edit-budget').value           = b.budget || 0;
+  document.getElementById('biz-edit-exec').value             = b.exec   || 0;
+  document.getElementById('biz-edit-target').value           = b.target || 0;
+  document.getElementById('biz-edit-done').value             = b.done   || 0;
+  document.getElementById('biz-edit-status').value           = b.status || '진행중';
+  document.getElementById('biz-edit-basedate').value         = b.basedate || new Date().toISOString().slice(0,10);
+  document.getElementById('biz-edit-note').value             = b.note   || '';
   document.getElementById('biz-edit-modal').style.display = 'flex';
 }
 function openBizEditModal() {
-  // 전체 목록 수정은 추후 추가
   showToast('개별 행의 ✏️ 버튼으로 수정해주세요');
 }
 function closeBizEditModal() {
@@ -1670,12 +1689,40 @@ function closeBizEditModal() {
 function saveBizEdit() {
   const b = ALL_BIZ_DATA[_editBizIdx];
   if (!b) return;
-  b.exec   = parseInt(document.getElementById('biz-edit-exec').value.replace(/,/g,'')) || b.exec;
-  b.done   = parseInt(document.getElementById('biz-edit-done').value) || b.done;
-  b.status = document.getElementById('biz-edit-status').value;
+  const newBudget = parseInt(document.getElementById('biz-edit-budget').value.replace(/,/g,'')) || b.budget;
+  b.budget   = newBudget;
+  b.exec     = parseInt(document.getElementById('biz-edit-exec').value.replace(/,/g,''))   || b.exec;
+  b.target   = parseInt(document.getElementById('biz-edit-target').value)                  || b.target;
+  b.done     = parseInt(document.getElementById('biz-edit-done').value)                    || b.done;
+  b.status   = document.getElementById('biz-edit-status').value;
+  b.basedate = document.getElementById('biz-edit-basedate').value;
+  b.note     = document.getElementById('biz-edit-note').value.trim();
+
+  // BIZ 객체 예산도 동기화 (linked 사업은 BIZ 키로 연결)
+  if (b.linked && BIZ[b.linked]) {
+    BIZ[b.linked].budget = newBudget;
+    BIZ[b.linked].executed = b.exec;
+  }
+  // EXEC_DATA 예산도 동기화
+  if (b.linked && EXEC_DATA[b.linked]) {
+    EXEC_DATA[b.linked].budget = newBudget;
+  }
+  // BIZ_EXTRA 사업도 동기화
+  const extraKey = Object.keys(BIZ).find(k => {
+    const bObj = BIZ[k];
+    return bObj && (bObj.name === b.name || bObj.short === b.agency.replace(/[()]/g,''));
+  });
+  if (extraKey) {
+    BIZ[extraKey].budget   = newBudget;
+    BIZ[extraKey].executed = b.exec;
+    if (EXEC_DATA[extraKey]) EXEC_DATA[extraKey].budget = newBudget;
+  }
+
+  savePersistedData();
   closeBizEditModal();
+  renderAllBizTable();
   renderDashboard();
-  showToast('업데이트됐습니다');
+  showToast(`${b.agency} 예산/현황 업데이트됐습니다`);
 }
 
 function renderLawyerSelect() {
@@ -2045,32 +2092,67 @@ function deleteLawyer(idx) {
 // ── 집행내역 엑셀 업로드 파싱 ──
 // 국토부 집행내역 양식: '2026년 집행내역' 시트
 // C열=날짜, D열=금액, F열=세목, G열=적요, H열=지급처, I열=변호사, K열=접수번호
+// 전역 변수: 로드된 워크북 저장
+let _loadedWb = null;
+
 function handleExecUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
   const status = document.getElementById('exec-upload-status');
-  status.textContent = '파싱 중...';
+  status.textContent = '파일 읽는 중...';
 
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
-      // xlsm도 처리 가능하도록 옵션 설정
       const wb = XLSX.read(new Uint8Array(e.target.result), {
         type: 'array', cellDates: false, cellNF: false, cellStyles: false
       });
+      _loadedWb = wb;
 
-      console.log('시트 목록:', wb.SheetNames);
+      // 시트 목록 드롭다운 표시
+      const preview = document.getElementById('exec-upload-preview');
+      const sheets  = wb.SheetNames;
 
-      // '2026년 집행내역' 시트 찾기 - 정확한 이름 우선, 없으면 부분 매칭
-      const sheetName =
-        wb.SheetNames.find(n => n === '2026년 집행내역') ||
-        wb.SheetNames.find(n => n.includes('년') && n.includes('집행내역')) ||
-        wb.SheetNames.find(n => n.includes('집행내역') && !n.includes('총괄')) ||
-        wb.SheetNames[0];
-      console.log('파싱 시트:', sheetName);
+      // 집행내역일 것 같은 시트 자동 추천 (수입/지출 키워드 포함)
+      const guessSheet = sheets.find(n=>n.includes('집행내역')&&!n.includes('총괄'))
+                      || sheets.find(n=>n.includes('집행'))
+                      || sheets[0];
+
+      preview.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
+          <label style="font-size:12px;font-weight:500;white-space:nowrap">시트 선택:</label>
+          <select id="exec-sheet-select" class="form-input" style="flex:1;min-width:200px;font-size:12px">
+            ${sheets.map(n=>`<option value="${n}" ${n===guessSheet?'selected':''}>${n}</option>`).join('')}
+          </select>
+          <button onclick="parseSelectedSheet()" class="btn btn-sm" style="border-color:var(--navy);color:var(--navy);white-space:nowrap">
+            <i class="ti ti-search"></i> 파싱
+          </button>
+        </div>
+        <div id="exec-parse-result" style="margin-top:10px"></div>`;
+
+      status.textContent = `${sheets.length}개 시트 발견 — 시트를 선택 후 파싱하세요`;
+    } catch(err) {
+      status.textContent = '파일 읽기 오류: ' + err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseSelectedSheet() {
+  if (!_loadedWb) return;
+  const sheetName = document.getElementById('exec-sheet-select')?.value;
+  if (!sheetName) return;
+  const status = document.getElementById('exec-upload-status');
+  status.textContent = `'${sheetName}' 파싱 중...`;
+  parseExecSheet(_loadedWb, sheetName);
+}
+
+function parseExecSheet(wb, sheetName) {
+  const status  = document.getElementById('exec-upload-status');
+  try {
       const ws   = wb.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
-      console.log('총 행수:', rows.length);
+      console.log('파싱 시트:', sheetName, '총 행수:', rows.length);
 
       const incomeRows = [];
       const outRows    = [];
@@ -2189,9 +2271,8 @@ function handleExecUpload(event) {
       });
 
       // 미리보기 표시
-      const preview = document.getElementById('exec-upload-preview');
+      const preview = document.getElementById('exec-parse-result') || document.getElementById('exec-upload-preview');
       const mmList  = Object.keys(monthly).sort();
-      // 파싱 데이터 전역 저장 (버튼 onclick에서 참조)
       window._parsedExecData = { monthly, incomeRows };
 
       preview.innerHTML = `
@@ -2210,7 +2291,7 @@ function handleExecUpload(event) {
               <th style="padding:8px;text-align:center">처리</th>
             </tr></thead>
             <tbody>
-              ${mmList.map((mm, idx) => {
+              ${mmList.map(mm => {
                 const m = monthly[mm];
                 const label = parseInt(mm.split('-')[1])+'월';
                 const exists = (EXEC_DATA[curBiz]?.monthly||[]).some(x => x.month === mm);
@@ -2234,14 +2315,10 @@ function handleExecUpload(event) {
         </div>`;
 
       status.textContent = `파싱 완료: ${mmList.length}개월 데이터`;
-      // 데이터 임시 저장
-      window._parsedExecData = { monthly, incomeRows };
     } catch(err) {
       console.error(err);
       status.textContent = '파싱 오류: ' + err.message;
     }
-  };
-  reader.readAsArrayBuffer(file);
 }
 
 // 키로 특정 월 등록 (onclick에서 JSON 직접 전달 대신)
