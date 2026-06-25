@@ -502,48 +502,6 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
             </div>
           </div>
 
-          <!-- 사업 현황 수정 모달 -->
-          <div id="biz-edit-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
-            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:440px;max-width:94vw;box-shadow:var(--shadow-md)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-edit"></i> 사업 현황 수정</h3>
-                <button onclick="closeBizEditModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
-              </div>
-              <div style="font-size:13px;font-weight:500;margin-bottom:1rem;color:var(--navy)" id="biz-edit-name"></div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem">
-                <div class="field" style="grid-column:1/-1">
-                  <label>배정 예산 (원) <span style="color:#DC2626">*</span></label>
-                  <input class="form-input" type="number" id="biz-edit-budget" placeholder="예: 432000000">
-                </div>
-                <div class="field" style="grid-column:1/-1">
-                  <label>현 집행액 (원)</label>
-                  <input class="form-input" type="number" id="biz-edit-exec">
-                </div>
-                <div class="field">
-                  <label>목표 건수</label>
-                  <input class="form-input" type="number" id="biz-edit-target">
-                </div>
-                <div class="field">
-                  <label>완료 건수</label>
-                  <input class="form-input" type="number" id="biz-edit-done">
-                </div>
-                <div class="field">
-                  <label>상태</label>
-                  <select class="form-input" id="biz-edit-status">
-                    <option value="진행중">진행중</option>
-                    <option value="신규">신규</option>
-                    <option value="마감예정">마감예정</option>
-                  </select>
-                </div>
-                <div class="field">
-                  <label>기준일</label>
-                  <input class="form-input" type="date" id="biz-edit-basedate">
-                </div>
-                <div class="field" style="grid-column:1/-1">
-                  <label>비고/진행현황</label>
-                  <input class="form-input" id="biz-edit-note" placeholder="예: 1차 교부 완료">
-                </div>
-              </div>
               <div style="display:flex;gap:8px">
                 <button class="btn" style="flex:1;justify-content:center" onclick="closeBizEditModal()">취소</button>
                 <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveBizEdit()"><i class="ti ti-check"></i> 저장</button>
@@ -4742,6 +4700,51 @@ function recordExecution(cases, b, yy, mm, dd) {
 
 <!-- ======= 추가 스크립트 ======= -->
 
+
+
+<!-- 사업 현황 수정 모달 (전역) -->
+<!-- 사업 현황 수정 모달 -->
+          <div id="biz-edit-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:440px;max-width:94vw;box-shadow:var(--shadow-md)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-edit"></i> 사업 현황 수정</h3>
+                <button onclick="closeBizEditModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+              </div>
+              <div style="font-size:13px;font-weight:500;margin-bottom:1rem;color:var(--navy)" id="biz-edit-name"></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem">
+                <div class="field" style="grid-column:1/-1">
+                  <label>배정 예산 (원) <span style="color:#DC2626">*</span></label>
+                  <input class="form-input" type="number" id="biz-edit-budget" placeholder="예: 432000000">
+                </div>
+                <div class="field" style="grid-column:1/-1">
+                  <label>현 집행액 (원)</label>
+                  <input class="form-input" type="number" id="biz-edit-exec">
+                </div>
+                <div class="field">
+                  <label>목표 건수</label>
+                  <input class="form-input" type="number" id="biz-edit-target">
+                </div>
+                <div class="field">
+                  <label>완료 건수</label>
+                  <input class="form-input" type="number" id="biz-edit-done">
+                </div>
+                <div class="field">
+                  <label>상태</label>
+                  <select class="form-input" id="biz-edit-status">
+                    <option value="진행중">진행중</option>
+                    <option value="신규">신규</option>
+                    <option value="마감예정">마감예정</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>기준일</label>
+                  <input class="form-input" type="date" id="biz-edit-basedate">
+                </div>
+                <div class="field" style="grid-column:1/-1">
+                  <label>비고/진행현황</label>
+                  <input class="form-input" id="biz-edit-note" placeholder="예: 1차 교부 완료">
+                </div>
+              </div>
 
 </body>
 </html>
