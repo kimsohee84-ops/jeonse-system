@@ -1551,12 +1551,11 @@ function renderAllBizTable() {
   if (!el) return;
 
   // ALL_BIZ_DATA에서 연결된 사업의 실제 집행액 반영
-  const data = ALL_BIZ_DATA.map(b => {
-    if (b.linked) {
-      const ex = EXEC_DATA[b.linked];
-      return { ...b, exec: ex ? ex.executed : b.exec };
-    }
-    return b;
+  const data = ALL_BIZ_DATA.map((b, origIdx) => {
+    const base = b.linked
+      ? { ...b, exec: EXEC_DATA[b.linked] ? EXEC_DATA[b.linked].executed : b.exec }
+      : { ...b };
+    return { ...base, _origIdx: origIdx };
   });
 
   // ── 집행률 가로 막대 그래프 ──
@@ -1645,7 +1644,7 @@ function renderAllBizTable() {
         <td style="padding:8px;text-align:center;font-size:11px">${b.done}<span style="color:var(--muted)">/${b.target}</span></td>
         <td style="padding:8px;text-align:center">${statusBadge}</td>
         <td style="padding:8px;text-align:center">
-          <button onclick="editBizRow(${ALL_BIZ_DATA.indexOf(b)})" style="background:none;border:none;cursor:pointer;color:var(--navy);font-size:12px;padding:2px 4px">✏️</button>
+          <button onclick="editBizRow(${b._origIdx})" style="background:none;border:none;cursor:pointer;color:var(--navy);font-size:12px;padding:2px 4px">✏️</button>
         </td>
       </tr>`;
     });
