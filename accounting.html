@@ -2655,17 +2655,27 @@ function renderExecHistory() {
   const ex       = EXEC_DATA[curBiz] || { income:[], monthly:[], budget:0, executed:0 };
   const monthly  = ex.monthly;
   const income   = ex.income;
-  const totalIncome = income.reduce((s,r)=>s+(r.amt||0), 0);
-  const totalOut    = ex.executed || 0;
-  const budget      = BIZ[curBiz].budget;
-  const balance     = totalIncome - totalOut;
-  const prefix      = BIZ[curBiz].prefix;
+  const totalIncome  = income.reduce((s,r)=>s+(r.amt||0), 0);
+  const incomePlus   = income.filter(r=>r.amt>0).reduce((s,r)=>s+r.amt, 0);
+  const incomeMinus  = income.filter(r=>r.amt<0).reduce((s,r)=>s+r.amt, 0);
+  const totalOut     = ex.executed || 0;
+  const budget       = BIZ[curBiz].budget;
+  const balance      = totalIncome - totalOut;
+  const prefix       = BIZ[curBiz].prefix;
 
   // ── 요약 카드 ──
   document.getElementById("exec-summary").innerHTML = `
-    <div class="stat-card"><div class="stat-val">${totalIncome.toLocaleString()}</div><div class="stat-label">총 수입 (원)</div></div>
+    <div class="stat-card">
+      <div class="stat-val">${incomePlus.toLocaleString()}</div>
+      <div class="stat-label">총 수입 (원)</div>
+      ${incomeMinus < 0 ? `<div style="font-size:11px;color:#DC2626;margin-top:2px">반납 ${incomeMinus.toLocaleString()}원</div>` : ''}
+    </div>
     <div class="stat-card"><div class="stat-val" style="color:#B45309">${totalOut.toLocaleString()}</div><div class="stat-label">총 지출 (원)</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:var(--teal)">${balance.toLocaleString()}</div><div class="stat-label">현재 잔액 (원)</div></div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:${balance>=0?'var(--teal)':'#DC2626'}">${balance.toLocaleString()}</div>
+      <div class="stat-label">현재 잔액 (원)</div>
+      ${incomeMinus < 0 ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">반납 ${incomeMinus.toLocaleString()}원 포함</div>` : ''}
+    </div>
     <div class="stat-card"><div class="stat-val">${budget?Math.round(totalOut/budget*100):0}%</div><div class="stat-label">예산 집행률</div></div>
   `;
 
@@ -2692,7 +2702,7 @@ function renderExecHistory() {
           </tr>`).join('')}
         <tr style="font-weight:600;background:var(--light)">
           <td>합계</td>
-          <td class="mono">${totalIncome.toLocaleString()}</td>
+          <td class="mono">${incomePlus.toLocaleString()}${incomeMinus<0?` <span style="color:#DC2626;font-size:11px">(반납 ${incomeMinus.toLocaleString()})</span>`:''}</td>
           <td colspan="2"></td>
         </tr>
       </tbody>
