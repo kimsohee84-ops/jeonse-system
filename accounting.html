@@ -2677,17 +2677,20 @@ function renderExecHistory() {
   const monthly  = ex.monthly;
   const income   = ex.income;
   const totalIncome  = income.reduce((s,r)=>s+(r.amt||0), 0);
-  const incomePlus   = income.filter(r=>r.amt>0).reduce((s,r)=>s+r.amt, 0);
-  const incomeMinus  = income.filter(r=>r.amt<0).reduce((s,r)=>s+r.amt, 0);
+  const incomePlus   = income.filter(r=>(r.amt||0)>0 && !r._settledWith).reduce((s,r)=>s+r.amt, 0)
+                     + income.filter(r=>(r.amt||0)>0 && r._settledWith!==undefined).reduce((s,r)=>s+r.amt, 0);
+  // 상계 완료된 건 제외한 실수입
+  const incomeNet    = income.filter(r=>r._settledWith===undefined).reduce((s,r)=>s+(r.amt||0), 0);
+  const incomeMinus  = income.filter(r=>(r.amt||0)<0).reduce((s,r)=>s+r.amt, 0);
   const totalOut     = ex.executed || 0;
   const budget       = BIZ[curBiz].budget;
-  const balance      = totalIncome - totalOut;
+  const balance      = incomeNet - totalOut;
   const prefix       = BIZ[curBiz].prefix;
 
   // ── 요약 카드 ──
   document.getElementById("exec-summary").innerHTML = `
     <div class="stat-card">
-      <div class="stat-val">${incomePlus.toLocaleString()}</div>
+      <div class="stat-val">${incomeNet.toLocaleString()}</div>
       <div class="stat-label">총 수입 (원)</div>
       ${incomeMinus < 0 ? `<div style="font-size:11px;color:#DC2626;margin-top:2px">반납 ${incomeMinus.toLocaleString()}원</div>` : ''}
     </div>
