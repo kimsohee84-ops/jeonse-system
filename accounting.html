@@ -537,6 +537,27 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
 
           <!-- 집행내역 등록 확인 모달 -->
           <!-- 건별 집행내역 수정 모달 -->
+          <!-- 상계처리 모달 -->
+          <div id="settle-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:460px;max-width:94vw;box-shadow:var(--shadow-md)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-arrows-exchange"></i> 상계 처리</h3>
+                <button onclick="closeSettleModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+              </div>
+              <div id="settle-neg-info" style="padding:10px;background:#FFF7F7;border-radius:8px;margin-bottom:12px;font-size:13px"></div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:8px">상계할 수입 항목 선택:</div>
+              <div id="settle-pos-list" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:12px"></div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+                또는 <strong>지출 환입</strong>으로 처리 (해당 월 지출에서 차감):
+                <button onclick="settleAsRefund()" class="btn btn-sm" style="margin-left:8px;border-color:#D97706;color:#D97706">지출 차감 처리</button>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn" style="flex:1;justify-content:center" onclick="closeSettleModal()">취소</button>
+                <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmSettle()"><i class="ti ti-check"></i> 상계 확정</button>
+              </div>
+            </div>
+          </div>
+
           <div id="paid-case-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
             <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:480px;max-width:94vw;box-shadow:var(--shadow-md)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
@@ -2688,22 +2709,35 @@ function renderExecHistory() {
       </button>
     </div>
     <table class="tbl" style="margin-bottom:20px">
-      <thead><tr><th>날짜</th><th>금액</th><th>비고</th><th style="width:60px"></th></tr></thead>
+      <thead><tr><th>날짜</th><th>금액</th><th>비고</th><th style="width:80px"></th></tr></thead>
       <tbody>
-        ${income.map((r,i)=>`
-          <tr>
-            <td style="font-size:12px">${r.date}</td>
-            <td class="mono">${(r.amt||0).toLocaleString()}</td>
-            <td style="font-size:12px;color:var(--muted)">${r.note||''}</td>
-            <td style="text-align:center">
-              <button onclick="editIncome(${i})" style="background:none;border:none;cursor:pointer;color:var(--navy);font-size:12px;padding:2px 4px">✏️</button>
-              <button onclick="deleteIncome(${i})" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:12px;padding:2px 4px">🗑</button>
+        ${income.map((r,i)=>{
+          const isNeg     = (r.amt||0) < 0;
+          const isSettled = r._settledWith !== undefined;
+          const rowStyle  = isSettled ? 'opacity:0.5;background:#F9FAFB' : isNeg ? 'background:#FFF7F7' : '';
+          const amtStyle  = isNeg ? 'color:#DC2626' : '';
+          const badge     = isSettled
+            ? `<span style="font-size:10px;padding:1px 5px;border-radius:99px;background:#DCFCE7;color:#166534">상계완료</span>`
+            : isNeg
+              ? `<span style="font-size:10px;padding:1px 5px;border-radius:99px;background:#FEE2E2;color:#DC2626">반납/상계</span>`
+              : '';
+          return `<tr style="${rowStyle}">
+            <td style="font-size:12px">${r.date||''}</td>
+            <td class="mono" style="${amtStyle}">${(r.amt||0).toLocaleString()} ${badge}</td>
+            <td style="font-size:12px;color:var(--muted)">${r.note||''}${isSettled?` ↔ ${income[r._settledWith]?.note||''}`:''}</td>
+            <td style="text-align:center;white-space:nowrap">
+              ${isNeg && !isSettled ? `<button onclick="openSettleModal(${i})" style="background:none;border:1px solid #D97706;border-radius:4px;cursor:pointer;color:#D97706;font-size:10px;padding:2px 5px">상계</button>` : ''}
+              <button onclick="editIncome(${i})" style="background:none;border:none;cursor:pointer;color:var(--navy);font-size:12px;padding:2px 3px">✏️</button>
+              <button onclick="deleteIncome(${i})" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:12px;padding:2px 3px">🗑</button>
             </td>
-          </tr>`).join('')}
+          </tr>`;
+        }).join('')}
         <tr style="font-weight:600;background:var(--light)">
           <td>합계</td>
-          <td class="mono">${incomePlus.toLocaleString()}${incomeMinus<0?` <span style="color:#DC2626;font-size:11px">(반납 ${incomeMinus.toLocaleString()})</span>`:''}</td>
-          <td colspan="2"></td>
+          <td class="mono">${incomePlus.toLocaleString()}
+            ${incomeMinus<0 ? `<span style="color:#DC2626;font-size:11px"> (반납 ${incomeMinus.toLocaleString()})</span>` : ''}
+          </td>
+          <td colspan="2" style="font-size:11px;color:var(--muted)">순수입 ${(incomePlus+incomeMinus).toLocaleString()}원</td>
         </tr>
       </tbody>
     </table>
@@ -2768,6 +2802,93 @@ function renderExecHistory() {
       </tbody>
     </table>
   `;
+}
+
+// ── 상계 처리 ──
+let _settleNegIdx = -1;
+let _settlePosIdx = -1;
+
+function openSettleModal(negIdx) {
+  _settleNegIdx = negIdx;
+  _settlePosIdx = -1;
+  const income = EXEC_DATA[curBiz]?.income || [];
+  const negRow = income[negIdx];
+  if (!negRow) return;
+
+  // 음수 건 정보 표시
+  document.getElementById('settle-neg-info').innerHTML = `
+    <strong style="color:#DC2626">반납/상계 건:</strong> ${negRow.date} &nbsp;
+    <span style="font-family:monospace;color:#DC2626">${(negRow.amt||0).toLocaleString()}원</span>
+    &nbsp; ${negRow.note||''}`;
+
+  // 상계 가능한 양수 수입 목록
+  const posList = income
+    .map((r,i) => ({r, i}))
+    .filter(({r,i}) => r.amt > 0 && i !== negIdx && !r._settledWith);
+
+  document.getElementById('settle-pos-list').innerHTML = posList.length
+    ? posList.map(({r,i}) => `
+        <div onclick="selectSettlePair(${i})" id="settle-pos-${i}"
+          style="padding:10px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px;display:flex;justify-content:space-between;align-items:center">
+          <span>${r.date} &nbsp; <span style="color:var(--muted)">${r.note||''}</span></span>
+          <span style="font-family:monospace;font-weight:500">${r.amt.toLocaleString()}원</span>
+        </div>`).join('')
+    : `<div style="padding:12px;text-align:center;color:var(--muted);font-size:12px">상계할 수입 항목이 없습니다</div>`;
+
+  document.getElementById('settle-modal').style.display = 'flex';
+}
+
+function selectSettlePair(posIdx) {
+  _settlePosIdx = posIdx;
+  // 선택 표시
+  document.querySelectorAll('[id^="settle-pos-"]').forEach(el => el.style.background = '');
+  const el = document.getElementById(`settle-pos-${posIdx}`);
+  if (el) el.style.background = '#EFF6FF';
+}
+
+function closeSettleModal() {
+  document.getElementById('settle-modal').style.display = 'none';
+}
+
+function confirmSettle() {
+  if (_settlePosIdx < 0) { showToast('상계할 수입 항목을 선택해주세요'); return; }
+  const income = EXEC_DATA[curBiz].income;
+  // 두 건을 상계 처리
+  income[_settleNegIdx]._settledWith = _settlePosIdx;
+  income[_settlePosIdx]._settledWith = _settleNegIdx;
+  closeSettleModal();
+  savePersistedData();
+  renderExecHistory();
+  showToast('상계 처리됐습니다');
+}
+
+// 지출 환입으로 처리 (해당 월 지출에서 차감)
+function settleAsRefund() {
+  const income = EXEC_DATA[curBiz]?.income || [];
+  const negRow = income[_settleNegIdx];
+  if (!negRow) return;
+
+  // 해당 월 지출에서 차감
+  const mm = (negRow.date||'').slice(0,7);
+  const ex = EXEC_DATA[curBiz];
+  if (ex) {
+    const mIdx = ex.monthly.findIndex(m => m.month === mm);
+    if (mIdx >= 0) {
+      ex.monthly[mIdx].total += negRow.amt; // 음수이므로 차감
+      ex.monthly[mIdx].total = Math.max(0, ex.monthly[mIdx].total);
+      ex.executed = ex.monthly.reduce((s,m)=>s+(m.total||0), 0);
+      BIZ[curBiz].executed = ex.executed;
+    }
+  }
+  // 수입에서 제거
+  income.splice(_settleNegIdx, 1);
+
+  closeSettleModal();
+  savePersistedData();
+  renderExecHistory();
+  renderBudget();
+  renderDashboard();
+  showToast(`${mm} 지출에서 ${Math.abs(negRow.amt).toLocaleString()}원 차감 처리됐습니다`);
 }
 
 // ── 건별 집행내역 수정/삭제 ──
