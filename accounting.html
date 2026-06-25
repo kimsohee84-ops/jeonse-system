@@ -269,6 +269,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
         <div class="card" style="overflow-x:auto">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <div class="card-title" style="margin-bottom:0"><i class="ti ti-building-bank" aria-hidden="true"></i> 사업별 현황 <span style="font-size:11px;color:var(--muted);font-weight:400">기준일: 2026.06.08.</span></div>
+            <button onclick="openAddBizModal()" class="btn btn-sm btn-primary" style="font-size:11px"><i class="ti ti-plus"></i> 신규 사업 추가</button>
             <button onclick="openBizEditModal()" class="btn btn-sm" style="font-size:11px"><i class="ti ti-edit"></i> 현황 업데이트</button>
           </div>
           <div id="all-biz-table"></div>
@@ -1619,6 +1620,85 @@ function renderAllBizTable() {
 
   html += `</tbody></table>`;
   el.innerHTML = html;
+}
+
+// ── 신규 사업 추가 ──
+function openAddBizModal() {
+  document.getElementById('add-biz-agency').value   = '';
+  document.getElementById('add-biz-name').value     = '';
+  document.getElementById('add-biz-budget').value   = '';
+  document.getElementById('add-biz-target').value   = '';
+  document.getElementById('add-biz-detail').value   = '';
+  document.getElementById('add-biz-note').value     = '';
+  document.getElementById('add-biz-key').value      = '';
+  document.getElementById('add-biz-basedate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('add-biz-modal').style.display = 'flex';
+}
+function closeAddBizModal() {
+  document.getElementById('add-biz-modal').style.display = 'none';
+}
+function saveNewBiz() {
+  const agency  = document.getElementById('add-biz-agency').value.trim();
+  const budget  = parseInt(document.getElementById('add-biz-budget').value) || 0;
+  if (!agency)  { showToast('사업명을 입력해주세요'); return; }
+  if (!budget)  { showToast('예산을 입력해주세요'); return; }
+
+  const key     = document.getElementById('add-biz-key').value.trim().replace(/[^a-z0-9]/g,'') || ('biz_'+Date.now());
+  const name    = document.getElementById('add-biz-name').value.trim() || agency;
+  const type    = document.getElementById('add-biz-type').value;
+  const status  = document.getElementById('add-biz-status').value;
+  const target  = parseInt(document.getElementById('add-biz-target').value) || 0;
+  const detail  = document.getElementById('add-biz-detail').value.trim();
+  const note    = document.getElementById('add-biz-note').value.trim();
+  const basedate= document.getElementById('add-biz-basedate').value;
+
+  // ALL_BIZ_DATA에 추가
+  ALL_BIZ_DATA.push({
+    type, agency, name, budget, exec: 0,
+    target, done: 0, status, detail, note, basedate,
+    linked: key
+  });
+
+  // BIZ에 추가 (회계 시스템 연동)
+  if (!BIZ[key]) {
+    BIZ[key] = {
+      name, short: agency, prefix: agency,
+      budget, executed: 0,
+      lawyers: [], cases: [], monthly: []
+    };
+  }
+  // EXEC_DATA에 추가
+  if (!EXEC_DATA[key]) {
+    EXEC_DATA[key] = { income:[], monthly:[], budget, executed:0 };
+  }
+  // resolList에 추가
+  if (!resolList[key]) resolList[key] = [];
+  // PAID_CASES에 추가
+  if (!PAID_CASES[key]) PAID_CASES[key] = [];
+
+  // 사이드바에 추가
+  addBizNavItem(key, agency);
+
+  closeAddBizModal();
+  savePersistedData();
+  renderAllBizTable();
+  showToast(`✅ ${agency} 사업이 추가됐습니다`);
+}
+
+function addBizNavItem(key, agency) {
+  // 이미 있으면 스킵
+  if (document.getElementById(`nav-biz-${key}`)) return;
+  const navMenu = document.querySelector('.sidenav');
+  if (!navMenu) return;
+  // "업무" 섹션 바로 앞에 추가
+  const bizMenu = document.getElementById('biz-menu');
+  if (!bizMenu) return;
+  const newItem = document.createElement('div');
+  newItem.className = 'nav-item biz-nav';
+  newItem.id = `nav-biz-${key}`;
+  newItem.innerHTML = `<i class="ti ti-building" aria-hidden="true"></i> ${agency}`;
+  newItem.onclick = () => selectBizNav(key);
+  bizMenu.parentNode.insertBefore(newItem, bizMenu);
 }
 
 // ── 사업 현황 수정 모달 ──
@@ -4745,6 +4825,68 @@ function recordExecution(cases, b, yy, mm, dd) {
                   <input class="form-input" id="biz-edit-note" placeholder="예: 1차 교부 완료">
                 </div>
               </div>
+<!-- 신규 사업 추가 모달 -->
+<div id="add-biz-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:480px;max-width:94vw;box-shadow:var(--shadow-md);max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-building-plus"></i> 신규 사업 추가</h3>
+      <button onclick="closeAddBizModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem">
+      <div class="field" style="grid-column:1/-1">
+        <label>사업명 (기관명) <span style="color:#DC2626">*</span></label>
+        <input class="form-input" id="add-biz-agency" placeholder="예: 양육비이행관리원">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>사업 전체 이름</label>
+        <input class="form-input" id="add-biz-name" placeholder="예: 양육비 소송구조 지원사업">
+      </div>
+      <div class="field">
+        <label>유형</label>
+        <select class="form-input" id="add-biz-type">
+          <option value="위탁협약">위탁협약</option>
+          <option value="국고보조금">국고보조금</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>상태</label>
+        <select class="form-input" id="add-biz-status">
+          <option value="신규">신규</option>
+          <option value="진행중">진행중</option>
+        </select>
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>배정 예산 (원) <span style="color:#DC2626">*</span></label>
+        <input class="form-input" type="number" id="add-biz-budget" placeholder="예: 200000000">
+      </div>
+      <div class="field">
+        <label>목표 건수</label>
+        <input class="form-input" type="number" id="add-biz-target" placeholder="0">
+      </div>
+      <div class="field">
+        <label>기준일</label>
+        <input class="form-input" type="date" id="add-biz-basedate">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>세부 예산 내역</label>
+        <input class="form-input" id="add-biz-detail" placeholder="예: 소송구조 180,000,000 / 인건비 20,000,000">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>비고/진행현황</label>
+        <input class="form-input" id="add-biz-note" placeholder="예: 협약 완료, 교부 대기 중">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>회계 시스템 연동 키 <span style="font-size:11px;color:var(--muted)">(영문 소문자, 예: yangik2)</span></label>
+        <input class="form-input" id="add-biz-key" placeholder="예: yangik2" style="font-family:monospace">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">입력하면 사이드바에 사업이 추가돼요</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeAddBizModal()">취소</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveNewBiz()"><i class="ti ti-check"></i> 사업 추가</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
