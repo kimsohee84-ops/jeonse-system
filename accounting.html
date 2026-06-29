@@ -247,6 +247,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
         <div class="nav-item" onclick="showView('budget')"><i class="ti ti-chart-bar" aria-hidden="true"></i> 집행 현황</div>
         <div class="nav-item" onclick="showView('exec');renderExecHistory()"><i class="ti ti-history" aria-hidden="true"></i> 전체 집행내역</div>
         <div class="nav-item" onclick="showView('lawyer')"><i class="ti ti-user-check" aria-hidden="true"></i> 변호사 계좌</div>
+        <div class="nav-item" id="nav-report" onclick="showView('report')"><i class="ti ti-file-analytics" aria-hidden="true"></i> 정산보고서</div>
       </div>
     </aside>
 
@@ -913,6 +914,35 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
         </div>
       </div>
 
+      <!-- 정산보고서 -->
+      <div class="view" id="view-report">
+        <p class="page-title" id="report-title">정산보고서</p>
+        <p class="page-sub" id="report-sub"></p>
+
+        <!-- 기간 선택 -->
+        <div class="card" style="margin-bottom:1rem">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div class="card-title" style="margin-bottom:0"><i class="ti ti-calendar-stats"></i> 보고서 기간</div>
+            <select id="report-period" class="form-select" style="width:140px" onchange="renderReport()">
+              <option value="H1">상반기 (1~6월)</option>
+              <option value="H2">하반기 (7~12월)</option>
+              <option value="Q1">1분기 (1~3월)</option>
+              <option value="Q2">2분기 (4~6월)</option>
+              <option value="Q3">3분기 (7~9월)</option>
+              <option value="Q4">4분기 (10~12월)</option>
+              <option value="ALL" selected>전체 (연간)</option>
+            </select>
+            <input type="number" id="report-year" value="2026" class="form-input" style="width:90px" onchange="renderReport()">
+            <button onclick="renderReport()" class="btn btn-primary btn-sm"><i class="ti ti-refresh"></i> 조회</button>
+            <button onclick="printReport()" class="btn btn-sm" style="border-color:var(--navy);color:var(--navy)"><i class="ti ti-printer"></i> 인쇄</button>
+            <button onclick="exportReportExcel()" class="btn btn-sm btn-success"><i class="ti ti-download"></i> 엑셀 저장</button>
+          </div>
+        </div>
+
+        <!-- 보고서 본문 -->
+        <div id="report-body"></div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -1359,12 +1389,13 @@ function showView(name) {
   const map = { dashboard:'nav-dashboard', scan:null, input:null, resol:null, list:null, budget:null, exec:null, lawyer:null };
   if (map[name]) document.getElementById(map[name])?.classList.add('active');
 
-  if (name === "resol")   renderResolList();
-  if (name === "exec")    renderExecHistory();
-  if (name === "list")    renderCaseList();
-  if (name === "budget")  renderBudget();
-  if (name === "lawyer")  renderLawyers();
+  if (name === "resol")     renderResolList();
+  if (name === "exec")      renderExecHistory();
+  if (name === "list")      renderCaseList();
+  if (name === "budget")    renderBudget();
+  if (name === "lawyer")    renderLawyers();
   if (name === "dashboard") renderDashboard();
+  if (name === "report")    renderReport();
 }
 
 function renderDashboard() {
@@ -2446,45 +2477,185 @@ function handleBankUpload(event) {
       const ws   = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
 
-      // 헤더 찾기 (날짜/금액/잔액/적요 컬럼)
-      let headerRow = -1, dateCol = -1, amtCol = -1, memoCol = -1;
-      for (let i = 0; i < Math.min(10, rows.length); i++) {
-        const row = rows[i].map(v => v.toString().toLowerCase());
-        const dIdx = row.findIndex(v => v.includes('날짜') || v.includes('거래일') || v.includes('date'));
-        const aIdx = row.findIndex(v => v.includes('출금') || v.includes('금액') || v.includes('amount'));
-        const mIdx = row.findIndex(v => v.includes('적요') || v.includes('내용') || v.includes('memo'));
-        if (dIdx >= 0 && aIdx >= 0) {
-          headerRow = i; dateCol = dIdx; amtCol = aIdx; memoCol = mIdx >= 0 ? mIdx : -1;
+      // 헤더 찾기
+      let headerRow=-1, dateCol=-1, outCol=-1, inCol=-1, memoCol=-1, balCol=-1;
+      for (let i=0; i<Math.min(10,rows.length); i++) {
+        const row = rows[i].map(v=>v.toString().toLowerCase());
+        const dIdx = row.findIndex(v=>v.includes('날짜')||v.includes('거래일')||v.includes('date'));
+        const oIdx = row.findIndex(v=>v.includes('출금')||v.includes('지출'));
+        const iIdx = row.findIndex(v=>v.includes('입금')||v.includes('수입'));
+        const mIdx = row.findIndex(v=>v.includes('적요')||v.includes('내용')||v.includes('memo'));
+        const bIdx = row.findIndex(v=>v.includes('잔액')||v.includes('balance'));
+        if (dIdx >= 0) {
+          headerRow=i; dateCol=dIdx;
+          outCol = oIdx>=0 ? oIdx : row.findIndex(v=>v.includes('금액'));
+          inCol  = iIdx>=0 ? iIdx : -1;
+          memoCol= mIdx>=0 ? mIdx : -1;
+          balCol = bIdx>=0 ? bIdx : -1;
           break;
         }
       }
-      if (headerRow < 0) { status.textContent = '컬럼을 자동 감지하지 못했어요. 날짜/금액/적요 컬럼이 있는지 확인해주세요'; return; }
+      if (headerRow < 0) { status.textContent='컬럼 자동감지 실패 — 날짜/금액/적요 헤더 확인'; return; }
+
+      // 계정과목 분류 키워드
+      const CATEGORIES = [
+        { name:'소송구조비', keywords:['변호사','보수','착수금','성공보수','법률사무','법무법인'] },
+        { name:'인지대',     keywords:['인지','수입인지','인지대'] },
+        { name:'송달료',     keywords:['송달','우편'] },
+        { name:'수당',       keywords:['수당','급여','인건비'] },
+        { name:'운영비',     keywords:['소모품','사무','운영','임차','통신','교통','회의','교육'] },
+        { name:'반납/환입',  keywords:['반납','환입','반환','취소','오이체'] },
+      ];
+
+      function classifyMemo(memo) {
+        const m = (memo||'').toLowerCase();
+        for (const cat of CATEGORIES) {
+          if (cat.keywords.some(k => m.includes(k))) return cat.name;
+        }
+        return '기타';
+      }
 
       const txList = [];
-      for (let i = headerRow+1; i < rows.length; i++) {
+      let runBal = 0;
+      for (let i=headerRow+1; i<rows.length; i++) {
         const row  = rows[i];
         const date = row[dateCol]?.toString().trim();
-        const amt  = parseFloat((row[amtCol]||'').toString().replace(/[,\s]/g,'')) || 0;
-        const memo = memoCol >= 0 ? (row[memoCol]||'').toString().trim() : '';
-        if (!date || !amt) continue;
-        txList.push({ date, amt, memo });
+        const memo = memoCol>=0 ? (row[memoCol]||'').toString().trim() : '';
+        const bal  = balCol>=0 ? parseFloat((row[balCol]||'').toString().replace(/[,\s]/g,'')) : null;
+
+        // 출금/입금 분리 처리
+        let outAmt=0, inAmt=0;
+        if (inCol >= 0) {
+          outAmt = parseFloat((row[outCol]||'').toString().replace(/[,\s]/g,'')) || 0;
+          inAmt  = parseFloat((row[inCol ]||'').toString().replace(/[,\s]/g,'')) || 0;
+        } else {
+          const raw = parseFloat((row[outCol]||'').toString().replace(/[,\s]/g,'')) || 0;
+          if (raw > 0) outAmt = raw;
+          else         inAmt  = Math.abs(raw);
+        }
+        if (!date || (!outAmt && !inAmt)) continue;
+
+        if (bal !== null) runBal = bal;
+        const category = classifyMemo(memo);
+        txList.push({ date, outAmt, inAmt, memo, category, balance: bal });
       }
+
+      // 계정과목별 집계
+      const catSummary = {};
+      txList.forEach(t => {
+        if (!catSummary[t.category]) catSummary[t.category] = { out:0, in:0, count:0 };
+        catSummary[t.category].out   += t.outAmt;
+        catSummary[t.category].in    += t.inAmt;
+        catSummary[t.category].count += 1;
+      });
+
+      const totalOut = txList.reduce((s,t)=>s+t.outAmt, 0);
+      const totalIn  = txList.reduce((s,t)=>s+t.inAmt,  0);
 
       const preview = document.getElementById('exec-upload-preview');
       preview.innerHTML = `
-        <div style="padding:12px;background:var(--light);border-radius:8px;font-size:12px;margin-top:8px">
-          <strong>통장내역 ${txList.length}건 감지</strong><br>
-          <span style="color:var(--muted)">수입(+): ${txList.filter(t=>t.amt>0).length}건 / 지출(-): ${txList.filter(t=>t.amt<0).length}건</span><br><br>
-          ${txList.slice(0,5).map(t=>`<div>${t.date} | ${t.amt.toLocaleString()}원 | ${t.memo}</div>`).join('')}
-          ${txList.length > 5 ? `<div style="color:var(--muted)">... 외 ${txList.length-5}건</div>` : ''}
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--light);border-bottom:1px solid var(--border)">
+            <span style="font-size:13px;font-weight:600">${txList.length}건 파싱 완료</span>
+            <div style="display:flex;gap:8px">
+              <button onclick="importBankToExec()" class="btn btn-sm btn-primary">집행내역에 등록</button>
+              <button onclick="exportBankExcel()" class="btn btn-sm btn-success"><i class="ti ti-download"></i> 항목별 엑셀 저장</button>
+            </div>
+          </div>
+
+          <!-- 요약 카드 -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border-bottom:1px solid var(--border)">
+            <div style="padding:12px;text-align:center;border-right:1px solid var(--border)">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:3px">총 수입</div>
+              <div style="font-size:16px;font-weight:600;color:var(--teal)">${totalIn.toLocaleString()}원</div>
+            </div>
+            <div style="padding:12px;text-align:center;border-right:1px solid var(--border)">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:3px">총 지출</div>
+              <div style="font-size:16px;font-weight:600;color:#B45309">${totalOut.toLocaleString()}원</div>
+            </div>
+            <div style="padding:12px;text-align:center">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:3px">순액</div>
+              <div style="font-size:16px;font-weight:600;color:${totalIn-totalOut>=0?'var(--teal)':'#DC2626'}">${(totalIn-totalOut).toLocaleString()}원</div>
+            </div>
+          </div>
+
+          <!-- 계정과목별 -->
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr style="background:var(--light)">
+              <th style="padding:8px;border-bottom:1px solid var(--border)">계정과목</th>
+              <th style="padding:8px;text-align:right;border-bottom:1px solid var(--border)">건수</th>
+              <th style="padding:8px;text-align:right;border-bottom:1px solid var(--border)">지출(원)</th>
+              <th style="padding:8px;text-align:right;border-bottom:1px solid var(--border)">수입(원)</th>
+            </tr></thead>
+            <tbody>
+              ${Object.entries(catSummary).map(([cat,v])=>`
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:8px"><span style="font-size:10px;padding:2px 6px;border-radius:99px;background:#EEF2FF;color:#3730A3">${cat}</span></td>
+                <td style="padding:8px;text-align:right">${v.count}건</td>
+                <td style="padding:8px;text-align:right;font-family:monospace;color:${v.out?'#B45309':'var(--muted)'}">${v.out?v.out.toLocaleString():'—'}</td>
+                <td style="padding:8px;text-align:right;font-family:monospace;color:${v.in?'var(--teal)':'var(--muted)'}">${v.in?v.in.toLocaleString():'—'}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
         </div>`;
+
+      window._parsedBankData = { txList, catSummary, totalOut, totalIn };
       status.textContent = `통장내역 ${txList.length}건 파싱 완료`;
     } catch(err) {
       status.textContent = '통장내역 파싱 오류: ' + err.message;
+      console.error(err);
     }
   };
   reader.readAsArrayBuffer(file);
 }
+
+function exportBankExcel() {
+  const data = window._parsedBankData;
+  if (!data) return;
+  const wb = XLSX.utils.book_new();
+
+  // 전체 내역
+  const all = [['날짜','적요','계정과목','지출(원)','수입(원)','잔액']];
+  data.txList.forEach(t => all.push([t.date, t.memo, t.category, t.outAmt||'', t.inAmt||'', t.balance||'']));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(all), '전체내역');
+
+  // 계정과목별 요약
+  const sum = [['계정과목','건수','지출(원)','수입(원)']];
+  Object.entries(data.catSummary).forEach(([cat,v]) => sum.push([cat, v.count, v.out, v.in]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sum), '계정과목별');
+
+  // 계정과목별 시트
+  const cats = [...new Set(data.txList.map(t=>t.category))];
+  cats.forEach(cat => {
+    const rows = [['날짜','적요','지출(원)','수입(원)']];
+    data.txList.filter(t=>t.category===cat).forEach(t=>rows.push([t.date,t.memo,t.outAmt||'',t.inAmt||'']));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), cat.slice(0,31));
+  });
+
+  const b = BIZ[curBiz];
+  XLSX.writeFile(wb, `통장내역_${b.short}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('항목별 엑셀 저장 완료');
+}
+
+function importBankToExec() {
+  const data = window._parsedBankData;
+  if (!data) return;
+  if (!EXEC_DATA[curBiz]) EXEC_DATA[curBiz] = { income:[], monthly:[], budget:BIZ[curBiz].budget, executed:0 };
+
+  let addedIn=0, addedOut=0;
+  data.txList.forEach(t => {
+    if (t.inAmt > 0) {
+      const exists = EXEC_DATA[curBiz].income.some(r => r.date===t.date && r.amt===t.inAmt && r.note===t.memo);
+      if (!exists) { EXEC_DATA[curBiz].income.push({ date:t.date, amt:t.inAmt, note:t.memo }); addedIn++; }
+    }
+  });
+
+  savePersistedData();
+  renderBudget();
+  if (document.getElementById('view-exec')?.classList.contains('active')) renderExecHistory();
+  showToast(`수입 ${addedIn}건 집행내역에 등록됐습니다`);
+}
+
 
 // SheetJS로 파일 읽기 → BIZ[curBiz].lawyers 업데이트
 function handleLawyerUpload(event) {
@@ -3234,8 +3405,327 @@ function printBatchCheckList() {
   w.document.close();
 }
 
-// ═══════════════════════════════════
-// 청구서 등록 + 구글 드라이브 OCR
+// ═══════════════════════════════════════
+// 정산보고서
+// ═══════════════════════════════════════
+function getPeriodMonths(period, year) {
+  const y = parseInt(year) || 2026;
+  const map = {
+    H1:  [1,2,3,4,5,6],
+    H2:  [7,8,9,10,11,12],
+    Q1:  [1,2,3],
+    Q2:  [4,5,6],
+    Q3:  [7,8,9],
+    Q4:  [10,11,12],
+    ALL: [1,2,3,4,5,6,7,8,9,10,11,12]
+  };
+  return (map[period] || map.ALL).map(m => `${y}-${String(m).padStart(2,'0')}`);
+}
+
+function getPeriodLabel(period, year) {
+  const y = year || 2026;
+  const map = { H1:`${y}년 상반기`, H2:`${y}년 하반기`, Q1:`${y}년 1분기`, Q2:`${y}년 2분기`, Q3:`${y}년 3분기`, Q4:`${y}년 4분기`, ALL:`${y}년 연간` };
+  return map[period] || `${y}년`;
+}
+
+function renderReport() {
+  const period = document.getElementById('report-period')?.value || 'ALL';
+  const year   = document.getElementById('report-year')?.value   || '2026';
+  const months = getPeriodMonths(period, year);
+  const label  = getPeriodLabel(period, year);
+  const b      = BIZ[curBiz];
+  const ex     = EXEC_DATA[curBiz] || { income:[], monthly:[], budget:b.budget, executed:0 };
+
+  document.getElementById('report-title').textContent = `정산보고서 — ${b.short}`;
+  document.getElementById('report-sub').textContent   = `${b.name} · ${label}`;
+
+  // 기간 내 월별 지출
+  const periodMonthly = ex.monthly.filter(m => months.includes(m.month));
+  const periodOut     = periodMonthly.reduce((s,m) => s+(m.total||0), 0);
+
+  // 기간 내 수입
+  const periodIncome  = (ex.income||[]).filter(r => months.some(mm => (r.date||'').startsWith(mm)));
+  const incomeSum     = periodIncome.reduce((s,r) => s+(r.amt||0), 0);
+
+  // 기간 내 건별 지출
+  const periodCases   = (PAID_CASES[curBiz]||[]).filter(c => months.some(mm => (c.date||'').startsWith(mm)));
+
+  // 계정과목별 분류
+  const byType = {};
+  periodCases.forEach(c => {
+    const t = c._allowance ? '수당(일반관리비)' : (c.type === '운영비' ? '운영비(일반관리비)' : '소송구조비(법률구조사업비)');
+    if (!byType[t]) byType[t] = { count:0, total:0 };
+    byType[t].count++;
+    byType[t].total += (c.amt||0);
+  });
+
+  const pct     = b.budget ? Math.round(periodOut / b.budget * 100) : 0;
+  const balance = incomeSum - periodOut;
+  const today   = new Date().toLocaleDateString('ko-KR');
+
+  const html = `
+  <div id="report-printable">
+    <!-- 헤더 -->
+    <div class="card" style="text-align:center;padding:2rem 1.5rem;margin-bottom:1rem;border-top:4px solid var(--navy)">
+      <div style="font-size:11px;color:var(--muted);letter-spacing:.1em;margin-bottom:6px">대한변협법률구조재단</div>
+      <div style="font-size:22px;font-weight:700;color:var(--navy);letter-spacing:.05em;margin-bottom:6px">정 산 보 고 서</div>
+      <div style="font-size:14px;color:var(--text);margin-bottom:4px">${b.name}</div>
+      <div style="font-size:13px;color:var(--muted)">${label} &nbsp;|&nbsp; 작성일: ${today}</div>
+    </div>
+
+    <!-- 1. 예산 집행 요약 -->
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title"><i class="ti ti-chart-pie"></i> 1. 예산 집행 현황</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <colgroup><col style="width:30%"><col style="width:35%"><col style="width:35%"></colgroup>
+        <thead><tr style="background:var(--navy);color:#fff">
+          <th style="padding:9px 12px;text-align:left">구분</th>
+          <th style="padding:9px 12px;text-align:right">금액 (원)</th>
+          <th style="padding:9px 12px;text-align:right">비고</th>
+        </tr></thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:9px 12px;font-weight:500">① 배정 예산</td>
+            <td style="padding:9px 12px;text-align:right;font-family:monospace">${b.budget.toLocaleString()}</td>
+            <td style="padding:9px 12px;text-align:right;color:var(--muted)"></td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:9px 12px;font-weight:500">② 기간 내 수입</td>
+            <td style="padding:9px 12px;text-align:right;font-family:monospace">${incomeSum.toLocaleString()}</td>
+            <td style="padding:9px 12px;text-align:right;color:var(--muted)">${periodIncome.length}건</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:9px 12px;font-weight:500">③ 기간 내 지출</td>
+            <td style="padding:9px 12px;text-align:right;font-family:monospace;color:#B45309">${periodOut.toLocaleString()}</td>
+            <td style="padding:9px 12px;text-align:right;color:var(--muted)">${periodMonthly.length}회차</td>
+          </tr>
+          <tr style="border-bottom:2px solid var(--navy);background:var(--light)">
+            <td style="padding:9px 12px;font-weight:700">④ 잔액 (②-③)</td>
+            <td style="padding:9px 12px;text-align:right;font-family:monospace;font-weight:700;color:${balance>=0?'var(--teal)':'#DC2626'}">${balance.toLocaleString()}</td>
+            <td style="padding:9px 12px;text-align:right;color:var(--muted)">집행률 ${pct}%</td>
+          </tr>
+        </tbody>
+      </table>
+      <!-- 집행률 바 -->
+      <div style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+          <span>집행률</span><span>${pct}%</span>
+        </div>
+        <div style="height:10px;background:var(--light);border-radius:5px;overflow:hidden">
+          <div style="height:100%;width:${Math.min(pct,100)}%;background:${pct>=80?'#DC2626':pct>=50?'#D97706':'var(--navy)'};border-radius:5px;transition:width .5s"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 수입 내역 -->
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title"><i class="ti ti-cash"></i> 2. 수입 내역</div>
+      ${periodIncome.length ? `
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--light)">
+          <th style="padding:8px;text-align:left;border-bottom:2px solid var(--border)">날짜</th>
+          <th style="padding:8px;text-align:right;border-bottom:2px solid var(--border)">금액 (원)</th>
+          <th style="padding:8px;text-align:left;border-bottom:2px solid var(--border)">비고</th>
+        </tr></thead>
+        <tbody>
+          ${periodIncome.map(r=>`
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px">${r.date||''}</td>
+            <td style="padding:8px;text-align:right;font-family:monospace;${(r.amt||0)<0?'color:#DC2626':''}">${(r.amt||0).toLocaleString()}</td>
+            <td style="padding:8px;color:var(--muted)">${r.note||''}</td>
+          </tr>`).join('')}
+          <tr style="border-top:2px solid var(--border);background:var(--light);font-weight:600">
+            <td style="padding:8px">합계</td>
+            <td style="padding:8px;text-align:right;font-family:monospace">${incomeSum.toLocaleString()}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>` : '<div style="text-align:center;padding:1rem;color:var(--muted);font-size:12px">해당 기간 수입 내역 없음</div>'}
+    </div>
+
+    <!-- 3. 월별 지출 내역 -->
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title"><i class="ti ti-calendar"></i> 3. 월별 지출 내역</div>
+      ${periodMonthly.length ? `
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--light)">
+          <th style="padding:8px;border-bottom:2px solid var(--border)">지급일</th>
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:right">건수</th>
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:right">지급액 (원)</th>
+          <th style="padding:8px;border-bottom:2px solid var(--border)">상태</th>
+        </tr></thead>
+        <tbody>
+          ${periodMonthly.map(m=>`
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px">${m.date||''} (${m.label||''})</td>
+            <td style="padding:8px;text-align:right">${m.count||0}건</td>
+            <td style="padding:8px;text-align:right;font-family:monospace">${(m.total||0).toLocaleString()}</td>
+            <td style="padding:8px"><span style="font-size:10px;padding:2px 6px;border-radius:99px;background:${m.status==='완료'?'#DCFCE7':'#FEF3C7'};color:${m.status==='완료'?'#166534':'#92400E'}">${m.status||''}</span></td>
+          </tr>`).join('')}
+          <tr style="border-top:2px solid var(--border);background:var(--light);font-weight:600">
+            <td style="padding:8px">합계</td>
+            <td style="padding:8px;text-align:right">${periodMonthly.reduce((s,m)=>s+(m.count||0),0)}건</td>
+            <td style="padding:8px;text-align:right;font-family:monospace">${periodOut.toLocaleString()}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>` : '<div style="text-align:center;padding:1rem;color:var(--muted);font-size:12px">해당 기간 지출 내역 없음</div>'}
+    </div>
+
+    <!-- 4. 계정과목별 집계 -->
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title"><i class="ti ti-tag"></i> 4. 계정과목별 집계</div>
+      ${Object.keys(byType).length ? `
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--light)">
+          <th style="padding:8px;border-bottom:2px solid var(--border)">계정과목</th>
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:right">건수</th>
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:right">금액 (원)</th>
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:right">비율</th>
+        </tr></thead>
+        <tbody>
+          ${Object.entries(byType).map(([t,v])=>`
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px;font-weight:500">${t}</td>
+            <td style="padding:8px;text-align:right">${v.count}건</td>
+            <td style="padding:8px;text-align:right;font-family:monospace">${v.total.toLocaleString()}</td>
+            <td style="padding:8px;text-align:right;color:var(--muted)">${periodOut?Math.round(v.total/periodOut*100):0}%</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : '<div style="text-align:center;padding:1rem;color:var(--muted);font-size:12px">건별 집행 데이터 없음</div>'}
+    </div>
+
+    <!-- 5. 건별 지출 상세 -->
+    <div class="card">
+      <div class="card-title"><i class="ti ti-list-details"></i> 5. 건별 지출 상세 (${periodCases.length}건)</div>
+      ${periodCases.length ? `
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:600px">
+        <thead><tr style="background:var(--light)">
+          <th style="padding:7px 8px;border-bottom:2px solid var(--border)">지급일</th>
+          <th style="padding:7px 8px;border-bottom:2px solid var(--border)">접수번호</th>
+          <th style="padding:7px 8px;border-bottom:2px solid var(--border)">의뢰인</th>
+          <th style="padding:7px 8px;border-bottom:2px solid var(--border)">변호사</th>
+          <th style="padding:7px 8px;border-bottom:2px solid var(--border)">유형</th>
+          <th style="padding:7px 8px;border-bottom:2px solid var(--border);text-align:right">금액 (원)</th>
+          <th style="padding:7px 8px;border-bottom:2px solid var(--border)">비고</th>
+        </tr></thead>
+        <tbody>
+          ${periodCases.map((c,i)=>`
+          <tr style="border-bottom:1px solid var(--border);${i%2===1?'background:var(--light)':''}">
+            <td style="padding:7px 8px;color:var(--muted)">${c.date||''}</td>
+            <td style="padding:7px 8px;font-family:monospace;font-size:10px">${c.num||''}</td>
+            <td style="padding:7px 8px">${c.client||''}</td>
+            <td style="padding:7px 8px">${c.lawyer||''}</td>
+            <td style="padding:7px 8px"><span style="font-size:10px;padding:1px 5px;border-radius:99px;background:#EEF2FF;color:#3730A3">${c.type||''}</span></td>
+            <td style="padding:7px 8px;text-align:right;font-family:monospace">${(c.amt||0).toLocaleString()}</td>
+            <td style="padding:7px 8px;color:var(--muted);font-size:10px">${c.note||''}</td>
+          </tr>`).join('')}
+          <tr style="border-top:2px solid var(--border);background:var(--light);font-weight:600">
+            <td colspan="5" style="padding:7px 8px;text-align:right">합계</td>
+            <td style="padding:7px 8px;text-align:right;font-family:monospace">${periodCases.reduce((s,c)=>s+(c.amt||0),0).toLocaleString()}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+      </div>` : '<div style="text-align:center;padding:1rem;color:var(--muted);font-size:12px">건별 집행 데이터 없음 — 집행내역 탭에서 엑셀 업로드 후 등록해주세요</div>'}
+    </div>
+  </div>`;
+
+  document.getElementById('report-body').innerHTML = html;
+}
+
+function printReport() {
+  const content = document.getElementById('report-printable');
+  if (!content) { showToast('먼저 보고서를 조회해주세요'); return; }
+  const b     = BIZ[curBiz];
+  const period = document.getElementById('report-period')?.value || 'ALL';
+  const year   = document.getElementById('report-year')?.value   || '2026';
+  const label  = getPeriodLabel(period, year);
+
+  const w = window.open('', '_blank', 'width=900,height=900');
+  w.document.write(`<!DOCTYPE html><html lang="ko"><head>
+  <meta charset="UTF-8">
+  <title>정산보고서_${b.short}_${label}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:"Noto Sans KR",sans-serif;padding:20px;font-size:12px;color:#000;background:#fff}
+    .no-print{margin-bottom:12px}
+    h2{font-size:20px;font-weight:700;text-align:center;margin-bottom:4px;color:#1F4E79;letter-spacing:.05em}
+    .sub{text-align:center;font-size:12px;color:#555;margin-bottom:20px}
+    .section{margin-bottom:20px}
+    .section-title{font-size:13px;font-weight:700;color:#1F4E79;border-bottom:2px solid #1F4E79;padding-bottom:4px;margin-bottom:10px}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    th{background:#1F4E79;color:#fff;padding:7px 8px;text-align:left}
+    th.r{text-align:right}
+    td{padding:7px 8px;border-bottom:1px solid #ddd}
+    td.r{text-align:right;font-family:monospace}
+    tr.total td{background:#F0F4F8;font-weight:700;border-top:2px solid #1F4E79}
+    .bar-wrap{height:8px;background:#eee;border-radius:4px;overflow:hidden;margin-top:8px}
+    .bar{height:100%;border-radius:4px}
+    @media print{.no-print{display:none}body{padding:10px}}
+  </style></head><body>
+  <div class="no-print">
+    <button onclick="window.print()" style="padding:7px 18px;background:#1F4E79;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px">인쇄</button>
+  </div>
+  ${content.innerHTML.replace(/style="[^"]*var\(--[^"]*\)[^"]*"/g, (m)=>m)}
+  </body></html>`);
+  w.document.close();
+}
+
+function exportReportExcel() {
+  const period = document.getElementById('report-period')?.value || 'ALL';
+  const year   = document.getElementById('report-year')?.value   || '2026';
+  const months = getPeriodMonths(period, year);
+  const label  = getPeriodLabel(period, year);
+  const b      = BIZ[curBiz];
+  const ex     = EXEC_DATA[curBiz] || { income:[], monthly:[], budget:b.budget, executed:0 };
+
+  const periodMonthly = ex.monthly.filter(m => months.includes(m.month));
+  const periodOut     = periodMonthly.reduce((s,m) => s+(m.total||0), 0);
+  const periodIncome  = (ex.income||[]).filter(r => months.some(mm => (r.date||'').startsWith(mm)));
+  const incomeSum     = periodIncome.reduce((s,r) => s+(r.amt||0), 0);
+  const periodCases   = (PAID_CASES[curBiz]||[]).filter(c => months.some(mm => (c.date||'').startsWith(mm)));
+
+  if (!window.XLSX) { showToast('엑셀 라이브러리 로딩 중...'); return; }
+  const wb = XLSX.utils.book_new();
+
+  // 시트1: 요약
+  const summary = [
+    ['정산보고서', b.name, label],
+    [],
+    ['구분','금액(원)','비고'],
+    ['① 배정 예산', b.budget, ''],
+    ['② 기간 수입',  incomeSum,  periodIncome.length+'건'],
+    ['③ 기간 지출',  periodOut,  periodMonthly.length+'회차'],
+    ['④ 잔액',       incomeSum-periodOut, `집행률 ${b.budget?Math.round(periodOut/b.budget*100):0}%`],
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), '요약');
+
+  // 시트2: 월별지출
+  const monthly = [['지급일','건수','지급액(원)','상태']];
+  periodMonthly.forEach(m => monthly.push([m.date||'', m.count||0, m.total||0, m.status||'']));
+  monthly.push(['합계', periodMonthly.reduce((s,m)=>s+(m.count||0),0), periodOut, '']);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(monthly), '월별지출');
+
+  // 시트3: 수입
+  const inc = [['날짜','금액(원)','비고']];
+  periodIncome.forEach(r => inc.push([r.date||'', r.amt||0, r.note||'']));
+  inc.push(['합계', incomeSum, '']);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(inc), '수입내역');
+
+  // 시트4: 건별상세
+  const detail = [['지급일','접수번호','의뢰인','변호사','유형','금액(원)','비고']];
+  periodCases.forEach(c => detail.push([c.date||'', c.num||'', c.client||'', c.lawyer||'', c.type||'', c.amt||0, c.note||'']));
+  detail.push(['합계','','','','', periodCases.reduce((s,c)=>s+(c.amt||0),0),'']);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detail), '건별상세');
+
+  XLSX.writeFile(wb, `정산보고서_${b.short}_${label}.xlsx`);
+  showToast(`정산보고서_${b.short}_${label}.xlsx 저장 완료`);
+}
+
+
 // ═══════════════════════════════════
 const scanDoneList = [];
 let scanResolItems = [];
