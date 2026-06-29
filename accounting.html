@@ -44,8 +44,8 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
 .login-hint{font-size:11px;color:var(--muted);text-align:center;margin-top:1rem;line-height:1.6}
 
 /* 앱 */
-.app{display:none;height:100vh;flex-direction:column;overflow:hidden}
-.app.visible{display:flex}
+.app{display:none;flex-direction:column}
+.app.visible{display:flex;height:100vh}
 .topnav{background:var(--navy);color:#fff;padding:0 1.5rem;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .topnav-logo{font-size:15px;font-weight:600}
 .topnav-right{display:flex;align-items:center;gap:10px}
@@ -60,14 +60,14 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
 .biz-tab i{font-size:15px}
 
 /* 레이아웃 */
-.layout{display:contents}
-.sidenav{background:var(--surface);border-right:1px solid var(--border);padding:1rem 0;overflow-y:auto;position:fixed;top:52px;left:0;width:190px;height:calc(100vh - 52px);z-index:100}
+.layout{display:grid;grid-template-columns:190px 1fr;flex:1;overflow:hidden;min-height:0}
+.sidenav{background:var(--surface);border-right:1px solid var(--border);padding:1rem 0;overflow-y:auto}
 .nav-section{font-size:10px;font-weight:600;color:var(--muted);padding:8px 14px 4px;letter-spacing:.06em;text-transform:uppercase}
 .nav-item{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:13px;color:var(--muted);cursor:pointer;border-left:3px solid transparent}
 .nav-item:hover{background:var(--light);color:var(--text)}
 .nav-item.active{background:#EBF3FC;color:var(--navy);font-weight:500;border-left-color:var(--navy)}
 .nav-item i{font-size:15px}
-.main{position:fixed;top:52px;left:190px;right:0;bottom:0;overflow-y:auto;padding:1.5rem}
+.main{overflow-y:auto;padding:1.5rem;min-height:0}
 
 /* 뷰 */
 .view{display:none}
