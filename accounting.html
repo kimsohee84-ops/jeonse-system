@@ -511,193 +511,6 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
           <!-- 집행내역 등록 확인 모달 -->
           <!-- 건별 집행내역 수정 모달 -->
           <!-- 상계처리 모달 -->
-          <div id="settle-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
-            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:500px;max-width:94vw;box-shadow:var(--shadow-md)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-arrows-exchange"></i> 상계 처리</h3>
-                <button onclick="closeSettleModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
-              </div>
-              <div id="settle-neg-info" style="padding:10px;background:#FFF7F7;border-radius:8px;margin-bottom:12px;font-size:13px"></div>
-              <div style="font-size:12px;color:var(--muted);margin-bottom:6px">상계할 수입 항목 선택 <span style="color:#6B7280">(여러 건 선택 가능)</span></div>
-              <div id="settle-pos-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:10px"></div>
-              <div id="settle-net-display" style="padding:8px 12px;background:var(--light);border-radius:8px;font-size:13px;margin-bottom:10px;display:none">
-                순액: <strong id="settle-net-amt" style="font-family:monospace"></strong>
-              </div>
-              <div style="padding:10px;background:#FFFBEB;border-radius:8px;font-size:12px;color:#92400E;margin-bottom:12px">
-                또는 <strong>지출 환입</strong> (해당 월 지출에서 직접 차감 — 계좌 오이체 반환 등):
-                <button onclick="settleAsRefund()" class="btn btn-sm" style="margin-left:6px;border-color:#D97706;color:#D97706">지출 차감 처리</button>
-              </div>
-              <div style="display:flex;gap:8px">
-                <button class="btn" style="flex:1;justify-content:center" onclick="closeSettleModal()">취소</button>
-                <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmSettle()"><i class="ti ti-check"></i> 상계 확정</button>
-              </div>
-            </div>
-          </div>
-
-          <div id="paid-case-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
-            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:480px;max-width:94vw;box-shadow:var(--shadow-md)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-edit"></i> 집행내역 수정</h3>
-                <button onclick="closePaidCaseModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem">
-                <div class="field"><label>지급일</label><input class="form-input" type="date" id="pc-date"></div>
-                <div class="field"><label>접수번호</label><input class="form-input" id="pc-num" placeholder="예: 26-139"></div>
-                <div class="field"><label>의뢰인</label><input class="form-input" id="pc-client"></div>
-                <div class="field"><label>변호사</label><input class="form-input" id="pc-lawyer"></div>
-                <div class="field"><label>금액 (원)</label><input class="form-input" type="number" id="pc-amt"></div>
-                <div class="field">
-                  <label>유형</label>
-                  <select class="form-input" id="pc-type">
-                    <option value="민사">민사</option>
-                    <option value="형사">형사</option>
-                    <option value="신청">신청</option>
-                    <option value="행정">행정</option>
-                    <option value="수당">수당</option>
-                    <option value="운영비">운영비</option>
-                  </select>
-                </div>
-                <div class="field" style="grid-column:1/-1"><label>비고</label><input class="form-input" id="pc-note"></div>
-              </div>
-              <div style="display:flex;gap:8px">
-                <button class="btn" style="flex:1;justify-content:center" onclick="closePaidCaseModal()">취소</button>
-                <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="savePaidCase()"><i class="ti ti-check"></i> 저장</button>
-              </div>
-            </div>
-          </div>
-
-          <div id="exec-confirm-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
-            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:420px;max-width:94vw;box-shadow:var(--shadow-md)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-database-import"></i> 집행내역 등록</h3>
-                <button onclick="closeExecConfirmModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
-              </div>
-              <div id="exec-confirm-content" style="margin-bottom:1.2rem;font-size:13px;line-height:1.7"></div>
-              <div style="display:flex;gap:8px">
-                <button class="btn" style="flex:1;justify-content:center" onclick="closeExecConfirmModal()">나중에</button>
-                <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmRecordExecution()">
-                  <i class="ti ti-check"></i> 집행내역에 등록
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 수입 등록/수정 모달 -->
-          <div id="income-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
-            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:400px;max-width:94vw;box-shadow:var(--shadow-md)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
-                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-cash"></i> 수입 등록/수정</h3>
-                <button onclick="closeIncomeModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
-              </div>
-              <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:1.2rem">
-                <div class="field"><label>날짜</label><input class="form-input" type="date" id="income-date"></div>
-                <div class="field"><label>금액 (원)</label><input class="form-input" type="number" id="income-amt" placeholder="195000000"></div>
-                <div class="field"><label>비고</label><input class="form-input" id="income-note" placeholder="예: 국토부 1차 선금"></div>
-              </div>
-              <div style="display:flex;gap:8px">
-                <button class="btn" style="flex:1;justify-content:center" onclick="closeIncomeModal()">취소</button>
-                <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveIncome()"><i class="ti ti-check"></i> 저장</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 월별 지출 수정 모달 -->
-          <div id="monthly-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
-            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:420px;max-width:94vw;box-shadow:var(--shadow-md)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
-                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-edit"></i> 월별 지출 수정</h3>
-                <button onclick="closeMonthlyModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem">
-                <div class="field"><label>지급일</label><input class="form-input" type="date" id="monthly-date"></div>
-                <div class="field"><label>건수</label><input class="form-input" type="number" id="monthly-count"></div>
-                <div class="field"><label>지급액 (원)</label><input class="form-input" type="number" id="monthly-total"></div>
-                <div class="field"><label>월 레이블</label><input class="form-input" id="monthly-label" placeholder="예: 5월"></div>
-                <div class="field" style="grid-column:1/-1">
-                  <label>상태</label>
-                  <select class="form-input" id="monthly-status">
-                    <option value="완료">완료</option>
-                    <option value="예정">예정</option>
-                  </select>
-                </div>
-              </div>
-              <div style="display:flex;gap:8px">
-                <button class="btn" style="flex:1;justify-content:center" onclick="closeMonthlyModal()">취소</button>
-                <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveMonthly()"><i class="ti ti-check"></i> 저장</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 사건 수동 추가 모달 -->
-          <div id="add-resol-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
-            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:500px;max-width:94vw;box-shadow:var(--shadow-md);max-height:90vh;overflow-y:auto">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
-                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-plus"></i> 사건 수동 추가</h3>
-                <button onclick="closeAddResolModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem">
-                <div class="field" style="grid-column:1/-1">
-                  <label>접수번호 <span style="color:#DC2626">*</span></label>
-                  <input class="form-input" id="add-num" placeholder="예: 26-176">
-                </div>
-                <div class="field" style="grid-column:1/-1">
-                  <label>계정과목</label>
-                  <select class="form-input" id="add-account-type">
-                    <option value="법률구조사업비">법률구조사업비</option>
-                    <option value="일반관리비">일반관리비</option>
-                  </select>
-                </div>
-                <div class="field">
-                  <label>변호사 <span style="color:#DC2626">*</span></label>
-                  <input class="form-input" id="add-lawyer" placeholder="변호사 성명">
-                </div>
-                <div class="field">
-                  <label>의뢰인 <span style="color:#DC2626">*</span></label>
-                  <input class="form-input" id="add-client" placeholder="의뢰인 성명">
-                </div>
-                <div class="field" style="grid-column:1/-1">
-                  <label>사건명</label>
-                  <input class="form-input" id="add-case" placeholder="예: 임대차보증금반환소송">
-                </div>
-                <div class="field">
-                  <label>사건 유형</label>
-                  <select class="form-input" id="add-type">
-                    <option>민사</option>
-                    <option>형사</option>
-                    <option>신청</option>
-                    <option>행정</option>
-                    <option>수당</option>
-                  </select>
-                </div>
-                <div class="field">
-                  <label>청구일</label>
-                  <input class="form-input" type="date" id="add-date">
-                </div>
-                <div class="field">
-                  <label>변호사보수 (원)</label>
-                  <input class="form-input" type="number" id="add-fee" placeholder="0">
-                </div>
-                <div class="field">
-                  <label>인지대 (원)</label>
-                  <input class="form-input" type="number" id="add-stamp" placeholder="0">
-                </div>
-                <div class="field">
-                  <label>송달료 (원)</label>
-                  <input class="form-input" type="number" id="add-delivery" placeholder="0">
-                </div>
-                <div class="field">
-                  <label>비고</label>
-                  <input class="form-input" id="add-note" placeholder="메모">
-                </div>
-              </div>
-              <div style="display:flex;gap:8px">
-                <button class="btn" style="flex:1;justify-content:center" onclick="closeAddResolModal()">취소</button>
-                <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveAddResol()">
-                  <i class="ti ti-check"></i> 추가
-                </button>
-              </div>
-            </div>
-          </div>
 
           <div id="scan-resol-content" style="display:none">
             <!-- 상단 버튼 -->
@@ -1086,7 +899,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
       <!-- 집행내역 전체 -->
       <div class="view" id="view-exec">
         <p class="page-title">집행내역 (2026년 전체)</p>
-        <p class="page-sub">국토부 — 3월~5월 실제 집행 데이터</p>
+        <p class="page-sub" id="exec-sub"></p>
         <div class="stat-grid" id="exec-summary"></div>
         <div class="card">
           <div class="card-title"><i class="ti ti-calendar-stats" aria-hidden="true"></i> 월별 집행 현황</div>
@@ -1871,33 +1684,41 @@ function closeBizEditModal() {
 function saveBizEdit() {
   const b = ALL_BIZ_DATA[_editBizIdx];
   if (!b) return;
-  const newBudget = parseInt(document.getElementById('biz-edit-budget').value.replace(/,/g,'')) || b.budget;
+
+  const budgetVal = document.getElementById('biz-edit-budget').value.replace(/,/g,'');
+  const execVal   = document.getElementById('biz-edit-exec').value.replace(/,/g,'');
+  const newBudget = budgetVal !== '' ? (parseInt(budgetVal) || 0) : b.budget;
+  const newExec   = execVal   !== '' ? (parseInt(execVal)   || 0) : b.exec;
+
   b.budget   = newBudget;
-  b.exec     = parseInt(document.getElementById('biz-edit-exec').value.replace(/,/g,''))   || b.exec;
-  b.target   = parseInt(document.getElementById('biz-edit-target').value)                  || b.target;
-  b.done     = parseInt(document.getElementById('biz-edit-done').value)                    || b.done;
+  b.exec     = newExec;
+  b.target   = parseInt(document.getElementById('biz-edit-target').value) || b.target;
+  b.done     = parseInt(document.getElementById('biz-edit-done').value)   || b.done;
   b.status   = document.getElementById('biz-edit-status').value;
   b.basedate = document.getElementById('biz-edit-basedate').value;
   b.note     = document.getElementById('biz-edit-note').value.trim();
 
-  // BIZ 객체 예산도 동기화 (linked 사업은 BIZ 키로 연결)
+  // BIZ 객체 예산/집행액 동기화
   if (b.linked && BIZ[b.linked]) {
-    BIZ[b.linked].budget = newBudget;
-    BIZ[b.linked].executed = b.exec;
+    BIZ[b.linked].budget   = newBudget;
+    BIZ[b.linked].executed = newExec;
   }
-  // EXEC_DATA 예산도 동기화
   if (b.linked && EXEC_DATA[b.linked]) {
-    EXEC_DATA[b.linked].budget = newBudget;
+    EXEC_DATA[b.linked].budget   = newBudget;
+    EXEC_DATA[b.linked].executed = newExec;
   }
-  // BIZ_EXTRA 사업도 동기화
+  // linked 없는 사업도 이름으로 BIZ 매칭
   const extraKey = Object.keys(BIZ).find(k => {
     const bObj = BIZ[k];
     return bObj && (bObj.name === b.name || bObj.short === b.agency.replace(/[()]/g,''));
   });
-  if (extraKey) {
+  if (extraKey && !b.linked) {
     BIZ[extraKey].budget   = newBudget;
-    BIZ[extraKey].executed = b.exec;
-    if (EXEC_DATA[extraKey]) EXEC_DATA[extraKey].budget = newBudget;
+    BIZ[extraKey].executed = newExec;
+    if (EXEC_DATA[extraKey]) {
+      EXEC_DATA[extraKey].budget   = newBudget;
+      EXEC_DATA[extraKey].executed = newExec;
+    }
   }
 
   savePersistedData();
@@ -2803,6 +2624,9 @@ function renderExecHistory() {
   const ex       = EXEC_DATA[curBiz] || { income:[], monthly:[], budget:0, executed:0 };
   const monthly  = ex.monthly;
   const income   = ex.income;
+  // 부제목 업데이트
+  const subEl = document.getElementById('exec-sub');
+  if (subEl) subEl.textContent = BIZ[curBiz]?.name || '';
 
   // 상계 그룹별 순액 계산
   const settledGroups = [...new Set(income.filter(r=>r._settleGroup).map(r=>r._settleGroup))];
@@ -4901,6 +4725,196 @@ function recordExecution(cases, b, yy, mm, dd) {
     <div style="display:flex;gap:8px">
       <button class="btn" style="flex:1;justify-content:center" onclick="closeAddBizModal()">취소</button>
       <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveNewBiz()"><i class="ti ti-check"></i> 사업 추가</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- 전역 모달 -->
+<div id="settle-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:500px;max-width:94vw;box-shadow:var(--shadow-md)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-arrows-exchange"></i> 상계 처리</h3>
+      <button onclick="closeSettleModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div id="settle-neg-info" style="padding:10px;background:#FFF7F7;border-radius:8px;margin-bottom:12px;font-size:13px"></div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">상계할 수입 항목 선택 <span style="color:#6B7280">(여러 건 선택 가능)</span></div>
+    <div id="settle-pos-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:10px"></div>
+    <div id="settle-net-display" style="padding:8px 12px;background:var(--light);border-radius:8px;font-size:13px;margin-bottom:10px;display:none">
+      순액: <strong id="settle-net-amt" style="font-family:monospace"></strong>
+    </div>
+    <div style="padding:10px;background:#FFFBEB;border-radius:8px;font-size:12px;color:#92400E;margin-bottom:12px">
+      또는 <strong>지출 환입</strong> (해당 월 지출에서 직접 차감 — 계좌 오이체 반환 등):
+      <button onclick="settleAsRefund()" class="btn btn-sm" style="margin-left:6px;border-color:#D97706;color:#D97706">지출 차감 처리</button>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeSettleModal()">취소</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmSettle()"><i class="ti ti-check"></i> 상계 확정</button>
+    </div>
+  </div>
+</div>
+
+<div id="paid-case-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:480px;max-width:94vw;box-shadow:var(--shadow-md)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-edit"></i> 집행내역 수정</h3>
+      <button onclick="closePaidCaseModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem">
+      <div class="field"><label>지급일</label><input class="form-input" type="date" id="pc-date"></div>
+      <div class="field"><label>접수번호</label><input class="form-input" id="pc-num" placeholder="예: 26-139"></div>
+      <div class="field"><label>의뢰인</label><input class="form-input" id="pc-client"></div>
+      <div class="field"><label>변호사</label><input class="form-input" id="pc-lawyer"></div>
+      <div class="field"><label>금액 (원)</label><input class="form-input" type="number" id="pc-amt"></div>
+      <div class="field">
+        <label>유형</label>
+        <select class="form-input" id="pc-type">
+<option value="민사">민사</option>
+<option value="형사">형사</option>
+<option value="신청">신청</option>
+<option value="행정">행정</option>
+<option value="수당">수당</option>
+<option value="운영비">운영비</option>
+        </select>
+      </div>
+      <div class="field" style="grid-column:1/-1"><label>비고</label><input class="form-input" id="pc-note"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;justify-content:center" onclick="closePaidCaseModal()">취소</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="savePaidCase()"><i class="ti ti-check"></i> 저장</button>
+    </div>
+  </div>
+</div>
+
+<div id="exec-confirm-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:420px;max-width:94vw;box-shadow:var(--shadow-md)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-database-import"></i> 집행내역 등록</h3>
+      <button onclick="closeExecConfirmModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div id="exec-confirm-content" style="margin-bottom:1.2rem;font-size:13px;line-height:1.7"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeExecConfirmModal()">나중에</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmRecordExecution()">
+        <i class="ti ti-check"></i> 집행내역에 등록
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 수입 등록/수정 모달 -->
+<div id="income-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:400px;max-width:94vw;box-shadow:var(--shadow-md)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
+      <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-cash"></i> 수입 등록/수정</h3>
+      <button onclick="closeIncomeModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:1.2rem">
+      <div class="field"><label>날짜</label><input class="form-input" type="date" id="income-date"></div>
+      <div class="field"><label>금액 (원)</label><input class="form-input" type="number" id="income-amt" placeholder="195000000"></div>
+      <div class="field"><label>비고</label><input class="form-input" id="income-note" placeholder="예: 국토부 1차 선금"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeIncomeModal()">취소</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveIncome()"><i class="ti ti-check"></i> 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 월별 지출 수정 모달 -->
+<div id="monthly-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:420px;max-width:94vw;box-shadow:var(--shadow-md)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
+      <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-edit"></i> 월별 지출 수정</h3>
+      <button onclick="closeMonthlyModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem">
+      <div class="field"><label>지급일</label><input class="form-input" type="date" id="monthly-date"></div>
+      <div class="field"><label>건수</label><input class="form-input" type="number" id="monthly-count"></div>
+      <div class="field"><label>지급액 (원)</label><input class="form-input" type="number" id="monthly-total"></div>
+      <div class="field"><label>월 레이블</label><input class="form-input" id="monthly-label" placeholder="예: 5월"></div>
+      <div class="field" style="grid-column:1/-1">
+        <label>상태</label>
+        <select class="form-input" id="monthly-status">
+<option value="완료">완료</option>
+<option value="예정">예정</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeMonthlyModal()">취소</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveMonthly()"><i class="ti ti-check"></i> 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 사건 수동 추가 모달 -->
+<div id="add-resol-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:500px;max-width:94vw;box-shadow:var(--shadow-md);max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
+      <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-plus"></i> 사건 수동 추가</h3>
+      <button onclick="closeAddResolModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem">
+      <div class="field" style="grid-column:1/-1">
+        <label>접수번호 <span style="color:#DC2626">*</span></label>
+        <input class="form-input" id="add-num" placeholder="예: 26-176">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>계정과목</label>
+        <select class="form-input" id="add-account-type">
+<option value="법률구조사업비">법률구조사업비</option>
+<option value="일반관리비">일반관리비</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>변호사 <span style="color:#DC2626">*</span></label>
+        <input class="form-input" id="add-lawyer" placeholder="변호사 성명">
+      </div>
+      <div class="field">
+        <label>의뢰인 <span style="color:#DC2626">*</span></label>
+        <input class="form-input" id="add-client" placeholder="의뢰인 성명">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>사건명</label>
+        <input class="form-input" id="add-case" placeholder="예: 임대차보증금반환소송">
+      </div>
+      <div class="field">
+        <label>사건 유형</label>
+        <select class="form-input" id="add-type">
+<option>민사</option>
+<option>형사</option>
+<option>신청</option>
+<option>행정</option>
+<option>수당</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>청구일</label>
+        <input class="form-input" type="date" id="add-date">
+      </div>
+      <div class="field">
+        <label>변호사보수 (원)</label>
+        <input class="form-input" type="number" id="add-fee" placeholder="0">
+      </div>
+      <div class="field">
+        <label>인지대 (원)</label>
+        <input class="form-input" type="number" id="add-stamp" placeholder="0">
+      </div>
+      <div class="field">
+        <label>송달료 (원)</label>
+        <input class="form-input" type="number" id="add-delivery" placeholder="0">
+      </div>
+      <div class="field">
+        <label>비고</label>
+        <input class="form-input" id="add-note" placeholder="메모">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeAddResolModal()">취소</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveAddResol()">
+        <i class="ti ti-check"></i> 추가
+      </button>
     </div>
   </div>
 </div>
