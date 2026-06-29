@@ -589,8 +589,6 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
             </div>
           </div>
 
-          <div id="add-resol-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
-
           <!-- 수입 등록/수정 모달 -->
           <div id="income-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
             <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:400px;max-width:94vw;box-shadow:var(--shadow-md)">
@@ -636,6 +634,9 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
               </div>
             </div>
           </div>
+
+          <!-- 사건 수동 추가 모달 -->
+          <div id="add-resol-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
             <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:500px;max-width:94vw;box-shadow:var(--shadow-md);max-height:90vh;overflow-y:auto">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
                 <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-plus"></i> 사건 수동 추가</h3>
@@ -4841,6 +4842,13 @@ function recordExecution(cases, b, yy, mm, dd) {
                   <input class="form-input" id="biz-edit-note" placeholder="예: 1차 교부 완료">
                 </div>
               </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn" style="flex:1;justify-content:center" onclick="closeBizEditModal()">취소</button>
+                <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveBizEdit()"><i class="ti ti-check"></i> 저장</button>
+              </div>
+            </div>
+          </div>
+
 <!-- 신규 사업 추가 모달 -->
 <div id="add-biz-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
   <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:480px;max-width:94vw;box-shadow:var(--shadow-md);max-height:90vh;overflow-y:auto">
