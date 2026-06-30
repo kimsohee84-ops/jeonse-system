@@ -201,5 +201,15 @@ function parseDoc(text) {
     if (m) { r.lawCourt = m[1].trim(); break; }
   }
 
+  // 사건번호 (예: 2026가단205392, 2026가합12345)
+  {
+    const m = text.match(/사\s*건\s*번\s*호\s+(\d{4}[가-힣]{1,3}\d+)/);
+    if (m) r.courtCaseNum = m[1].trim();
+    else {
+      const m2 = text.match(/(\d{4}(?:가단|가합|가소|고단|고합|고정|느단|느합|드단|드합|구단|구합|카단|카합|타경|차전|차)\d+)/);
+      if (m2) r.courtCaseNum = m2[1].trim();
+    }
+  }
+
   return r;
 }
