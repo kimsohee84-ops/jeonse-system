@@ -94,8 +94,17 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None):
 
     ws_src = wb_src_resol[src_name]
 
-    # 병합셀 목록을 문자열로 미리 추출 (openpyxl 내부 처리 후)
-    merge_strings = [str(m) for m in ws_src.merged_cells.ranges]
+    # 병합셀 목록을 문자열로 미리 추출 (원본 양식 자체가 이미 2페이지 분량 셀(32행 이후)을
+    # 포함하고 있어, offset을 누적 적용하면 다음 페이지와 겹쳐 깨짐 → 1~31행만 사용)
+    def merge_row_range(mc):
+        parts = mc.split(':')
+        r1 = int(''.join(c for c in parts[0] if c.isdigit()))
+        r2 = int(''.join(c for c in parts[1] if c.isdigit()))
+        return r1, r2
+    merge_strings = [
+        str(m) for m in ws_src.merged_cells.ranges
+        if merge_row_range(str(m))[1] <= 31
+    ]
 
     wb_new = Workbook(); wb_new.remove(wb_new.active)
     ws_new = wb_new.create_sheet(new_name)
