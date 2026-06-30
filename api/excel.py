@@ -77,8 +77,9 @@ def fill_page(ws, o, page, page_total, biz_title, yy, mm, dd, page_num=0):
             for col in [2,5,13,16]: set_val(ws,r,col,None)
     set_val(ws,31+o,1,"계"); set_val(ws,31+o,13,page_total)
 
-def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None):
-    # sheets: 생성할 시트 목록 ['resol', 'lawyer', 'transfer'] 기본값은 전체
+def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mode='all'):
+    # mode: 'resol' (지출결의서만) | 'list' (지출목록만) | 'report' (정산보고서만) | 'all' (전체)
+    # sheets: mode='resol'일 때만 사용. 지출결의서 내 부속시트 선택 ['resol','lawyer','transfer']
     if sheets is None:
         sheets = ['resol', 'lawyer', 'transfer']
 
@@ -92,262 +93,262 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None):
     biz_title = f"{yy}년 소송구조({biz_full}) / 전세피해자"
     new_name  = f"26년사업비-{biz_label} ({mm}월)"
 
-    ws_src = wb_src_resol[src_name]
-
-    # 병합셀 목록을 문자열로 미리 추출 (원본 양식 자체가 이미 2페이지 분량 셀(32행 이후)을
-    # 포함하고 있어, offset을 누적 적용하면 다음 페이지와 겹쳐 깨짐 → 1~31행만 사용)
-    def merge_row_range(mc):
-        parts = mc.split(':')
-        r1 = int(''.join(c for c in parts[0] if c.isdigit()))
-        r2 = int(''.join(c for c in parts[1] if c.isdigit()))
-        return r1, r2
-    merge_strings = [
-        str(m) for m in ws_src.merged_cells.ranges
-        if merge_row_range(str(m))[1] <= 31
-    ]
-
     wb_new = Workbook(); wb_new.remove(wb_new.active)
-    ws_new = wb_new.create_sheet(new_name)
 
-    # 열너비
-    for col,dim in ws_src.column_dimensions.items():
-        ws_new.column_dimensions[col].width=dim.width
+    pages = []  # mode='resol'이 아니면 빈 채로 유지 (이후 코드에서 참조해도 안전)
 
-    pages = [cases_data[i:i+20] for i in range(0,max(len(cases_data),1),20)]
+    # ══════════════════════════════════════════
+    # ① 지출결의서 (mode: 'resol' 또는 'all')
+    # ══════════════════════════════════════════
+    if mode in ('resol', 'all'):
+        ws_src = wb_src_resol[src_name]
 
-    for p_idx,page in enumerate(pages):
-        o = p_idx*32
-        page_total=sum((c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0) for c in page)
+        # 병합셀 목록을 문자열로 미리 추출 (원본 양식 자체가 이미 2페이지 분량 셀(32행 이후)을
+        # 포함하고 있어, offset을 누적 적용하면 다음 페이지와 겹쳐 깨짐 → 1~31행만 사용)
+        def merge_row_range(mc):
+            parts = mc.split(':')
+            r1 = int(''.join(c for c in parts[0] if c.isdigit()))
+            r2 = int(''.join(c for c in parts[1] if c.isdigit()))
+            return r1, r2
+        merge_strings = [
+            str(m) for m in ws_src.merged_cells.ranges
+            if merge_row_range(str(m))[1] <= 31
+        ]
 
-        # 행높이
-        for rn,dim in ws_src.row_dimensions.items():
-            ws_new.row_dimensions[rn+o].height=dim.height
+        ws_new = wb_new.create_sheet(new_name)
 
-        # 병합셀 (문자열 목록으로)
-        apply_merge_list(ws_new, merge_strings, o)
+        # 열너비
+        for col,dim in ws_src.column_dimensions.items():
+            ws_new.column_dimensions[col].width=dim.width
 
-        # 서식 복사
-        for row in ws_src.iter_rows(min_row=1,max_row=31):
+        pages = [cases_data[i:i+20] for i in range(0,max(len(cases_data),1),20)]
+
+        for p_idx,page in enumerate(pages):
+            o = p_idx*32
+            page_total=sum((c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0) for c in page)
+
+            # 행높이
+            for rn,dim in ws_src.row_dimensions.items():
+                ws_new.row_dimensions[rn+o].height=dim.height
+
+            # 병합셀 (문자열 목록으로)
+            apply_merge_list(ws_new, merge_strings, o)
+
+            # 서식 복사
+            for row in ws_src.iter_rows(min_row=1,max_row=31):
+                for cell in row:
+                    if cell.__class__.__name__=="MergedCell": continue
+                    nc=ws_new.cell(row=cell.row+o,column=cell.column)
+                    if nc.__class__.__name__=="MergedCell": continue
+                    if cell.has_style:
+                        nc.font=copy.copy(cell.font); nc.border=copy.copy(cell.border)
+                        nc.fill=copy.copy(cell.fill); nc.number_format=cell.number_format
+                        nc.alignment=copy.copy(cell.alignment)
+
+            fill_page(ws_new,o,page,page_total,biz_title,yy,mm,dd,p_idx)
+
+        # ── 인쇄 설정: A4, 페이지당 31행씩 자동 분할 ──
+        from openpyxl.worksheet.properties import PageSetupProperties
+        ws_new.page_setup.orientation = 'portrait'
+        ws_new.page_setup.paperSize   = 9   # A4
+        ws_new.page_setup.fitToHeight = 0
+        ws_new.page_setup.fitToWidth  = 1
+        ws_new.page_setup.scale       = 90
+        ws_new.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+        ws_new.page_margins.top    = 0.49
+        ws_new.page_margins.bottom = 0.1968503937007874
+        ws_new.page_margins.left   = 0.7086614173228347
+        ws_new.page_margins.right  = 0.7086614173228347
+        ws_new.page_margins.header = 0
+        ws_new.page_margins.footer = 0
+
+        # print_area: 각 페이지(31행) 전체를 포함
+        last_row = 31 + (len(pages)-1) * 32
+        ws_new.print_area = f"A1:Q{last_row}"
+
+        # 페이지 구분선(인쇄 페이지 나누기): 각 페이지 끝(31행) 뒤에 강제 페이지브레이크
+        from openpyxl.worksheet.pagebreak import Break
+        for p_idx in range(len(pages)-1):
+            break_row = 31 + p_idx*32  # 1페이지 끝 = 31, 2페이지 끝 = 63...
+            ws_new.row_breaks.append(Break(id=break_row))
+
+        # 변호사 계좌 정보 (lawyer 시트 선택 시 — resol 모드 내 부속 옵션)
+        if 'lawyer' in sheets:
+            ws_acct_src=wb_src_list["변호사 계좌 정보"]
+            ws_acct_new=wb_new.create_sheet("변호사 계좌 정보")
+            for col,dim in ws_acct_src.column_dimensions.items(): ws_acct_new.column_dimensions[col].width=dim.width
+            for cell in ws_acct_src[1]:
+                if cell.__class__.__name__=="MergedCell": continue
+                nc=ws_acct_new.cell(1,cell.column,cell.value)
+                if cell.has_style:
+                    nc.font=copy.copy(cell.font); nc.fill=copy.copy(cell.fill)
+                    nc.border=copy.copy(cell.border); nc.alignment=copy.copy(cell.alignment)
+            src_l=lawyers_data or [
+                {"name":r[0].value,"bank":r[1].value if len(r)>1 else "","bankCode":r[2].value if len(r)>2 else "",
+                 "acct":r[3].value if len(r)>3 else "","owner":r[4].value if len(r)>4 else "","email":r[5].value if len(r)>5 else ""}
+                for r in ws_acct_src.iter_rows(min_row=2) if r[0].value
+            ]
+
+            # 변호사 리스트 정보(금액+인적) 시트 - 인쇄용
+            ws_lawyer_list = wb_new.create_sheet("변호사 리스트 정보")
+            headers = ["순번","변호사","예금주","은행","계좌번호","신청인","사건명","보수","인지대","송달료","합계","세금구분","원천세","실지급액","메일"]
+            for j, h in enumerate(headers, 1):
+                ws_lawyer_list.cell(1, j).value = h
+                ws_lawyer_list.cell(1, j).font = copy.copy(ws_acct_src.cell(1,1).font)
+
+            for i, c in enumerate(cases_data):
+                if c.get("_allowance"): continue  # 직원수당 제외
+                row = 2 + i
+                amt = (c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
+                linfo = lawyers_dict.get(c.get("lawyer",""), {})
+                num = (c.get("num","") or "").replace("국부 ","").replace("서금 ","")
+                # 원천세 계산 (사업소득인 경우 3.3%)
+                is_biz_income = c.get("tax","") == "사업소득"
+                withholding = round(amt * 0.033) if is_biz_income else 0
+                net_amt = amt - withholding
+                for j, val in enumerate([
+                    i+1, c.get("lawyer",""), linfo.get("owner",""), linfo.get("bank",""),
+                    linfo.get("acct",""), c.get("client",""), c.get("case","") or c.get("caseName",""),
+                    c.get("fee",0) or 0, c.get("stamp",0) or 0, c.get("delivery",0) or 0,
+                    amt, "사업소득" if is_biz_income else "전자세금계산서",
+                    withholding if is_biz_income else "", net_amt, linfo.get("email","")
+                ], 1):
+                    ws_lawyer_list.cell(row, j).value = val
+
+            for i, l in enumerate(src_l):
+                r = 2 + i
+                for col, key in [(1,"name"),(2,"bank"),(3,"bankCode"),(4,"acct"),(5,"owner"),(6,"email")]:
+                    ws_acct_new.cell(r,col).value=l.get(key,"") if isinstance(l,dict) else None
+
+        # ── 대량이체 시트 (transfer 선택 시 — resol 모드 내 부속 옵션) ──
+        if 'transfer' in sheets:
+            ws_tr = wb_new.create_sheet("대량이체")
+            headers_tr = ["*입금은행","*입금계좌","고객관리성명","*입금액","출금통장표시내용","입금통장표시내용","입금인코드","비고","업체사용key"]
+            for j, h in enumerate(headers_tr, 1):
+                ws_tr.cell(1, j).value = h
+            for j, w in enumerate([8, 20, 20, 12, 18, 18, 10, 10, 10], 1):
+                from openpyxl.utils import get_column_letter as gcl
+                ws_tr.column_dimensions[gcl(j)].width = w
+
+            row_tr = 2
+            for c in cases_data:
+                if c.get("_allowance"): continue  # 직원수당은 별도
+                amt = (c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
+                if not amt: continue
+                linfo = lawyers_dict.get(c.get("lawyer",""), {})
+                num = (c.get("num","") or "").replace("국부 ","").replace("서금 ","")
+                is_biz = c.get("tax","") == "사업소득"
+                net = amt - round(amt * 0.033) if is_biz else amt
+                bank_code = (linfo.get("bankCode","") or "").replace("-","").strip()
+                acct_no   = (linfo.get("acct","") or "").replace("-","").strip()
+                owner     = linfo.get("owner","") or linfo.get("name","") or c.get("lawyer","")
+                out_memo  = f"{num} {c.get('client','')}"
+                in_memo   = f"구조재단{c.get('client','')}"
+                ws_tr.cell(row_tr, 1).value = bank_code
+                ws_tr.cell(row_tr, 2).value = acct_no
+                ws_tr.cell(row_tr, 3).value = owner
+                ws_tr.cell(row_tr, 4).value = net
+                ws_tr.cell(row_tr, 5).value = out_memo
+                ws_tr.cell(row_tr, 6).value = in_memo
+                row_tr += 1
+
+            for c in cases_data:
+                if not c.get("_allowance"): continue
+                amt = c.get("fee", 0) or 0
+                if not amt: continue
+                is_biz = c.get("tax","") == "사업소득"
+                net = amt - round(amt * 0.033) if is_biz else amt
+                linfo = lawyers_dict.get(c.get("client",""), {})
+                bank_code = (linfo.get("bankCode","") or "").replace("-","").strip()
+                acct_no   = (linfo.get("acct","") or "").replace("-","").strip()
+                if not acct_no: continue
+                ws_tr.cell(row_tr, 1).value = bank_code
+                ws_tr.cell(row_tr, 2).value = acct_no
+                ws_tr.cell(row_tr, 3).value = c.get("client","")
+                ws_tr.cell(row_tr, 4).value = net
+                ws_tr.cell(row_tr, 5).value = "인건비지원"
+                ws_tr.cell(row_tr, 6).value = f"구조재단{c.get('client','')}"
+                row_tr += 1
+
+        # 저장 전 핵심 병합셀 강제 확인 및 재추가
+        ws_resol = wb_new[new_name]
+        required_merges_per_page = ["A3:E3", "E10:L10", "A31:K31"]
+        for p_idx in range(len(pages)):
+            o = p_idx * 32
+            for mc in required_merges_per_page:
+                parts = mc.split(':')
+                c1 = ''.join(c for c in parts[0] if c.isalpha())
+                r1 = int(''.join(c for c in parts[0] if c.isdigit())) + o
+                c2 = ''.join(c for c in parts[1] if c.isalpha())
+                r2 = int(''.join(c for c in parts[1] if c.isdigit())) + o
+                mc_shifted = f"{c1}{r1}:{c2}{r2}"
+                min_col = column_index_from_string(c1)
+                max_col = column_index_from_string(c2)
+                to_remove = []
+                for existing in list(ws_resol.merged_cells.ranges):
+                    if (existing.min_row <= r2 and existing.max_row >= r1 and
+                        existing.min_col <= max_col and existing.max_col >= min_col):
+                        to_remove.append(str(existing))
+                for rm in to_remove:
+                    try: ws_resol.unmerge_cells(rm)
+                    except: pass
+                try: ws_resol.merge_cells(mc_shifted)
+                except: pass
+
+    # ══════════════════════════════════════════
+    # ② 지출목록 (mode: 'list' 또는 'all')
+    # ══════════════════════════════════════════
+    if mode in ('list', 'all'):
+        list_src="26년 5월(국토부)" if biz_short=="국토부" else "26년 5월"
+        ws_list_src=wb_src_list[list_src]
+        ws_list_new=wb_new.create_sheet(f"26년 {mm}월({biz_label})")
+        list_merges=[str(m) for m in ws_list_src.merged_cells.ranges]
+        for col,dim in ws_list_src.column_dimensions.items(): ws_list_new.column_dimensions[col].width=dim.width
+        for rn,dim in ws_list_src.row_dimensions.items(): ws_list_new.row_dimensions[rn].height=dim.height
+        apply_merge_list(ws_list_new,list_merges,0)
+        for row in ws_list_src.iter_rows(min_row=1,max_row=5):
             for cell in row:
                 if cell.__class__.__name__=="MergedCell": continue
-                nc=ws_new.cell(row=cell.row+o,column=cell.column)
+                nc=ws_list_new.cell(cell.row,cell.column)
                 if nc.__class__.__name__=="MergedCell": continue
                 if cell.has_style:
                     nc.font=copy.copy(cell.font); nc.border=copy.copy(cell.border)
-                    nc.fill=copy.copy(cell.fill); nc.number_format=cell.number_format
-                    nc.alignment=copy.copy(cell.alignment)
+                    nc.fill=copy.copy(cell.fill); nc.alignment=copy.copy(cell.alignment)
 
-        fill_page(ws_new,o,page,page_total,biz_title,yy,mm,dd,p_idx)
+        total=sum((c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0) for c in cases_data)
+        prefix_str="(국토부) " if biz_short=="국토부" else ""
+        set_val(ws_list_new,2,8,prefix_str+f"전세피해자 소송구조 {yy}년 {mm}월 사업비 지출 목록")
+        set_val(ws_list_new,3,21,f"최종 수정: {yy}. {str(mm).zfill(2)}.")
+        set_val(ws_list_new,4,21,total)
+        for col,val in [(2,"결의서"),(3,"변호사"),(4,"접수번호"),(8,"신청인"),(9,"구조날짜"),
+                        (10,"사건"),(11,"금액"),(14,"예금주"),(15,"은행"),(16,"은행번호"),
+                        (17,"계좌"),(18,"비고"),(20,"메일")]:
+            set_val(ws_list_new,5,col,val)
+        for i,c in enumerate(cases_data):
+            row=6+i
+            amt=(c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
+            num=(c.get("num","") or "").replace("국부 ","").replace("서금 ","")
+            if num.startswith("미인식"): num=""
+            parts=num.split("-")
+            yr=int(parts[0]) if len(parts)>0 and str(parts[0]).isdigit() else ""
+            seq=int(parts[1]) if len(parts)>1 and str(parts[1]).isdigit() else ""
+            linfo=lawyers_dict.get(c.get("lawyer",""),{})
+            try: cdate=datetime.strptime(c.get("date",""),"%Y-%m-%d") if c.get("date") else datetime.today()
+            except: cdate=datetime.today()
+            for col,val in [
+                (2,i+1),(3,c.get("lawyer","")),(4,yr),(5,seq),(6,num),(7,"재단"),
+                (8,c.get("client","")),(9,cdate),(10,c.get("case","") or c.get("caseName","")),
+                (11,amt),(12,num+c.get("client","")),(13,"재단"+c.get("client","")),
+                (14,linfo.get("owner","")),(15,linfo.get("bank","")),(16,linfo.get("bankCode","")),
+                (17,linfo.get("acct","")),(18,c.get("note","") or c.get("type","")),(20,linfo.get("email",""))
+            ]: ws_list_new.cell(row,col).value=val
+        ws_list_new.cell(6+len(cases_data),11).value=total
 
-    # ── 인쇄 설정: A4, 페이지당 31행씩 자동 분할 ──
-    from openpyxl.worksheet.properties import PageSetupProperties
-    ws_new.page_setup.orientation = 'portrait'
-    ws_new.page_setup.paperSize   = 9   # A4
-    ws_new.page_setup.fitToHeight = 0
-    ws_new.page_setup.fitToWidth  = 1
-    ws_new.page_setup.scale       = 90
-    ws_new.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
-    ws_new.page_margins.top    = 0.49
-    ws_new.page_margins.bottom = 0.1968503937007874
-    ws_new.page_margins.left   = 0.7086614173228347
-    ws_new.page_margins.right  = 0.7086614173228347
-    ws_new.page_margins.header = 0
-    ws_new.page_margins.footer = 0
-
-    # print_area: 각 페이지(31행) 전체를 포함
-    last_row = 31 + (len(pages)-1) * 32
-    ws_new.print_area = f"A1:Q{last_row}"
-
-    # 페이지 구분선(인쇄 페이지 나누기): 각 페이지 끝(31행) 뒤에 강제 페이지브레이크
-    from openpyxl.worksheet.pagebreak import Break
-    for p_idx in range(len(pages)-1):
-        break_row = 31 + p_idx*32  # 1페이지 끝 = 31, 2페이지 끝 = 63...
-        ws_new.row_breaks.append(Break(id=break_row))
-
-    # 변호사 계좌 정보 (lawyer 시트 선택 시)
-    if 'lawyer' in sheets:
-        ws_acct_src=wb_src_list["변호사 계좌 정보"]
-        ws_acct_new=wb_new.create_sheet("변호사 계좌 정보")
-        for col,dim in ws_acct_src.column_dimensions.items(): ws_acct_new.column_dimensions[col].width=dim.width
-        for cell in ws_acct_src[1]:
-            if cell.__class__.__name__=="MergedCell": continue
-            nc=ws_acct_new.cell(1,cell.column,cell.value)
-            if cell.has_style:
-                nc.font=copy.copy(cell.font); nc.fill=copy.copy(cell.fill)
-                nc.border=copy.copy(cell.border); nc.alignment=copy.copy(cell.alignment)
-        src_l=lawyers_data or [
-            {"name":r[0].value,"bank":r[1].value if len(r)>1 else "","bankCode":r[2].value if len(r)>2 else "",
-             "acct":r[3].value if len(r)>3 else "","owner":r[4].value if len(r)>4 else "","email":r[5].value if len(r)>5 else ""}
-            for r in ws_acct_src.iter_rows(min_row=2) if r[0].value
-        ]
-
-        # 변호사 리스트 정보(금액+인적) 시트 - 인쇄용
-        ws_lawyer_list = wb_new.create_sheet("변호사 리스트 정보")
-        headers = ["순번","변호사","예금주","은행","계좌번호","신청인","사건명","보수","인지대","송달료","합계","세금구분","원천세","실지급액","메일"]
-        for j, h in enumerate(headers, 1):
-            ws_lawyer_list.cell(1, j).value = h
-            ws_lawyer_list.cell(1, j).font = copy.copy(ws_acct_src.cell(1,1).font)
-
-        for i, c in enumerate(cases_data):
-            if c.get("_allowance"): continue  # 직원수당 제외
-            row = 2 + i
-            amt = (c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
-            linfo = lawyers_dict.get(c.get("lawyer",""), {})
-            num = (c.get("num","") or "").replace("국부 ","").replace("서금 ","")
-            # 원천세 계산 (사업소득인 경우 3.3%)
-            is_biz_income = c.get("tax","") == "사업소득"
-            withholding = round(amt * 0.033) if is_biz_income else 0
-            net_amt = amt - withholding
-            for j, val in enumerate([
-                i+1, c.get("lawyer",""), linfo.get("owner",""), linfo.get("bank",""),
-                linfo.get("acct",""), c.get("client",""), c.get("case","") or c.get("caseName",""),
-                c.get("fee",0) or 0, c.get("stamp",0) or 0, c.get("delivery",0) or 0,
-                amt, "사업소득" if is_biz_income else "전자세금계산서",
-                withholding if is_biz_income else "", net_amt, linfo.get("email","")
-            ], 1):
-                ws_lawyer_list.cell(row, j).value = val
-
-        for i, l in enumerate(src_l):
-            r = 2 + i
-            for col, key in [(1,"name"),(2,"bank"),(3,"bankCode"),(4,"acct"),(5,"owner"),(6,"email")]:
-                ws_acct_new.cell(r,col).value=l.get(key,"") if isinstance(l,dict) else None
-
-    # 지출목록
-    list_src="26년 5월(국토부)" if biz_short=="국토부" else "26년 5월"
-    ws_list_src=wb_src_list[list_src]
-    ws_list_new=wb_new.create_sheet(f"26년 {mm}월({biz_label})")
-    list_merges=[str(m) for m in ws_list_src.merged_cells.ranges]
-    for col,dim in ws_list_src.column_dimensions.items(): ws_list_new.column_dimensions[col].width=dim.width
-    for rn,dim in ws_list_src.row_dimensions.items(): ws_list_new.row_dimensions[rn].height=dim.height
-    apply_merge_list(ws_list_new,list_merges,0)
-    for row in ws_list_src.iter_rows(min_row=1,max_row=5):
-        for cell in row:
-            if cell.__class__.__name__=="MergedCell": continue
-            nc=ws_list_new.cell(cell.row,cell.column)
-            if nc.__class__.__name__=="MergedCell": continue
-            if cell.has_style:
-                nc.font=copy.copy(cell.font); nc.border=copy.copy(cell.border)
-                nc.fill=copy.copy(cell.fill); nc.alignment=copy.copy(cell.alignment)
-
-    total=sum((c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0) for c in cases_data)
-    prefix_str="(국토부) " if biz_short=="국토부" else ""
-    set_val(ws_list_new,2,8,prefix_str+f"전세피해자 소송구조 {yy}년 {mm}월 사업비 지출 목록")
-    set_val(ws_list_new,3,21,f"최종 수정: {yy}. {str(mm).zfill(2)}.")
-    set_val(ws_list_new,4,21,total)
-    for col,val in [(2,"결의서"),(3,"변호사"),(4,"접수번호"),(8,"신청인"),(9,"구조날짜"),
-                    (10,"사건"),(11,"금액"),(14,"예금주"),(15,"은행"),(16,"은행번호"),
-                    (17,"계좌"),(18,"비고"),(20,"메일")]:
-        set_val(ws_list_new,5,col,val)
-    for i,c in enumerate(cases_data):
-        row=6+i
-        amt=(c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
-        num=(c.get("num","") or "").replace("국부 ","").replace("서금 ","")
-        if num.startswith("미인식"): num=""
-        parts=num.split("-")
-        yr=int(parts[0]) if len(parts)>0 and str(parts[0]).isdigit() else ""
-        seq=int(parts[1]) if len(parts)>1 and str(parts[1]).isdigit() else ""
-        linfo=lawyers_dict.get(c.get("lawyer",""),{})
-        try: cdate=datetime.strptime(c.get("date",""),"%Y-%m-%d") if c.get("date") else datetime.today()
-        except: cdate=datetime.today()
-        for col,val in [
-            (2,i+1),(3,c.get("lawyer","")),(4,yr),(5,seq),(6,num),(7,"재단"),
-            (8,c.get("client","")),(9,cdate),(10,c.get("case","") or c.get("caseName","")),
-            (11,amt),(12,num+c.get("client","")),(13,"재단"+c.get("client","")),
-            (14,linfo.get("owner","")),(15,linfo.get("bank","")),(16,linfo.get("bankCode","")),
-            (17,linfo.get("acct","")),(18,c.get("note","") or c.get("type","")),(20,linfo.get("email",""))
-        ]: ws_list_new.cell(row,col).value=val
-    ws_list_new.cell(6+len(cases_data),11).value=total
-
-    # ── 대량이체 시트 ──
-    if 'transfer' in sheets:
-        ws_tr = wb_new.create_sheet("대량이체")
-        # 헤더
-        headers_tr = ["*입금은행","*입금계좌","고객관리성명","*입금액","출금통장표시내용","입금통장표시내용","입금인코드","비고","업체사용key"]
-        for j, h in enumerate(headers_tr, 1):
-            ws_tr.cell(1, j).value = h
-        # 열너비 설정
-        for j, w in enumerate([8, 20, 20, 12, 18, 18, 10, 10, 10], 1):
-            from openpyxl.utils import get_column_letter as gcl
-            ws_tr.column_dimensions[gcl(j)].width = w
-
-        row_tr = 2
-        for c in cases_data:
-            if c.get("_allowance"): continue  # 직원수당은 별도
-            amt = (c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
-            if not amt: continue
-            linfo = lawyers_dict.get(c.get("lawyer",""), {})
-            num = (c.get("num","") or "").replace("국부 ","").replace("서금 ","")
-            # 사업소득이면 원천세 차감 후 실지급액
-            is_biz = c.get("tax","") == "사업소득"
-            net = amt - round(amt * 0.033) if is_biz else amt
-            bank_code = (linfo.get("bankCode","") or "").replace("-","").strip()
-            acct_no   = (linfo.get("acct","") or "").replace("-","").strip()
-            owner     = linfo.get("owner","") or linfo.get("name","") or c.get("lawyer","")
-            out_memo  = f"{num} {c.get('client','')}"  # 출금통장: 접수번호 의뢰인
-            in_memo   = f"구조재단{c.get('client','')}"  # 입금통장: 구조재단의뢰인
-            ws_tr.cell(row_tr, 1).value = bank_code
-            ws_tr.cell(row_tr, 2).value = acct_no
-            ws_tr.cell(row_tr, 3).value = owner
-            ws_tr.cell(row_tr, 4).value = net
-            ws_tr.cell(row_tr, 5).value = out_memo
-            ws_tr.cell(row_tr, 6).value = in_memo
-            row_tr += 1
-
-        # 직원수당은 별도 행으로 추가 (사업소득 원천세 있으면 차감)
-        for c in cases_data:
-            if not c.get("_allowance"): continue
-            amt = c.get("fee", 0) or 0
-            if not amt: continue
-            # 직원수당: 사업소득 3.3% 원천세 차감 가능 (tax 필드 확인)
-            is_biz = c.get("tax","") == "사업소득"
-            net = amt - round(amt * 0.033) if is_biz else amt
-            # 직원 계좌 정보: lawyers_dict에서 client 이름으로 찾기
-            linfo = lawyers_dict.get(c.get("client",""), {})
-            bank_code = (linfo.get("bankCode","") or "").replace("-","").strip()
-            acct_no   = (linfo.get("acct","") or "").replace("-","").strip()
-            if not acct_no: continue  # 계좌 없으면 스킵
-            ws_tr.cell(row_tr, 1).value = bank_code
-            ws_tr.cell(row_tr, 2).value = acct_no
-            ws_tr.cell(row_tr, 3).value = c.get("client","")
-            ws_tr.cell(row_tr, 4).value = net
-            ws_tr.cell(row_tr, 5).value = "인건비지원"
-            ws_tr.cell(row_tr, 6).value = f"구조재단{c.get('client','')}"
-            row_tr += 1
-
-    # 저장 전 핵심 병합셀 강제 확인 및 재추가
-    # 충돌하는 기존 병합 제거 후 정확한 범위로 재추가
-    from openpyxl.utils import range_boundaries
-    ws_resol = wb_new[new_name]
-    required_merges_per_page = [
-        "A3:E3", "E10:L10", "A31:K31"
-    ]
-    for p_idx in range(len(pages)):
-        o = p_idx * 32
-        for mc in required_merges_per_page:
-            parts = mc.split(':')
-            c1 = ''.join(c for c in parts[0] if c.isalpha())
-            r1 = int(''.join(c for c in parts[0] if c.isdigit())) + o
-            c2 = ''.join(c for c in parts[1] if c.isalpha())
-            r2 = int(''.join(c for c in parts[1] if c.isdigit())) + o
-            mc_shifted = f"{c1}{r1}:{c2}{r2}"
-            # 목표 범위의 경계값
-            min_col = column_index_from_string(c1)
-            max_col = column_index_from_string(c2)
-            # 같은 행+열 범위에 겹치는 기존 병합 제거
-            to_remove = []
-            for existing in list(ws_resol.merged_cells.ranges):
-                if (existing.min_row <= r2 and existing.max_row >= r1 and
-                    existing.min_col <= max_col and existing.max_col >= min_col):
-                    to_remove.append(str(existing))
-            for rm in to_remove:
-                try: ws_resol.unmerge_cells(rm)
-                except: pass
-            # 정확한 범위로 재추가
-            try: ws_resol.merge_cells(mc_shifted)
-            except: pass
-
-    # ── 정산보고서 시트 (외주사업-다. 소송대리 및 법률구조지원) ──
-    build_settlement(wb_new, wb_src_list, cases_data, biz_short, yy, mm)
+    # ══════════════════════════════════════════
+    # ③ 정산보고서 (mode: 'report' 또는 'all')
+    # ══════════════════════════════════════════
+    if mode in ('report', 'all'):
+        build_settlement(wb_new, wb_src_list, cases_data, biz_short, yy, mm)
 
     buf=io.BytesIO(); wb_new.save(buf)
     return base64.b64encode(buf.getvalue()).decode()
@@ -475,7 +476,8 @@ class handler(BaseHTTPRequestHandler):
             biz_short=data.get("bizShort","국토부"); today=datetime.today()
             yy=int(data.get("yy",today.year)); mm=int(data.get("mm",today.month)); dd=int(data.get("dd",today.day))
             sheets=data.get("sheets",["resol","lawyer","transfer"])
-            b64=build_excel(cases,lawyers,biz_short,yy,mm,dd,sheets)
+            mode=data.get("mode","all")
+            b64=build_excel(cases,lawyers,biz_short,yy,mm,dd,sheets,mode)
             result=json.dumps({"xlsx":b64}).encode("utf-8")
             self.send_response(200); self._cors()
             self.send_header("Content-Type","application/json")
