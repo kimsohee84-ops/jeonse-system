@@ -497,44 +497,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
           </div>
           <!-- 수동 추가 모달 -->
           <!-- 시트 선택 모달 -->
-          <div id="sheet-select-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
-            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:380px;max-width:94vw;box-shadow:var(--shadow-md)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-table-export"></i> 엑셀 시트 선택</h3>
-                <button onclick="closeSheetSelectModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
-              </div>
-              <p id="sheet-modal-info" style="font-size:12px;color:var(--muted);margin-bottom:1rem"></p>
-              <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:1.2rem">
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border:0.5px solid var(--border);border-radius:8px">
-                  <input type="checkbox" id="chk-resol" checked disabled style="width:16px;height:16px">
-                  <div>
-                    <div style="font-size:13px;font-weight:500">지출결의서</div>
-                    <div style="font-size:11px;color:var(--muted)">20건씩 페이지 분할, A4 인쇄 설정 포함 (필수)</div>
-                  </div>
-                </label>
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border:0.5px solid var(--border);border-radius:8px">
-                  <input type="checkbox" id="chk-lawyer" checked style="width:16px;height:16px">
-                  <div>
-                    <div style="font-size:13px;font-weight:500">변호사 리스트 정보</div>
-                    <div style="font-size:11px;color:var(--muted)">인적사항 + 금액 + 원천세 + 실지급액</div>
-                  </div>
-                </label>
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border:0.5px solid var(--border);border-radius:8px">
-                  <input type="checkbox" id="chk-transfer" checked style="width:16px;height:16px">
-                  <div>
-                    <div style="font-size:13px;font-weight:500">대량이체</div>
-                    <div style="font-size:11px;color:var(--muted)">은행코드 / 계좌 / 실지급액 (사업소득 3.3% 차감)</div>
-                  </div>
-                </label>
-              </div>
-              <div style="display:flex;gap:8px">
-                <button class="btn" style="flex:1;justify-content:center" onclick="closeSheetSelectModal()">취소</button>
-                <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmSheetDownload()">
-                  <i class="ti ti-download"></i> 다운로드
-                </button>
-              </div>
-            </div>
-          </div>
+          
 
           <!-- 집행내역 등록 확인 모달 -->
           <!-- 건별 집행내역 수정 모달 -->
@@ -5692,6 +5655,45 @@ function recordExecution(cases, b, yy, mm, dd) {
 
 
 <!-- 전역 모달 -->
+<div id="sheet-select-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+            <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:380px;max-width:94vw;box-shadow:var(--shadow-md)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+                <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-table-export"></i> 엑셀 시트 선택</h3>
+                <button onclick="closeSheetSelectModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+              </div>
+              <p id="sheet-modal-info" style="font-size:12px;color:var(--muted);margin-bottom:1rem"></p>
+              <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:1.2rem">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border:0.5px solid var(--border);border-radius:8px">
+                  <input type="checkbox" id="chk-resol" checked disabled style="width:16px;height:16px">
+                  <div>
+                    <div style="font-size:13px;font-weight:500">지출결의서</div>
+                    <div style="font-size:11px;color:var(--muted)">20건씩 페이지 분할, A4 인쇄 설정 포함 (필수)</div>
+                  </div>
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border:0.5px solid var(--border);border-radius:8px">
+                  <input type="checkbox" id="chk-lawyer" checked style="width:16px;height:16px">
+                  <div>
+                    <div style="font-size:13px;font-weight:500">변호사 리스트 정보</div>
+                    <div style="font-size:11px;color:var(--muted)">인적사항 + 금액 + 원천세 + 실지급액</div>
+                  </div>
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border:0.5px solid var(--border);border-radius:8px">
+                  <input type="checkbox" id="chk-transfer" checked style="width:16px;height:16px">
+                  <div>
+                    <div style="font-size:13px;font-weight:500">대량이체</div>
+                    <div style="font-size:11px;color:var(--muted)">은행코드 / 계좌 / 실지급액 (사업소득 3.3% 차감)</div>
+                  </div>
+                </label>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn" style="flex:1;justify-content:center" onclick="closeSheetSelectModal()">취소</button>
+                <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmSheetDownload()">
+                  <i class="ti ti-download"></i> 다운로드
+                </button>
+              </div>
+            </div>
+          </div>
+
 <!-- 항목 매핑 설정 모달 -->
 <div id="colmap-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
   <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:560px;max-width:94vw;box-shadow:var(--shadow-md);max-height:90vh;overflow-y:auto">
