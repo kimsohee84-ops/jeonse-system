@@ -791,6 +791,9 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
           <span style="font-size:11px;color:var(--muted)">범례</span>
           <span class="badge bg">계산서 수령완료</span>
           <span class="badge ba">계산서 미수령</span>
+          <div style="flex:1"></div>
+          <button class="btn btn-sm" onclick="printBatchCheckList()"><i class="ti ti-printer" aria-hidden="true"></i> 확인표 인쇄</button>
+          <button class="btn btn-sm btn-success" onclick="downloadBatchExcel()"><i class="ti ti-download" aria-hidden="true"></i> 지출결의서 다운로드</button>
         </div>
         <div class="card">
           <table class="tbl">
