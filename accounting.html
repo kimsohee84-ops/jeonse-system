@@ -440,8 +440,20 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
                 <input class="form-input" id="sc-case" placeholder="예: 임대차보증금반환소송">
               </div>
               <div class="field">
-                <label>청구 금액 (원) <span style="color:#DC2626">*</span> <span style="font-size:11px;color:var(--muted)">(자동인식 — 직접 수정 가능)</span></label>
-                <input class="form-input mono" id="sc-amt" placeholder="1,000,000" oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',')">
+                <label>변호사 보수 (원) <span style="font-size:11px;color:var(--muted)">(자동인식 — 수정 가능)</span></label>
+                <input class="form-input mono" id="sc-fee" placeholder="1,000,000" oninput="calcScanTotal(); this.value=this.value.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',')">
+              </div>
+              <div class="field">
+                <label>인지대 (원) <span style="font-size:11px;color:var(--muted)">(자동인식 — 수정 가능)</span></label>
+                <input class="form-input mono" id="sc-stamp" placeholder="0" oninput="calcScanTotal(); this.value=this.value.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',')">
+              </div>
+              <div class="field">
+                <label>송달료 (원) <span style="font-size:11px;color:var(--muted)">(자동인식 — 수정 가능)</span></label>
+                <input class="form-input mono" id="sc-delivery" placeholder="0" oninput="calcScanTotal(); this.value=this.value.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',')">
+              </div>
+              <div class="field">
+                <label>청구 합계 (원) <span style="color:#DC2626">*</span> <span style="font-size:11px;color:var(--muted)">(보수+인지대+송달료 자동합산)</span></label>
+                <input class="form-input mono" id="sc-amt" placeholder="0" readonly style="background:var(--light)">
               </div>
               <div class="field">
                 <label>수령일자</label>
@@ -782,7 +794,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
         </div>
         <div class="card">
           <table class="tbl">
-            <thead><tr><th>접수번호</th><th>변호사</th><th>의뢰인</th><th>사건명</th><th>유형</th><th>금액</th><th>계산서</th><th>결의서</th></tr></thead>
+            <thead><tr><th>접수번호</th><th>변호사</th><th>의뢰인</th><th>사건명</th><th>유형</th><th>보수</th><th>인지대</th><th>송달료</th><th>합계</th><th>계산서</th><th>결의서</th></tr></thead>
             <tbody id="list-tbody"></tbody>
           </table>
         </div>
@@ -1999,6 +2011,15 @@ function autoDetectCaseType(prefix) {
   }
 }
 
+// 청구서 등록 폼: 보수+인지대+송달료 합산 → 청구 합계 자동 채움
+function calcScanTotal() {
+  const fee      = parseInt((document.getElementById('sc-fee')?.value||'').replace(/,/g,''))      || 0;
+  const stamp    = parseInt((document.getElementById('sc-stamp')?.value||'').replace(/,/g,''))    || 0;
+  const delivery = parseInt((document.getElementById('sc-delivery')?.value||'').replace(/,/g,'')) || 0;
+  const amtEl = document.getElementById('sc-amt');
+  if (amtEl) amtEl.value = (fee+stamp+delivery).toLocaleString();
+}
+
 function calcTotal() {
   const fee = parseInt(document.getElementById("f-fee").value.replace(/,/g,""))||0;
   const stamp = parseInt(document.getElementById("f-stamp").value.replace(/,/g,""))||0;
@@ -2177,14 +2198,18 @@ function renderCaseList() {
     const taxB = (c.tax==="수령"||c.tax==="전자세금계산서") ? '<span class="badge bg">수령완료</span>' : '<span class="badge ba">미수령</span>';
     const resolB = c.resol==="완료" ? '<span class="badge bb">작성완료</span>' : '<span class="badge" style="background:var(--light);color:var(--muted)">대기</span>';
     const typeMap = {민사:"bn",형사:"br",신청:"badge",가사:"bg",행정:"ba",지급명령:"bn"};
-    const total = ((c.fee||0)+(c.stamp||0)+(c.delivery||0)).toLocaleString();
+    const fee = c.fee||0, stamp = c.stamp||0, delivery = c.delivery||0;
+    const total = (fee+stamp+delivery).toLocaleString();
     return `<tr class="${rowClass}">
       <td class="mono" style="font-size:11px">${c.num}</td>
       <td>${c.lawyer}</td>
       <td>${c.client}</td>
       <td style="font-size:11px">${c.case||c.caseName}</td>
       <td><span class="badge ${typeMap[c.type]||"bn"}">${c.type}</span></td>
-      <td class="mono">${total}</td>
+      <td class="mono">${fee ? fee.toLocaleString() : '—'}</td>
+      <td class="mono">${stamp ? stamp.toLocaleString() : '—'}</td>
+      <td class="mono">${delivery ? delivery.toLocaleString() : '—'}</td>
+      <td class="mono" style="font-weight:600">${total}</td>
       <td>${taxB}</td>
       <td>${resolB}</td>
     </tr>`;
@@ -4951,8 +4976,18 @@ async function ocrWithGoogleDrive(file, base64Data, itemId, mimeType) {
         document.getElementById('sc-firm').value = data.parsed.firm;
       }
       if(data.parsed.amount) {
-        document.getElementById('sc-amt').value = parseInt(data.parsed.amount).toLocaleString();
+        const feeEl = document.getElementById('sc-fee');
+        if (feeEl) feeEl.value = parseInt(data.parsed.amount).toLocaleString();
       }
+      if(data.parsed.stamp) {
+        const stampEl = document.getElementById('sc-stamp');
+        if (stampEl) stampEl.value = parseInt(data.parsed.stamp).toLocaleString();
+      }
+      if(data.parsed.delivery) {
+        const deliveryEl = document.getElementById('sc-delivery');
+        if (deliveryEl) deliveryEl.value = parseInt(data.parsed.delivery).toLocaleString();
+      }
+      calcScanTotal();
       // 법원명 + 사건번호 → 사건구분 자동인식 (틀릴 수 있으니 직접 수정 가능)
       const courtCombined = [data.parsed.lawCourt, data.parsed.courtCaseNum].filter(Boolean).join(' ');
       if (courtCombined && document.getElementById('sc-courtnum')) {
@@ -5214,16 +5249,13 @@ function resetScan() {
 function saveScanEntry() {
   const get = id => document.getElementById(id) ? document.getElementById(id).value.trim() : '';
   const num = get('sc-num'), lawyer = get('sc-lawyer'), client = get('sc-client');
-  const amt = parseInt(get('sc-amt').replace(/,/g,''))||0;
+  const fee      = parseInt(get('sc-fee').replace(/,/g,''))      || 0;
+  const stamp    = parseInt(get('sc-stamp').replace(/,/g,''))    || 0;
+  const delivery = parseInt(get('sc-delivery').replace(/,/g,'')) || 0;
+  const amt = fee + stamp + delivery;
   const tax = get('sc-tax'), date = get('sc-date'), doctype = get('sc-doctype');
   const caseName = get('sc-case'), opponent = get('sc-opponent'), acct = get('sc-acct'), firm = get('sc-firm');
-  if (!num||!lawyer||!client||!amt) { showToast('접수번호, 변호사, 의뢰인, 금액은 필수'); return; }
-
-  // 서류 유형에 따라 fee/stamp/delivery 분리
-  let fee = 0, stamp = 0, delivery = 0;
-  if (doctype === '인지대 영수증') stamp = amt;
-  else if (doctype === '송달료 영수증') delivery = amt;
-  else fee = amt; // 소송비용청구서, 전자세금계산서
+  if (!num||!lawyer||!client||!amt) { showToast('접수번호, 변호사, 의뢰인, 금액(보수/인지대/송달료 중 1개 이상)은 필수'); return; }
 
   // 사건 유형: 화면에서 선택된 sc-casetype 값을 최우선으로 사용
   const selEl2 = document.getElementById('sc-casetype');
