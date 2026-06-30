@@ -2188,123 +2188,155 @@ function parseExecSheet(wb, sheetName) {
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
       console.log('파싱 시트:', sheetName, '총 행수:', rows.length);
 
-      const incomeRows = [];
-      const outRows    = [];
-      let section = '';
-
-      // 날짜 파싱 헬퍼 (Excel 날짜 숫자, 문자열 모두 처리)
+      // 날짜 파싱 헬퍼
       const parseDate = (val) => {
         if (!val && val !== 0) return '';
-        // Excel 날짜 숫자 (예: 46051 → 2026-01-29)
         if (typeof val === 'number' && val > 1000) {
           try {
-            // JS Date 변환 (Excel epoch: 1900-01-01 기준, 1900년 윤년 버그 보정)
             const d = new Date(Math.round((val - 25569) * 86400 * 1000));
-            if (!isNaN(d.getTime())) {
-              return d.toISOString().slice(0,10);
-            }
+            if (!isNaN(d.getTime())) return d.toISOString().slice(0,10);
           } catch(e) {}
         }
         const s = (val||'').toString().trim();
         if (!s) return '';
-        // "26.3.23." → "2026-03-23"
         const m = s.match(/^(\d{2})\.(\d{1,2})\.(\d{1,2})/);
         if (m) return `20${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
-        // "2026-03-23" 형식
         if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
-        // "2026.03.23" 형식
         const m2 = s.match(/^(\d{4})\.(\d{1,2})\.(\d{1,2})/);
         if (m2) return `${m2[1]}-${String(m2[2]).padStart(2,'0')}-${String(m2[3]).padStart(2,'0')}`;
-        // "2026-01-29 00:00:00" 형식
         if (/^\d{4}-\d{2}-\d{2}\s/.test(s)) return s.slice(0,10);
         return '';
       };
 
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const a   = (row[0]||'').toString().trim();
-        if (a.includes('1.') && a.includes('수입')) { section = 'income'; continue; }
-        if (a.includes('2.') && a.includes('지출')) { section = 'out';    continue; }
-        if (a.includes('합계') || a.includes('소계')) continue;
+      // ── 헤더 행 자동 탐색 (2행 안에 "이체일자"/"날짜" + "집행액"/"금액" 등이 있는지) ──
+      let headerRowIdx = -1;
+      for (let i = 0; i < Math.min(5, rows.length); i++) {
+        const rowTxt = rows[i].map(v=>(v||'').toString());
+        const hasDate = rowTxt.some(v=>v.includes('이체일자')||v.includes('날짜')||v.includes('지급일'));
+        const hasAmt  = rowTxt.some(v=>v.includes('집행액')||v.includes('금액'));
+        if (hasDate && hasAmt) { headerRowIdx = i; break; }
+      }
 
-        // 금액 파싱 - 문자열/숫자 모두 처리, 음수 포함
-        const dateStr = parseDate(row[2]); // C열 날짜
-        const rawAmt  = row[3];
-        const amt     = typeof rawAmt === 'number' ? rawAmt :
-                        parseFloat((rawAmt||'').toString().replace(/[,원\s]/g,'')) || 0;
+      let incomeRows = [];
+      let outRows    = [];
 
-        // 디버그: 음수 건 로깅
-        if (amt < 0 || (rawAmt && rawAmt.toString().includes('-'))) {
-          console.log('음수 감지:', { rawAmt, amt, type: typeof rawAmt, memo: (row[6]||'').toString().trim(), dateStr });
+      if (headerRowIdx >= 0) {
+        // ══ 진흥기금/대법원 양식 (번호·이체일자·항목·사건유형·년도·번호·거래처명·구분·증빙구분·용도·집행액·착수금·인지대·송달료·기타비용·용역/사무비·법원명·사건번호) ══
+        const header = rows[headerRowIdx].map(v=>(v||'').toString().trim());
+        const col = name => header.findIndex(h => h.includes(name));
+        const cDate   = col('이체일자') >= 0 ? col('이체일자') : col('날짜');
+        const cAmt    = col('집행액');
+        const cFee    = col('착수금');
+        const cStamp  = col('인지대');
+        const cDeliv  = col('송달료');
+        const cEtc    = col('기타비용');
+        const cOps    = col('용역/사무비');
+        const cVendor = col('거래처명');
+        const cCase   = col('구분'); // "26-42 천수현" 형태
+        const cType   = col('사건유형');
+        const cUse    = col('용도');  // 착수금/소송비용
+        const cTax    = col('증빙구분');
+
+        for (let i = headerRowIdx+1; i < rows.length; i++) {
+          const row = rows[i];
+          const dateStr = parseDate(row[cDate]);
+          const amt     = parseFloat((row[cAmt]||0).toString().replace(/[,\s]/g,'')) || 0;
+          if (!dateStr || !amt) continue; // 빈 행/합계 행 스킵 (합계 행은 날짜 없음)
+
+          const caseTxt = (row[cCase]||'').toString().trim(); // "26-42 천수현"
+          const m = caseTxt.match(/^(\d{2}-\d+)\s*(.*)$/);
+          const accNum = m ? m[1] : '';
+          const client = m ? m[2] : caseTxt;
+          const lawyer = (row[cVendor]||'').toString().trim();
+          const ctype  = (row[cType]||'').toString().trim() || '민사';
+          const use    = (row[cUse]||'').toString().trim();
+
+          outRows.push({
+            date: dateStr,
+            amt,
+            memo: client,
+            lawyer,
+            accNum,
+            category: '법률구조사업비', // 전부 사업비로 취급 (착수금/소송비용 구분은 note에 남김)
+            subcat: use,
+            type: ctype,
+            fee:   parseFloat((row[cFee]||0).toString().replace(/[,\s]/g,''))   || 0,
+            stamp: parseFloat((row[cStamp]||0).toString().replace(/[,\s]/g,'')) || 0,
+            delivery: parseFloat((row[cDeliv]||0).toString().replace(/[,\s]/g,'')) || 0,
+          });
         }
-        const memo    = (row[6]||'').toString().trim();
-        const category= (row[4]||'').toString().trim();
-        const subcat  = (row[5]||'').toString().trim();
+      } else {
+        // ══ 기존 양식 (1.수입/2.지출 섹션 구분, C열=날짜, D열=금액 등) ══
+        let section = '';
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const a   = (row[0]||'').toString().trim();
+          if (a.includes('1.') && a.includes('수입')) { section = 'income'; continue; }
+          if (a.includes('2.') && a.includes('지출')) { section = 'out';    continue; }
+          if (a.includes('합계') || a.includes('소계')) continue;
 
-        // 이자: 날짜 대신 "이자" 텍스트 → 수입으로
-        const isInterest = (row[2]||'').toString().trim().includes('이자');
-        if (isInterest && section === 'income' && amt !== 0) {
-          incomeRows.push({ date: new Date().toISOString().slice(0,10), amt, note: memo || '이자수입' });
-          continue;
-        }
+          const dateStr = parseDate(row[2]);
+          const rawAmt  = row[3];
+          const amt     = typeof rawAmt === 'number' ? rawAmt :
+                          parseFloat((rawAmt||'').toString().replace(/[,원\s]/g,'')) || 0;
+          const memo    = (row[6]||'').toString().trim();
+          const category= (row[4]||'').toString().trim();
+          const subcat  = (row[5]||'').toString().trim();
 
-        if (!dateStr || amt === 0) continue;
-
-        if (section === 'income') {
-          incomeRows.push({ date: dateStr, amt, note: memo });
-        } else if (section === 'out') {
-          const lawyer  = (row[8]||'').toString().trim();
-          const accNum  = (row[10]||'').toString().trim();
-
-          // 음수(반납) → 수입으로 이동, 지출 합계에서 제외
-          if (amt < 0) {
-            incomeRows.push({ date: dateStr, amt, note: memo + ' (반납)' });
+          const isInterest = (row[2]||'').toString().trim().includes('이자');
+          if (isInterest && section === 'income' && amt !== 0) {
+            incomeRows.push({ date: new Date().toISOString().slice(0,10), amt, note: memo || '이자수입' });
             continue;
           }
+          if (!dateStr || amt === 0) continue;
 
-          outRows.push({ date: dateStr, amt, memo, lawyer, accNum, category, subcat });
+          if (section === 'income') {
+            incomeRows.push({ date: dateStr, amt, note: memo });
+          } else if (section === 'out') {
+            const lawyer  = (row[8]||'').toString().trim();
+            const accNum  = (row[10]||'').toString().trim();
+            if (amt < 0) { incomeRows.push({ date: dateStr, amt, note: memo + ' (반납)' }); continue; }
+            outRows.push({ date: dateStr, amt, memo, lawyer, accNum, category, subcat });
+          }
         }
       }
 
       console.log('수입:', incomeRows.length, '지출:', outRows.length);
 
-      // 월별 집계 (사업비 + 운영비 모두 포함)
+      // 월별 집계
       const monthly = {};
       outRows.forEach(r => {
         const mm = r.date.slice(0,7);
         if (!monthly[mm]) monthly[mm] = { total:0, count:0, cases:[], ops:0 };
 
-        if (r.category.includes('사업비') && r.amt > 0) {
-          // 수당/원천세/관리비 선금 제외하고 건수 카운트
-          const isCase = r.accNum && !r.memo.includes('수당') && !r.memo.includes('원천세') && !r.memo.includes('관리비');
-          monthly[mm].total += r.amt;
-          if (isCase) {
-            monthly[mm].count += 1;
-            const accNumClean = r.accNum.replace(/^(국부|서금|양이원|대법원|법무부|성평등|이태원|서울시|초록우산|여객기)\s*/g,'').trim();
-            const prefix = BIZ[curBiz]?.prefix || '국부';
-            // 연도 처리: 26- / 25- 등 그대로 유지
-            monthly[mm].cases.push({
-              num: `${prefix} ${accNumClean.match(/^\d{2}-\d+/) ? accNumClean : '26-'+accNumClean}`,
-              lawyer: r.lawyer,
-              client: r.memo.replace(/^[\d]{2}-\d+\s*/, '').trim(),
-              amt: r.amt, date: r.date, type:'민사', note: r.category
-            });
-          }
-        } else if (r.category.includes('운영비') || r.subcat.includes('운영') || r.subcat.includes('소모품')) {
-          // 운영비는 금액 합산 + cases에 일반관리비로 추가
+        const isOps = (r.subcat||'').includes('운영') || (r.category||'').includes('운영비') || (r.subcat||'').includes('소모품');
+        if (isOps) {
           monthly[mm].total += r.amt;
           monthly[mm].ops   += r.amt;
           monthly[mm].cases.push({
-            num: '', lawyer: '', client: r.memo,
-            case: r.subcat || '운영비', caseName: r.subcat || '운영비',
-            type: '운영비', amt: r.amt, date: r.date,
-            fee: r.amt, stamp: 0, delivery: 0,
-            accountType: '일반관리비', note: r.category
+            num:'', lawyer:'', client: r.memo, case: r.subcat||'운영비', caseName: r.subcat||'운영비',
+            type:'운영비', amt: r.amt, date: r.date, fee:r.amt, stamp:0, delivery:0,
+            accountType:'일반관리비', note: r.category
           });
+        } else {
+          const isCase = r.accNum && !r.memo.includes('수당') && !r.memo.includes('원천세') && !r.memo.includes('관리비');
+          monthly[mm].total += r.amt;
+          if (isCase) {
+            const accNumClean = (r.accNum||'').replace(/^(국부|서금|양이원|대법원|법무부|성평등|이태원|서울시|초록우산|여객기)\s*/g,'').trim();
+            const prefix = BIZ[curBiz]?.prefix || '';
+            monthly[mm].count += 1;
+            monthly[mm].cases.push({
+              num: `${prefix} ${accNumClean.match(/^\d{2}-\d+/) ? accNumClean : '26-'+accNumClean}`.trim(),
+              lawyer: r.lawyer,
+              client: r.memo,
+              amt: r.amt, date: r.date, type: r.type || '민사',
+              note: r.subcat || r.category || '',
+              fee: r.fee||0, stamp: r.stamp||0, delivery: r.delivery||0
+            });
+          }
         }
       });
 
-      // 미리보기 표시
       const preview = document.getElementById('exec-parse-result') || document.getElementById('exec-upload-preview');
       const mmList  = Object.keys(monthly).sort();
       window._parsedExecData = { monthly, incomeRows };
@@ -2312,7 +2344,7 @@ function parseExecSheet(wb, sheetName) {
       preview.innerHTML = `
         <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px">
           <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--light);border-bottom:1px solid var(--border)">
-            <span style="font-size:12px;font-weight:500">${mmList.length}개월 데이터 감지</span>
+            <span style="font-size:12px;font-weight:500">${mmList.length}개월 데이터 감지${headerRowIdx>=0?' (진흥기금 양식)':''}</span>
             <button onclick="importAllExecMonths()" class="btn btn-sm btn-primary" style="font-size:11px">
               <i class="ti ti-download"></i> 전체 등록
             </button>
@@ -2348,12 +2380,13 @@ function parseExecSheet(wb, sheetName) {
           </div>` : ''}
         </div>`;
 
-      status.textContent = `파싱 완료: ${mmList.length}개월 데이터`;
+      status.textContent = `파싱 완료: ${mmList.length}개월 데이터${headerRowIdx>=0?' (진흥기금 양식 인식)':''}`;
     } catch(err) {
       console.error(err);
       status.textContent = '파싱 오류: ' + err.message;
     }
 }
+
 
 // 키로 특정 월 등록 (onclick에서 JSON 직접 전달 대신)
 function importExecMonthByKey(mm) {
@@ -2421,7 +2454,7 @@ function importExecMonth(mm, mData) {
   PAID_CASES[curBiz] = PAID_CASES[curBiz].filter(p => !(p.date||'').startsWith(mm));
   (mData.cases||[]).forEach(c => {
     const numKey = (c.num||'').replace(/^국부\s*/,'');
-    const type   = caseTypeMap[numKey] || '민사';
+    const type   = c.type || caseTypeMap[numKey] || '민사';
     PAID_CASES[curBiz].push({ ...c, type });
   });
 
