@@ -161,13 +161,42 @@ function parseDoc(text) {
     }
   }
 
-  // 금액
+  // 금액 (착수금/보수)
   for (const line of lines) {
     const m = line.match(/착\s*수\s*금\s+([\d,\s]+)/) ||
               line.match(/합\s*계\s+([\d,\s]+)/);
     if (m) {
       r.amount = m[1].replace(/[\s,]/g,'').trim();
       if (r.amount && parseInt(r.amount) > 0) break;
+    }
+  }
+
+  // 인지대 / 송달료
+  // 양식: "( O ) 인지대   221,000" / "(0)인지대 221,000" / "인지대 221,000" 등
+  // 체크표시(O,0,√,✓)는 있을 수도 없을 수도 있어 무시하고 숫자만 추출
+  for (const line of lines) {
+    if (r.stamp) break;
+    const m = line.match(/인\s*지\s*대[^\d]{0,10}([\d,]{3,})/);
+    if (m) {
+      const v = m[1].replace(/,/g,'').trim();
+      if (v && parseInt(v) > 0) r.stamp = v;
+    }
+  }
+  for (const line of lines) {
+    if (r.delivery) break;
+    const m = line.match(/송\s*달\s*료[^\d]{0,10}([\d,]{3,})/);
+    if (m) {
+      const v = m[1].replace(/,/g,'').trim();
+      if (v && parseInt(v) > 0) r.delivery = v;
+    }
+  }
+  // 보관금 / 여비도 같은 표 양식에 있을 수 있어 함께 인식
+  for (const line of lines) {
+    if (r.deposit) break;
+    const m = line.match(/보\s*관\s*금[^\d]{0,10}([\d,]{3,})/);
+    if (m) {
+      const v = m[1].replace(/,/g,'').trim();
+      if (v && parseInt(v) > 0) r.deposit = v;
     }
   }
 
