@@ -5373,6 +5373,10 @@ async function downloadExcelByMode(mode) {
   const labelMap = { resol:'지출결의서', list:'지출목록', report:'정산보고서', all:'전체' };
   const fileLabel = labelMap[mode] || '엑셀';
 
+  // mode='resol'(지출결의서만)일 때는 부속 시트(변호사계좌/변호사리스트/대량이체) 없이
+  // 결의서 양식 시트 하나만 생성. 'all'일 때만 부속 시트 포함.
+  const sheetsToSend = mode === 'all' ? ['resol', 'lawyer', 'transfer'] : [];
+
   showToast(`${fileLabel} 엑셀 생성 중...`);
 
   try {
@@ -5381,8 +5385,8 @@ async function downloadExcelByMode(mode) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         cases, lawyers: BIZ[curBiz].lawyers,
-        bizShort: b.short, yy, mm, dd,
-        sheets: ['resol', 'lawyer', 'transfer'], // resol/all 모드일 때만 사용됨
+        bizShort: b.short, bizFull: b.name, payMethod: b.payMethod, yy, mm, dd,
+        sheets: sheetsToSend,
         mode
       })
     });
