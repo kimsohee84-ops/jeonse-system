@@ -37,7 +37,46 @@ def apply_merge_list(ws, merge_strings, row_offset=0):
         try: ws.merge_cells(new_mc)
         except: pass
 
-def fill_page(ws, o, page, page_total, biz_title, yy, mm, dd, page_num=0):
+def expand_rows(cases_data):
+    """사건별 보수/인지대/송달료를 각각 별도 행으로 펼친다.
+    예: 보수 1,000,000 + 인지대 221,000 + 송달료 165,000 → 3개 행으로 분리,
+    맨 아래 합계(1,386,000)만 한 줄로 모음 — genResol() 화면 표시 방식과 동일하게 맞춤."""
+    rows = []
+    for c in cases_data:
+        num=(c.get("num","") or "").replace("국부 ","").replace("서금 ","")
+        if num.startswith("미인식"): num=""
+        lawyer=c.get("lawyer","") or ""
+        client=c.get("client","") or ""
+        case_nm=c.get("case","") or c.get("caseName","") or ""
+        acct_type = c.get("accountType","법률구조사업비")
+        note = c.get("note","") or c.get("type","")
+
+        if not lawyer and not num:
+            desc_base = (client+" "+case_nm).strip()
+        else:
+            desc_base = lawyer+" 弁 "+num+"호 "+client+" "+case_nm
+
+        fee      = c.get("fee",0) or 0
+        stamp    = c.get("stamp",0) or 0
+        delivery = c.get("delivery",0) or 0
+
+        items = []
+        if fee:      items.append(("변호사 보수", fee))
+        if stamp:    items.append(("인지대",      stamp))
+        if delivery: items.append(("송달료",      delivery))
+        if not items:  # 셋 다 0이면 빈 행이라도 하나는 표시
+            items.append((note, 0))
+
+        for label, amt in items:
+            rows.append({
+                "desc": desc_base, "amt": amt,
+                "acct_type": acct_type,
+                "note": label if len(items) > 1 else note
+            })
+    return rows
+
+
+def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, start_seq=1):
     center = Alignment(horizontal="center", vertical="center", wrap_text=True)
     set_val(ws,1+o,2,"지   출   결   의   서 ")
     set_val(ws,3+o,1,biz_title)
@@ -48,49 +87,47 @@ def fill_page(ws, o, page, page_total, biz_title, yy, mm, dd, page_num=0):
     set_val(ws,6+o,11,"처리사항"); set_val(ws,6+o,14,"구분"); set_val(ws,6+o,16,"결제방식")
     set_val(ws,7+o,1,"결재일자"); set_val(ws,7+o,3,yy); set_val(ws,7+o,5,"년")
     set_val(ws,7+o,6,mm); set_val(ws,7+o,7,"월"); set_val(ws,7+o,8,"__"); set_val(ws,7+o,10,"일")
-    set_val(ws,7+o,14,"영수증"); set_val(ws,7+o,16,"계좌이체")
+    set_val(ws,7+o,14,"영수증"); set_val(ws,7+o,16,PAY_METHOD_LABEL.get("current","계좌이체"))
     set_val(ws,8+o,1,page_total); set_val(ws,8+o,11,page_total)
     set_val(ws,10+o,1,"순번"); set_val(ws,10+o,2,"계 정 과 목")
     set_val(ws,10+o,5,"적         요"); set_val(ws,10+o,13,"금       액"); set_val(ws,10+o,16,"비 고")
     for i in range(20):
-        r=11+i+o; set_val(ws,r,1,page_num*20+i+1)  # 순번: 1페이지 1~20, 2페이지 21~40...
-        if i<len(page):
-            c=page[i]
-            amt=(c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
-            num=(c.get("num","") or "").replace("국부 ","").replace("서금 ","")
-            if num.startswith("미인식"): num=""
-            lawyer=c.get("lawyer","") or ""
-            # 계정과목: 기본은 법률구조사업비, accountType이 일반관리비면 변경
-            acct_type = c.get("accountType","법률구조사업비")
-            if acct_type == "일반관리비":
-                acct_label = "일반관리비\n전세피해자사업비"
-            else:
-                acct_label = "법률구조사업비\n전세피해자사업비"
-            if not lawyer and not num:
-                desc=(c.get("client","") or "")+" "+(c.get("case","") or c.get("caseName","") or "")
-            else:
-                desc=lawyer+" 弁 "+num+"호 "+(c.get("client","") or "")+" "+(c.get("case","") or c.get("caseName","") or "")
+        r=11+i+o; set_val(ws,r,1,start_seq+i)  # 순번: 펼쳐진 행 기준 연속 번호
+        if i<len(page_rows):
+            row = page_rows[i]
+            acct_label = "일반관리비\n전세피해자사업비" if row["acct_type"]=="일반관리비" else "법률구조사업비\n전세피해자사업비"
             set_val(ws,r,2,acct_label,center)
-            set_val(ws,r,5,desc); set_val(ws,r,13,amt)
-            set_val(ws,r,16,c.get("note","") or c.get("type",""))
+            set_val(ws,r,5,row["desc"]); set_val(ws,r,13,row["amt"])
+            set_val(ws,r,16,row["note"])
         else:
             for col in [2,5,13,16]: set_val(ws,r,col,None)
     set_val(ws,31+o,1,"계"); set_val(ws,31+o,13,page_total)
 
-def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mode='all'):
+# 결제방식 라벨 — build_excel에서 모듈 전역으로 1회 세팅 (fill_page가 매 페이지 동일하게 참조)
+PAY_METHOD_LABEL = {"current": "계좌이체"}
+
+def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mode='all', biz_full=None, pay_method=None):
     # mode: 'resol' (지출결의서만) | 'list' (지출목록만) | 'report' (정산보고서만) | 'all' (전체)
     # sheets: mode='resol'일 때만 사용. 지출결의서 내 부속시트 선택 ['resol','lawyer','transfer']
+    # biz_full: 사업 전체 명칭 (예: "법무부(보장원) 소송구조 등"). 없으면 biz_short로 대체.
+    #           원본 엑셀 양식은 국토부/서민금융 2종류뿐이라, 그 외 10여개 사업(법무부·양육비·
+    #           성평등가족부 등)은 국토부 양식을 빌려 쓰되 제목만 실제 사업명으로 바꿔서 출력한다.
     if sheets is None:
         sheets = ['resol', 'lawyer', 'transfer']
+    if not biz_full:
+        biz_full = biz_short
+    if not pay_method:
+        pay_method = '계좌이체'
 
     lawyers_dict = {l["name"]:l for l in (lawyers_data or [])}
     wb_src_resol = load_workbook(io.BytesIO(base64.b64decode(RESOL_B64)))
     wb_src_list  = load_workbook(io.BytesIO(base64.b64decode(LIST_B64)))
 
-    src_name  = "26년사업비-국토부 (5월)" if biz_short=="국토부" else "26년사업비-서민 (5월)"
-    biz_label = "국토부" if biz_short=="국토부" else "서민"
-    biz_full  = "국토부" if biz_short=="국토부" else "서민금융재단"
-    biz_title = f"{yy}년 소송구조({biz_full}) / 전세피해자"
+    # 원본 양식은 국토부/서민금융 2종류뿐 — 그 외 사업은 국토부 양식을 베이스로 사용
+    src_name  = "26년사업비-국토부 (5월)" if biz_short=="국토부" else (
+                "26년사업비-서민 (5월)" if biz_short in ("서민금융","서민") else "26년사업비-국토부 (5월)")
+    biz_label = biz_short
+    biz_title = f"{yy}년 소송구조({biz_full})"
     new_name  = f"26년사업비-{biz_label} ({mm}월)"
 
     wb_new = Workbook(); wb_new.remove(wb_new.active)
@@ -101,6 +138,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
     # ① 지출결의서 (mode: 'resol' 또는 'all')
     # ══════════════════════════════════════════
     if mode in ('resol', 'all'):
+        PAY_METHOD_LABEL["current"] = pay_method
         ws_src = wb_src_resol[src_name]
 
         # 병합셀 목록을 문자열로 미리 추출 (원본 양식 자체가 이미 2페이지 분량 셀(32행 이후)을
@@ -121,11 +159,14 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         for col,dim in ws_src.column_dimensions.items():
             ws_new.column_dimensions[col].width=dim.width
 
-        pages = [cases_data[i:i+20] for i in range(0,max(len(cases_data),1),20)]
+        # 보수/인지대/송달료를 각각 별도 행으로 펼친 뒤 20행씩 페이지 분할
+        expanded = expand_rows(cases_data)
+        pages = [expanded[i:i+20] for i in range(0,max(len(expanded),1),20)]
 
-        for p_idx,page in enumerate(pages):
+        seq = 1
+        for p_idx,page_rows in enumerate(pages):
             o = p_idx*32
-            page_total=sum((c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0) for c in page)
+            page_total=sum(r["amt"] for r in page_rows)
 
             # 행높이
             for rn,dim in ws_src.row_dimensions.items():
@@ -145,7 +186,8 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                         nc.fill=copy.copy(cell.fill); nc.number_format=cell.number_format
                         nc.alignment=copy.copy(cell.alignment)
 
-            fill_page(ws_new,o,page,page_total,biz_title,yy,mm,dd,p_idx)
+            fill_page(ws_new,o,page_rows,page_total,biz_title,yy,mm,dd,p_idx,start_seq=seq)
+            seq += len(page_rows)
 
         # ── 인쇄 설정: A4, 페이지당 31행씩 자동 분할 ──
         from openpyxl.worksheet.properties import PageSetupProperties
@@ -316,8 +358,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                     nc.fill=copy.copy(cell.fill); nc.alignment=copy.copy(cell.alignment)
 
         total=sum((c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0) for c in cases_data)
-        prefix_str="(국토부) " if biz_short=="국토부" else ""
-        set_val(ws_list_new,2,8,prefix_str+f"전세피해자 소송구조 {yy}년 {mm}월 사업비 지출 목록")
+        set_val(ws_list_new,2,8,f"({biz_label}) {biz_full} {yy}년 {mm}월 사업비 지출 목록")
         set_val(ws_list_new,3,21,f"최종 수정: {yy}. {str(mm).zfill(2)}.")
         set_val(ws_list_new,4,21,total)
         for col,val in [(2,"결의서"),(3,"변호사"),(4,"접수번호"),(8,"신청인"),(9,"구조날짜"),
@@ -474,10 +515,12 @@ class handler(BaseHTTPRequestHandler):
             body=self.rfile.read(length); data=json.loads(body)
             cases=data.get("cases",[]); lawyers=data.get("lawyers",[])
             biz_short=data.get("bizShort","국토부"); today=datetime.today()
+            biz_full=data.get("bizFull","") or biz_short
+            pay_method=data.get("payMethod","") or "계좌이체"
             yy=int(data.get("yy",today.year)); mm=int(data.get("mm",today.month)); dd=int(data.get("dd",today.day))
             sheets=data.get("sheets",["resol","lawyer","transfer"])
             mode=data.get("mode","all")
-            b64=build_excel(cases,lawyers,biz_short,yy,mm,dd,sheets,mode)
+            b64=build_excel(cases,lawyers,biz_short,yy,mm,dd,sheets,mode,biz_full,pay_method)
             result=json.dumps({"xlsx":b64}).encode("utf-8")
             self.send_response(200); self._cors()
             self.send_header("Content-Type","application/json")
