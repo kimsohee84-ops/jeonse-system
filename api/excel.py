@@ -159,15 +159,33 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         for col,dim in ws_src.column_dimensions.items():
             ws_new.column_dimensions[col].width=dim.width
 
-        # 보수/인지대/송달료를 각각 별도 행으로 펼친 뒤 20행씩 페이지 분할
-        expanded = expand_rows(cases_data)
-        pages = [expanded[i:i+20] for i in range(0,max(len(expanded),1),20)]
+        # 건당 한 줄 (보수+인지대+송달료 합계) — 20건씩 페이지 분할
+        # expand_rows는 사용 안 함: 지출결의서는 합계 한 줄, 지출목록에서 열로 분리
+        def make_resol_rows(cases):
+            rows = []
+            for c in cases:
+                num=(c.get("num","") or "").replace("국부 ","").replace("서금 ","")
+                if num.startswith("미인식"): num=""
+                lawyer=c.get("lawyer","") or ""
+                client=c.get("client","") or ""
+                case_nm=c.get("case","") or c.get("caseName","") or ""
+                acct_type = c.get("accountType","법률구조사업비")
+                note = c.get("note","") or c.get("type","")
+                amt = (c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
+                if not lawyer and not num:
+                    desc = (client+" "+case_nm).strip()
+                else:
+                    desc = lawyer+" 弁 "+num+"호 "+client+" "+case_nm
+                rows.append({"desc":desc,"amt":amt,"acct_type":acct_type,"note":note})
+            return rows
+
+        all_rows = make_resol_rows(cases_data)
+        pages = [all_rows[i:i+20] for i in range(0, max(len(all_rows),1), 20)]
 
         seq = 1
         for p_idx,page_rows in enumerate(pages):
             o = p_idx*32
             page_total=sum(r["amt"] for r in page_rows)
-
             # 행높이
             for rn,dim in ws_src.row_dimensions.items():
                 ws_new.row_dimensions[rn+o].height=dim.height
@@ -188,7 +206,6 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
 
             fill_page(ws_new,o,page_rows,page_total,biz_title,yy,mm,dd,p_idx,start_seq=seq)
             seq += len(page_rows)
-
         # ── 인쇄 설정: A4, 페이지당 31행씩 자동 분할 ──
         from openpyxl.worksheet.properties import PageSetupProperties
         ws_new.page_setup.orientation = 'portrait'
