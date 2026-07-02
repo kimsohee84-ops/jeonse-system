@@ -248,32 +248,6 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                 for r in ws_acct_src.iter_rows(min_row=2) if r[0].value
             ]
 
-            # 변호사 리스트 정보(금액+인적) 시트 - 인쇄용
-            ws_lawyer_list = wb_new.create_sheet("변호사 리스트 정보")
-            headers = ["순번","변호사","예금주","은행","계좌번호","신청인","사건명","보수","인지대","송달료","합계","세금구분","원천세","실지급액","메일"]
-            for j, h in enumerate(headers, 1):
-                ws_lawyer_list.cell(1, j).value = h
-                ws_lawyer_list.cell(1, j).font = copy.copy(ws_acct_src.cell(1,1).font)
-
-            for i, c in enumerate(cases_data):
-                if c.get("_allowance"): continue  # 직원수당 제외
-                row = 2 + i
-                amt = (c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
-                linfo = lawyers_dict.get(c.get("lawyer",""), {})
-                num = (c.get("num","") or "").replace("국부 ","").replace("서금 ","")
-                # 원천세 계산 (사업소득인 경우 3.3%)
-                is_biz_income = c.get("tax","") == "사업소득"
-                withholding = round(amt * 0.033) if is_biz_income else 0
-                net_amt = amt - withholding
-                for j, val in enumerate([
-                    i+1, c.get("lawyer",""), linfo.get("owner",""), linfo.get("bank",""),
-                    linfo.get("acct",""), c.get("client",""), c.get("case","") or c.get("caseName",""),
-                    c.get("fee",0) or 0, c.get("stamp",0) or 0, c.get("delivery",0) or 0,
-                    amt, "사업소득" if is_biz_income else "전자세금계산서",
-                    withholding if is_biz_income else "", net_amt, linfo.get("email","")
-                ], 1):
-                    ws_lawyer_list.cell(row, j).value = val
-
             for i, l in enumerate(src_l):
                 r = 2 + i
                 for col, key in [(1,"name"),(2,"bank"),(3,"bankCode"),(4,"acct"),(5,"owner"),(6,"email")]:
@@ -537,6 +511,12 @@ class handler(BaseHTTPRequestHandler):
             yy=int(data.get("yy",today.year)); mm=int(data.get("mm",today.month)); dd=int(data.get("dd",today.day))
             sheets=data.get("sheets",["resol","lawyer","transfer"])
             mode=data.get("mode","all")
+            # 변호사계좌/리스트/대량이체는 'all' 모드일 때만 포함
+            # 그 외(resol/list/report)는 완전히 독립된 단일 시트
+            if mode == 'all':
+                sheets = data.get("sheets", ["resol","lawyer","transfer"])
+            else:
+                sheets = []  # resol/list/report 단독 모드에선 부속시트 없음
             b64=build_excel(cases,lawyers,biz_short,yy,mm,dd,sheets,mode,biz_full,pay_method)
             result=json.dumps({"xlsx":b64}).encode("utf-8")
             self.send_response(200); self._cors()
