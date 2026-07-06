@@ -107,11 +107,8 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
 PAY_METHOD_LABEL = {"current": "계좌이체"}
 
 def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mode='all', biz_full=None, pay_method=None):
-    # mode: 'resol' (지출결의서만) | 'list' (지출목록만) | 'report' (정산보고서만) | 'all' (전체)
-    # sheets: mode='resol'일 때만 사용. 지출결의서 내 부속시트 선택 ['resol','lawyer','transfer']
-    # biz_full: 사업 전체 명칭 (예: "법무부(보장원) 소송구조 등"). 없으면 biz_short로 대체.
-    #           원본 엑셀 양식은 국토부/서민금융 2종류뿐이라, 그 외 10여개 사업(법무부·양육비·
-    #           성평등가족부 등)은 국토부 양식을 빌려 쓰되 제목만 실제 사업명으로 바꿔서 출력한다.
+    # sheets=[] 이면 부속시트 없음 (resol/list/report 단독 모드)
+    # sheets=None 이면 기본값으로 전체 부속시트 포함
     if sheets is None:
         sheets = ['resol', 'lawyer', 'transfer']
     if not biz_full:
