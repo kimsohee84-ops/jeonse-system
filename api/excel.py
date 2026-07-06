@@ -77,13 +77,36 @@ def expand_rows(cases_data):
 
 
 def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, start_seq=1):
+    from openpyxl.styles import Border, Side
+    thin   = Side(style='thin')
+    medium = Side(style='medium')
+    none   = Side(style=None)
     center = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    left   = Alignment(horizontal="left",   vertical="center", wrap_text=False)
+
     # 원본 양식 기준: 제목R1C1, 사업명R3C1(A3:E3병합), 금액L열(12), 비고P열(16), 계R31C12
     set_val(ws,1+o,1,"지   출   결   의   서 ")
-    set_val(ws,3+o,1,biz_title, left)
+    set_val(ws,3+o,1,biz_title, center)  # A3:E3 병합 + 가운데 맞춤
+
+    # 사업명 셀(A3) 테두리
+    ws.cell(3+o,1).border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    # 결재란 테두리 직접 설정
+    # K3:K4 (결재 텍스트, 세로 병합)
     set_val(ws,3+o,11,"결\n\n재", center)
-    set_val(ws,3+o,12,"담당"); set_val(ws,3+o,14,"사무총장"); set_val(ws,3+o,16,"재무이사")
+    ws.cell(3+o,11).border = Border(left=medium, right=medium, top=medium, bottom=thin)
+    ws.cell(4+o,11).border = Border(left=medium, right=medium, top=thin,   bottom=medium)
+    # L3:M3 (담당)
+    set_val(ws,3+o,12,"담당", center)
+    ws.cell(3+o,12).border = Border(left=none,   right=thin,   top=medium, bottom=none)
+    ws.cell(4+o,12).border = Border(left=medium, right=thin,   top=medium, bottom=medium)
+    # N3:O3 (사무총장)
+    set_val(ws,3+o,14,"사무총장", center)
+    ws.cell(3+o,14).border = Border(left=thin,   right=thin,   top=medium, bottom=none)
+    ws.cell(4+o,14).border = Border(left=thin,   right=thin,   top=medium, bottom=medium)
+    # P3:Q3 (재무이사)
+    set_val(ws,3+o,16,"재무이사", center)
+    ws.cell(3+o,16).border = Border(left=thin,   right=thin,   top=medium, bottom=none)
+    ws.cell(4+o,16).border = Border(left=thin,   right=thin,   top=medium, bottom=medium)
     set_val(ws,6+o,1,"작성일자"); set_val(ws,6+o,3,yy); set_val(ws,6+o,5,"년")
     set_val(ws,6+o,6,mm); set_val(ws,6+o,7,"월"); set_val(ws,6+o,8,dd); set_val(ws,6+o,10,"일")
     set_val(ws,6+o,11,"처리사항"); set_val(ws,6+o,14,"구분"); set_val(ws,6+o,16,"결제방식")
