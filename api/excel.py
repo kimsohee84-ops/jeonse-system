@@ -199,6 +199,9 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                     if cell.__class__.__name__=="MergedCell": continue
                     nc=ws_new.cell(row=cell.row+o,column=cell.column)
                     if nc.__class__.__name__=="MergedCell": continue
+                    # 값 복사 (수식 포함 — "일금", =K8, "원정", =L31 등)
+                    if cell.value is not None:
+                        nc.value = cell.value
                     if cell.has_style:
                         nc.font=copy.copy(cell.font); nc.border=copy.copy(cell.border)
                         nc.fill=copy.copy(cell.fill); nc.number_format=cell.number_format
