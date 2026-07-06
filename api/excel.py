@@ -99,29 +99,39 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
     ws.cell(3+o,1).value = biz_title
     ws.cell(3+o,1).alignment = center
 
-    # 결재란 — 병합 해제 후 테두리 → 재병합
-    # K3:K4 (결재)
-    for merge_r in (f"K{3+o}:K{4+o}", f"L{3+o}:M{3+o}", f"L{4+o}:M{4+o}", f"N{3+o}:O{3+o}", f"N{4+o}:O{4+o}", f"P{3+o}:Q{3+o}", f"P{4+o}:Q{4+o}"):
-        try: ws.unmerge_cells(merge_r)
+    # 결재란 — 원본 양식 테두리 그대로 적용
+    # 기존 병합 해제
+    for mr in [f"K{3+o}:K{4+o}", f"L{3+o}:M{3+o}", f"L{4+o}:M{4+o}",
+               f"N{3+o}:O{3+o}", f"N{4+o}:O{4+o}", f"P{3+o}:Q{3+o}", f"P{4+o}:Q{4+o}"]:
+        try: ws.unmerge_cells(mr)
         except: pass
-    # 테두리 설정
-    ws.cell(3+o,11).border = Border(left=md, right=md, top=md, bottom=th)
-    ws.cell(4+o,11).border = Border(left=md, right=md, top=th, bottom=md)
-    ws.cell(3+o,12).border = Border(left=no, right=th, top=md, bottom=no)
-    ws.cell(3+o,13).border = Border(left=no, right=md, top=md, bottom=no)
-    ws.cell(4+o,12).border = Border(left=md, right=th, top=md, bottom=md)
-    ws.cell(4+o,13).border = Border(left=no, right=md, top=md, bottom=md)
-    ws.cell(3+o,14).border = Border(left=th, right=th, top=md, bottom=no)
-    ws.cell(3+o,15).border = Border(left=no, right=md, top=md, bottom=no)
-    ws.cell(4+o,14).border = Border(left=th, right=th, top=md, bottom=md)
-    ws.cell(4+o,15).border = Border(left=no, right=md, top=md, bottom=md)
-    ws.cell(3+o,16).border = Border(left=th, right=th, top=md, bottom=no)
-    ws.cell(3+o,17).border = Border(left=no, right=md, top=md, bottom=no)
-    ws.cell(4+o,16).border = Border(left=th, right=th, top=md, bottom=md)
-    ws.cell(4+o,17).border = Border(left=no, right=md, top=md, bottom=md)
-    # 재병합 및 값 설정
+
+    # 원본 양식 테두리 그대로
+    def b(l,r,t,bo):
+        return Border(
+            left=Side(style=l) if l else Side(),
+            right=Side(style=r) if r else Side(),
+            top=Side(style=t) if t else Side(),
+            bottom=Side(style=bo) if bo else Side()
+        )
+    ws.cell(3+o,11).border = b('medium','medium','medium','thin')
+    ws.cell(4+o,11).border = b('medium','medium',None,'medium')
+    ws.cell(3+o,12).border = b(None,'thin','medium',None)
+    ws.cell(3+o,13).border = b(None,'thin','medium',None)
+    ws.cell(4+o,12).border = b('medium','thin','medium','medium')
+    ws.cell(4+o,13).border = b(None,'thin','medium','medium')
+    ws.cell(3+o,14).border = b('thin','thin','medium',None)
+    ws.cell(3+o,15).border = b(None,'thin','medium',None)
+    ws.cell(4+o,14).border = b('thin','thin','medium','medium')
+    ws.cell(4+o,15).border = b(None,'thin','medium','medium')
+    ws.cell(3+o,16).border = b('thin','thin','medium',None)
+    ws.cell(3+o,17).border = b(None,'thin','medium',None)
+    ws.cell(4+o,16).border = b('thin','thin','medium','medium')
+    ws.cell(4+o,17).border = b(None,'thin','medium','medium')
+
+    # 재병합 및 값
     ws.merge_cells(f"K{3+o}:K{4+o}"); ws.cell(3+o,11).value="결\n\n재"; ws.cell(3+o,11).alignment=center
-    ws.merge_cells(f"L{3+o}:M{3+o}"); ws.cell(3+o,12).value="담당";   ws.cell(3+o,12).alignment=center
+    ws.merge_cells(f"L{3+o}:M{3+o}"); ws.cell(3+o,12).value="담당";    ws.cell(3+o,12).alignment=center
     ws.merge_cells(f"L{4+o}:M{4+o}")
     ws.merge_cells(f"N{3+o}:O{3+o}"); ws.cell(3+o,14).value="사무총장"; ws.cell(3+o,14).alignment=center
     ws.merge_cells(f"N{4+o}:O{4+o}")
