@@ -78,36 +78,55 @@ def expand_rows(cases_data):
 
 def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, start_seq=1):
     from openpyxl.styles import Border, Side
-    thin   = Side(style='thin')
-    medium = Side(style='medium')
-    none   = Side(style=None)
+    th = Side(style='thin')
+    md = Side(style='medium')
+    no = Side(style=None)
     center = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-    # 원본 양식 기준: 제목R1C1, 사업명R3C1(A3:E3병합), 금액L열(12), 비고P열(16), 계R31C12
     set_val(ws,1+o,1,"지   출   결   의   서 ")
-    set_val(ws,3+o,1,biz_title, center)  # A3:E3 병합 + 가운데 맞춤
+    set_val(ws,3+o,1,biz_title, center)
 
-    # 사업명 셀(A3) 테두리
-    ws.cell(3+o,1).border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    # 사업명 A3:E3 병합 테두리 — 병합 해제 후 테두리 설정 후 재병합
+    merge_str = f"A{3+o}:E{3+o}"
+    try:
+        ws.unmerge_cells(merge_str)
+    except: pass
+    for c_idx in range(1, 6):
+        left_s  = th if c_idx == 1 else no
+        right_s = th if c_idx == 5 else no
+        ws.cell(3+o, c_idx).border = Border(left=left_s, right=right_s, top=th, bottom=th)
+    ws.merge_cells(merge_str)
+    ws.cell(3+o,1).value = biz_title
+    ws.cell(3+o,1).alignment = center
 
-    # 결재란 테두리 직접 설정
-    # K3:K4 (결재 텍스트, 세로 병합)
-    set_val(ws,3+o,11,"결\n\n재", center)
-    ws.cell(3+o,11).border = Border(left=medium, right=medium, top=medium, bottom=thin)
-    ws.cell(4+o,11).border = Border(left=medium, right=medium, top=thin,   bottom=medium)
-    # L3:M3 (담당)
-    set_val(ws,3+o,12,"담당", center)
-    ws.cell(3+o,12).border = Border(left=none,   right=thin,   top=medium, bottom=none)
-    ws.cell(4+o,12).border = Border(left=medium, right=thin,   top=medium, bottom=medium)
-    # N3:O3 (사무총장)
-    set_val(ws,3+o,14,"사무총장", center)
-    ws.cell(3+o,14).border = Border(left=thin,   right=thin,   top=medium, bottom=none)
-    ws.cell(4+o,14).border = Border(left=thin,   right=thin,   top=medium, bottom=medium)
-    # P3:Q3 (재무이사)
-    set_val(ws,3+o,16,"재무이사", center)
-    ws.cell(3+o,16).border = Border(left=thin,   right=thin,   top=medium, bottom=none)
-    ws.cell(4+o,16).border = Border(left=thin,   right=thin,   top=medium, bottom=medium)
-    set_val(ws,6+o,1,"작성일자"); set_val(ws,6+o,3,yy); set_val(ws,6+o,5,"년")
+    # 결재란 — 병합 해제 후 테두리 → 재병합
+    # K3:K4 (결재)
+    for merge_r in (f"K{3+o}:K{4+o}", f"L{3+o}:M{3+o}", f"L{4+o}:M{4+o}", f"N{3+o}:O{3+o}", f"N{4+o}:O{4+o}", f"P{3+o}:Q{3+o}", f"P{4+o}:Q{4+o}"):
+        try: ws.unmerge_cells(merge_r)
+        except: pass
+    # 테두리 설정
+    ws.cell(3+o,11).border = Border(left=md, right=md, top=md, bottom=th)
+    ws.cell(4+o,11).border = Border(left=md, right=md, top=th, bottom=md)
+    ws.cell(3+o,12).border = Border(left=no, right=th, top=md, bottom=no)
+    ws.cell(3+o,13).border = Border(left=no, right=md, top=md, bottom=no)
+    ws.cell(4+o,12).border = Border(left=md, right=th, top=md, bottom=md)
+    ws.cell(4+o,13).border = Border(left=no, right=md, top=md, bottom=md)
+    ws.cell(3+o,14).border = Border(left=th, right=th, top=md, bottom=no)
+    ws.cell(3+o,15).border = Border(left=no, right=md, top=md, bottom=no)
+    ws.cell(4+o,14).border = Border(left=th, right=th, top=md, bottom=md)
+    ws.cell(4+o,15).border = Border(left=no, right=md, top=md, bottom=md)
+    ws.cell(3+o,16).border = Border(left=th, right=th, top=md, bottom=no)
+    ws.cell(3+o,17).border = Border(left=no, right=md, top=md, bottom=no)
+    ws.cell(4+o,16).border = Border(left=th, right=th, top=md, bottom=md)
+    ws.cell(4+o,17).border = Border(left=no, right=md, top=md, bottom=md)
+    # 재병합 및 값 설정
+    ws.merge_cells(f"K{3+o}:K{4+o}"); ws.cell(3+o,11).value="결\n\n재"; ws.cell(3+o,11).alignment=center
+    ws.merge_cells(f"L{3+o}:M{3+o}"); ws.cell(3+o,12).value="담당";   ws.cell(3+o,12).alignment=center
+    ws.merge_cells(f"L{4+o}:M{4+o}")
+    ws.merge_cells(f"N{3+o}:O{3+o}"); ws.cell(3+o,14).value="사무총장"; ws.cell(3+o,14).alignment=center
+    ws.merge_cells(f"N{4+o}:O{4+o}")
+    ws.merge_cells(f"P{3+o}:Q{3+o}"); ws.cell(3+o,16).value="재무이사"; ws.cell(3+o,16).alignment=center
+    ws.merge_cells(f"P{4+o}:Q{4+o}")
     set_val(ws,6+o,6,mm); set_val(ws,6+o,7,"월"); set_val(ws,6+o,8,dd); set_val(ws,6+o,10,"일")
     set_val(ws,6+o,11,"처리사항"); set_val(ws,6+o,14,"구분"); set_val(ws,6+o,16,"결제방식")
     set_val(ws,7+o,1,"결재일자"); set_val(ws,7+o,3,yy); set_val(ws,7+o,5,"년")
