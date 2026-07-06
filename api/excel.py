@@ -90,7 +90,7 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
     set_val(ws,7+o,1,"결재일자"); set_val(ws,7+o,3,yy); set_val(ws,7+o,5,"년")
     set_val(ws,7+o,6,mm); set_val(ws,7+o,7,"월"); set_val(ws,7+o,8,"__"); set_val(ws,7+o,10,"일")
     set_val(ws,7+o,14,"영수증"); set_val(ws,7+o,16,PAY_METHOD_LABEL.get("current","계좌이체"))
-    set_val(ws,8+o,1,"일금"); set_val(ws,8+o,11,page_total)
+    set_val(ws,8+o,11,page_total)  # K8: 숫자 합계 (C8=K8 수식이 한글금액 자동 생성)
     set_val(ws,10+o,1,"순번"); set_val(ws,10+o,2,"계 정 과 목")
     set_val(ws,10+o,5,"적         요"); set_val(ws,10+o,12,"금       액"); set_val(ws,10+o,16,"비 고")
     for i in range(20):
