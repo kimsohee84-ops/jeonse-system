@@ -3601,8 +3601,10 @@ async function regenExcel(monthlyIdx) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         cases, lawyers: b.lawyers,
-        bizShort: b.short, yy, mm: mm2, dd,
-        sheets: ['resol', 'lawyer', 'transfer']
+        bizShort: b.short, bizFull: b.name, payMethod: b.payMethod,
+        yy, mm: mm2, dd,
+        sheets: [],
+        mode: 'resol'
       })
     });
     if (!res.ok) throw new Error('서버 오류');
