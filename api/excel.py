@@ -308,8 +308,8 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         # 열너비 — A4 세로 인쇄에 맞게 조정 (원본 비율 유지하면서 축소)
         A4_COL_WIDTHS = {
             'A':3.46,'B':5.13,'C':4.29,'D':3.57,'E':8.70,'F':4.77,'G':3.10,
-            'H':3.46,'I':3.93,'J':3.82,'K':10.86,'L':6.08,'M':3.69,'N':4.41,
-            'O':10.86,'P':8.23,'Q':4.65
+            'H':3.46,'I':3.93,'J':3.82,'K':5.38,'L':6.08,'M':3.69,'N':4.41,
+            'O':4.63,'P':8.23,'Q':3.0
         }
         for col, w in A4_COL_WIDTHS.items():
             ws_new.column_dimensions[col].width = w
