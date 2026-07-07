@@ -193,7 +193,20 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
     for c_idx, bdr in row8_borders.items():
         ws.cell(8+o, c_idx).border = bdr
     set_val(ws,10+o,1,"순번"); set_val(ws,10+o,2,"계 정 과 목")
-    set_val(ws,10+o,5,"적         요"); set_val(ws,10+o,12,"금       액"); set_val(ws,10+o,16,"비 고")
+    set_val(ws,10+o,5,"적         요"); set_val(ws,10+o,16,"비 고")
+
+    # E10:K10 병합 (적요), L10:O10 병합 (금액)
+    # 원본 양식에 E10:L10이 있어서 복사 시 자동 생성됨 → 강제 해제 후 재분할
+    for mr in [f"E{10+o}:L{10+o}", f"E{10+o}:K{10+o}", f"L{10+o}:O{10+o}",
+               f"L{10+o}:M{10+o}", f"L{10+o}:N{10+o}"]:
+        try: ws.unmerge_cells(mr)
+        except: pass
+    ws.merge_cells(f"E{10+o}:K{10+o}")
+    ws.cell(10+o,5).value = "적         요"
+    ws.cell(10+o,5).alignment = center
+    ws.merge_cells(f"L{10+o}:O{10+o}")
+    ws.cell(10+o,12).value = "금       액"
+    ws.cell(10+o,12).alignment = center
 
     # 10~31행 테두리 (헤더+데이터+계 — 원본 패턴 동일)
     # 패턴: A=thin사방, B=thin사방, C=top/bot, D=R/T/B, E=thin사방,
@@ -284,6 +297,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         merge_strings = [
             str(m) for m in ws_src.merged_cells.ranges
             if merge_row_range(str(m))[1] <= 31
+            and str(m) != 'E10:L10'  # 10행 금액 영역은 fill_page에서 직접 재분할
         ]
 
         ws_new = wb_new.create_sheet(new_name)
@@ -441,7 +455,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
 
         # 저장 전 핵심 병합셀 강제 확인 및 재추가
         ws_resol = wb_new[new_name]
-        required_merges_per_page = ["E10:L10", "A31:K31"]
+        required_merges_per_page = ["A31:K31"]
         for p_idx in range(len(pages)):
             o = p_idx * 32
             for mc in required_merges_per_page:
