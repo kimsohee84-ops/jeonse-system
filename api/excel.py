@@ -240,7 +240,9 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
                 bottom=Side(style=bot) if bot else Side()
             )
     for i in range(20):
-        r = 11+i+o; set_val(ws,r,1,start_seq+i)
+        r = 11+i+o
+        ws.row_dimensions[r].height = 24  # 11~30행 높이 고정
+        set_val(ws,r,1,start_seq+i)
         if i < len(page_rows):
             row = page_rows[i]
             acct_label = "일반관리비\n전세피해자사업비" if row["acct_type"]=="일반관리비" else "법률구조사업비(사)"
@@ -250,6 +252,7 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
             set_val(ws,r,16,row["note"])
         else:
             for col in [2,5,12,16]: set_val(ws,r,col,None)
+    ws.row_dimensions[31+o].height = 24
     set_val(ws,31+o,1,"계"); set_val(ws,31+o,12,page_total)
 
 # 결제방식 라벨 — build_excel에서 모듈 전역으로 1회 세팅 (fill_page가 매 페이지 동일하게 참조)
@@ -365,18 +368,17 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         from openpyxl.worksheet.properties import PageSetupProperties
         from openpyxl.worksheet.pagebreak import Break
 
-        ws_new.page_setup.orientation  = 'portrait'  # 세로
-        ws_new.page_setup.paperSize    = 9            # A4
-        ws_new.page_setup.scale        = 100          # 배율 100% (자동 맞춤 안 함)
+        ws_new.page_setup.orientation  = 'portrait'
+        ws_new.page_setup.paperSize    = 9
+        ws_new.page_setup.scale        = 100
         ws_new.page_setup.fitToPage    = False
         ws_new.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=False)
 
-        # 여백 (cm → 인치 변환: /2.54)
-        # 위:2.1, 아래:0.6, 왼:1.9, 오른:1.8, 머리글:0.8, 바닥글:0.5
+        # 여백 (cm → 인치)
         ws_new.page_margins.top    = 2.1 / 2.54
         ws_new.page_margins.bottom = 0.6 / 2.54
-        ws_new.page_margins.left   = 1.9 / 2.54
-        ws_new.page_margins.right  = 1.8 / 2.54
+        ws_new.page_margins.left   = 1.3 / 2.54
+        ws_new.page_margins.right  = 1.4 / 2.54
         ws_new.page_margins.header = 0.8 / 2.54
         ws_new.page_margins.footer = 0.5 / 2.54
 
@@ -384,7 +386,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         last_row = 31 + (len(pages)-1) * 32
         ws_new.print_area = f"A1:Q{last_row}"
 
-        # 페이지 구분선: 31행 단위로 강제 페이지 나누기
+        # 페이지 구분선
         for p_idx in range(len(pages)-1):
             break_row = 31 + p_idx*32
             ws_new.row_breaks.append(Break(id=break_row))
