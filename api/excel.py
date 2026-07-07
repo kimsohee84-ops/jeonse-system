@@ -194,6 +194,38 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
         ws.cell(8+o, c_idx).border = bdr
     set_val(ws,10+o,1,"순번"); set_val(ws,10+o,2,"계 정 과 목")
     set_val(ws,10+o,5,"적         요"); set_val(ws,10+o,12,"금       액"); set_val(ws,10+o,16,"비 고")
+
+    # 10~31행 테두리 (헤더+데이터+계 — 원본 패턴 동일)
+    # 패턴: A=thin사방, B=thin사방, C=top/bot, D=R/T/B, E=thin사방,
+    #        F~J=top/bot, K=R/T/B, L=thin사방, M~N=T/B, O=R/T/B, P=thin사방, Q=R/T/B
+    row_border_pattern = [
+        (1,  'thin','thin','thin','thin'),
+        (2,  'thin','thin','thin','thin'),
+        (3,  None,  None,  'thin','thin'),
+        (4,  None,  'thin','thin','thin'),
+        (5,  'thin','thin','thin','thin'),
+        (6,  None,  None,  'thin','thin'),
+        (7,  None,  None,  'thin','thin'),
+        (8,  None,  None,  'thin','thin'),
+        (9,  None,  None,  'thin','thin'),
+        (10, None,  None,  'thin','thin'),
+        (11, None,  'thin','thin','thin'),
+        (12, 'thin','thin','thin','thin'),
+        (13, None,  None,  'thin','thin'),
+        (14, None,  None,  'thin','thin'),
+        (15, None,  'thin','thin','thin'),
+        (16, 'thin','thin','thin','thin'),
+        (17, None,  'thin','thin','thin'),
+    ]
+    for r_offset in range(22):  # 10~31행 (22개 행)
+        row_num = 10 + r_offset + o
+        for c_idx, l, r_, t, bot in row_border_pattern:
+            ws.cell(row_num, c_idx).border = Border(
+                left=Side(style=l) if l else Side(),
+                right=Side(style=r_) if r_ else Side(),
+                top=Side(style=t) if t else Side(),
+                bottom=Side(style=bot) if bot else Side()
+            )
     for i in range(20):
         r = 11+i+o; set_val(ws,r,1,start_seq+i)
         if i < len(page_rows):
