@@ -356,29 +356,32 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
 
             fill_page(ws_new,o,page_rows,page_total,biz_title,yy,mm,dd,p_idx,start_seq=seq)
             seq += len(page_rows)
-        # ── 인쇄 설정: A4, 페이지당 31행씩 자동 분할 ──
+        # ── 인쇄 설정: A4 세로, 1장에 딱 맞게 ──
         from openpyxl.worksheet.properties import PageSetupProperties
-        ws_new.page_setup.orientation = 'portrait'
-        ws_new.page_setup.paperSize   = 9   # A4
-        ws_new.page_setup.fitToHeight = 0
-        ws_new.page_setup.fitToWidth  = 1
-        ws_new.page_setup.scale       = 90
-        ws_new.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
-        ws_new.page_margins.top    = 0.49
-        ws_new.page_margins.bottom = 0.1968503937007874
-        ws_new.page_margins.left   = 0.7086614173228347
-        ws_new.page_margins.right  = 0.7086614173228347
-        ws_new.page_margins.header = 0
-        ws_new.page_margins.footer = 0
+        from openpyxl.worksheet.pagebreak import Break
 
-        # print_area: 각 페이지(31행) 전체를 포함
+        ws_new.page_setup.orientation  = 'portrait'  # 세로
+        ws_new.page_setup.paperSize    = 9            # A4
+        ws_new.page_setup.fitToPage    = True
+        ws_new.page_setup.fitToWidth   = 1            # 가로 1페이지에 맞춤
+        ws_new.page_setup.fitToHeight  = 0            # 세로는 자동
+        ws_new.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+
+        # 여백 (단위: 인치) — 상0.5 하0.5 좌우0.7
+        ws_new.page_margins.top    = 0.5
+        ws_new.page_margins.bottom = 0.5
+        ws_new.page_margins.left   = 0.7
+        ws_new.page_margins.right  = 0.7
+        ws_new.page_margins.header = 0.3
+        ws_new.page_margins.footer = 0.3
+
+        # 인쇄 영역
         last_row = 31 + (len(pages)-1) * 32
         ws_new.print_area = f"A1:Q{last_row}"
 
-        # 페이지 구분선(인쇄 페이지 나누기): 각 페이지 끝(31행) 뒤에 강제 페이지브레이크
-        from openpyxl.worksheet.pagebreak import Break
+        # 페이지 구분선: 31행 단위로 강제 페이지 나누기
         for p_idx in range(len(pages)-1):
-            break_row = 31 + p_idx*32  # 1페이지 끝 = 31, 2페이지 끝 = 63...
+            break_row = 31 + p_idx*32
             ws_new.row_breaks.append(Break(id=break_row))
 
         # 변호사 계좌 정보 (lawyer 시트 선택 시 — resol 모드 내 부속 옵션)
