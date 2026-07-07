@@ -142,7 +142,56 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
     set_val(ws,7+o,1,"결재일자"); set_val(ws,7+o,3,yy); set_val(ws,7+o,5,"년")
     set_val(ws,7+o,6,mm); set_val(ws,7+o,7,"월"); set_val(ws,7+o,8,"__"); set_val(ws,7+o,10,"일")
     set_val(ws,7+o,14,"영수증"); set_val(ws,7+o,16,PAY_METHOD_LABEL.get("current","계좌이체"))
-    set_val(ws,8+o,11,page_total)  # K8: 숫자 합계 (C8=K8 수식이 한글금액 자동 생성)
+    set_val(ws,8+o,11,page_total)
+
+    # 6~8행 테두리 원본 그대로 적용
+    # 원본에서 읽은 값: 6~8행 모든 셀 top/bottom=thin, 좌우는 셀별 차이
+    def _b(l=None,r=None,t=None,bo=None):
+        return Border(
+            left=Side(style=l) if l else Side(),
+            right=Side(style=r) if r else Side(),
+            top=Side(style=t) if t else Side(),
+            bottom=Side(style=bo) if bo else Side()
+        )
+    row6_borders = {
+        1:_b('thin','thin','thin','thin'), 2:_b(None,'thin','thin','thin'),
+        3:_b('thin',None,'thin','thin'),   4:_b(None,None,'thin','thin'),
+        5:_b(None,None,'thin','thin'),     6:_b(None,None,'thin','thin'),
+        7:_b(None,None,'thin','thin'),     8:_b(None,None,'thin','thin'),
+        9:_b(None,None,'thin','thin'),    10:_b(None,'thin','thin','thin'),
+        11:_b('thin','thin','thin','thin'),12:_b(None,None,'thin','thin'),
+        13:_b(None,'thin','thin','thin'), 14:_b('thin','thin','thin','thin'),
+        15:_b(None,'thin','thin','thin'), 16:_b('thin','thin','thin','thin'),
+        17:_b(None,'thin','thin','thin'),
+    }
+    row7_borders = {
+        1:_b('thin','thin','thin','thin'), 2:_b(None,'thin','thin','thin'),
+        3:_b('thin',None,'thin','thin'),   4:_b(None,None,'thin','thin'),
+        5:_b(None,None,'thin','thin'),     6:_b(None,None,'thin','thin'),
+        7:_b(None,None,'thin','thin'),     8:_b(None,None,'thin','thin'),
+        9:_b(None,None,'thin','thin'),    10:_b(None,'thin','thin','thin'),
+        11:_b('thin','thin','thin','thin'),12:_b(None,None,'thin','thin'),
+        13:_b(None,'thin','thin','thin'), 14:_b('thin','thin','thin','thin'),
+        15:_b(None,'thin','thin','thin'), 16:_b('thin','thin','thin','thin'),
+        17:_b(None,'thin','thin','thin'),
+    }
+    row8_borders = {
+        1:_b('thin','thin','thin','thin'), 2:_b(None,'thin','thin','thin'),
+        3:_b('thin',None,'thin','thin'),   4:_b(None,None,'thin','thin'),
+        5:_b(None,None,'thin','thin'),     6:_b(None,None,'thin','thin'),
+        7:_b(None,None,'thin','thin'),     8:_b(None,None,'thin','thin'),
+        9:_b(None,'thin','thin','thin'),  10:_b(None,'thin','thin','thin'),
+        11:_b('thin','thin','thin','thin'),12:_b(None,None,'thin','thin'),
+        13:_b(None,None,'thin','thin'),   14:_b(None,None,'thin','thin'),
+        15:_b(None,None,'thin','thin'),   16:_b(None,None,'thin','thin'),
+        17:_b(None,'thin','thin','thin'),
+    }
+    for c_idx, bdr in row6_borders.items():
+        ws.cell(6+o, c_idx).border = bdr
+    for c_idx, bdr in row7_borders.items():
+        ws.cell(7+o, c_idx).border = bdr
+    for c_idx, bdr in row8_borders.items():
+        ws.cell(8+o, c_idx).border = bdr
     set_val(ws,10+o,1,"순번"); set_val(ws,10+o,2,"계 정 과 목")
     set_val(ws,10+o,5,"적         요"); set_val(ws,10+o,12,"금       액"); set_val(ws,10+o,16,"비 고")
     for i in range(20):
