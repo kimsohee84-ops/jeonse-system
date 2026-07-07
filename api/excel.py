@@ -302,9 +302,14 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
 
         ws_new = wb_new.create_sheet(new_name)
 
-        # 열너비
-        for col,dim in ws_src.column_dimensions.items():
-            ws_new.column_dimensions[col].width=dim.width
+        # 열너비 — A4 세로 인쇄에 맞게 조정 (원본 비율 유지하면서 축소)
+        A4_COL_WIDTHS = {
+            'A':3.46,'B':5.13,'C':4.29,'D':3.57,'E':8.70,'F':4.77,'G':3.10,
+            'H':3.46,'I':3.93,'J':3.82,'K':10.86,'L':6.08,'M':3.69,'N':4.41,
+            'O':10.86,'P':8.23,'Q':4.65
+        }
+        for col, w in A4_COL_WIDTHS.items():
+            ws_new.column_dimensions[col].width = w
 
         # 건당 한 줄 (보수+인지대+송달료 합계) — 20건씩 페이지 분할
         # expand_rows는 사용 안 함: 지출결의서는 합계 한 줄, 지출목록에서 열로 분리
@@ -356,24 +361,24 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
 
             fill_page(ws_new,o,page_rows,page_total,biz_title,yy,mm,dd,p_idx,start_seq=seq)
             seq += len(page_rows)
-        # ── 인쇄 설정: A4 세로, 1장에 딱 맞게 ──
+        # ── 인쇄 설정: 원본 양식과 동일하게 ──
         from openpyxl.worksheet.properties import PageSetupProperties
         from openpyxl.worksheet.pagebreak import Break
 
         ws_new.page_setup.orientation  = 'portrait'  # 세로
         ws_new.page_setup.paperSize    = 9            # A4
-        ws_new.page_setup.fitToPage    = True
-        ws_new.page_setup.fitToWidth   = 1            # 가로 1페이지에 맞춤
-        ws_new.page_setup.fitToHeight  = 0            # 세로는 자동
-        ws_new.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+        ws_new.page_setup.scale        = 100          # 배율 100% (자동 맞춤 안 함)
+        ws_new.page_setup.fitToPage    = False
+        ws_new.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=False)
 
-        # 여백 (단위: 인치) — 상0.5 하0.5 좌우0.7
-        ws_new.page_margins.top    = 0.5
-        ws_new.page_margins.bottom = 0.5
-        ws_new.page_margins.left   = 0.7
-        ws_new.page_margins.right  = 0.7
-        ws_new.page_margins.header = 0.3
-        ws_new.page_margins.footer = 0.3
+        # 여백 (cm → 인치 변환: /2.54)
+        # 위:2.1, 아래:0.6, 왼:1.9, 오른:1.8, 머리글:0.8, 바닥글:0.5
+        ws_new.page_margins.top    = 2.1 / 2.54
+        ws_new.page_margins.bottom = 0.6 / 2.54
+        ws_new.page_margins.left   = 1.9 / 2.54
+        ws_new.page_margins.right  = 1.8 / 2.54
+        ws_new.page_margins.header = 0.8 / 2.54
+        ws_new.page_margins.footer = 0.5 / 2.54
 
         # 인쇄 영역
         last_row = 31 + (len(pages)-1) * 32
