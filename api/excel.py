@@ -489,52 +489,144 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                 except: pass
 
     # ══════════════════════════════════════════
-    # ② 지출목록 (mode: 'list' 또는 'all')
+    # ② 지출목록/실무자확인표 (mode: 'list' 또는 'all')
     # ══════════════════════════════════════════
     if mode in ('list', 'all'):
-        list_src="26년 5월(국토부)" if biz_short=="국토부" else "26년 5월"
-        ws_list_src=wb_src_list[list_src]
-        ws_list_new=wb_new.create_sheet(f"26년 {mm}월({biz_label})")
-        list_merges=[str(m) for m in ws_list_src.merged_cells.ranges]
-        for col,dim in ws_list_src.column_dimensions.items(): ws_list_new.column_dimensions[col].width=dim.width
-        for rn,dim in ws_list_src.row_dimensions.items(): ws_list_new.row_dimensions[rn].height=dim.height
-        apply_merge_list(ws_list_new,list_merges,0)
-        for row in ws_list_src.iter_rows(min_row=1,max_row=5):
-            for cell in row:
-                if cell.__class__.__name__=="MergedCell": continue
-                nc=ws_list_new.cell(cell.row,cell.column)
-                if nc.__class__.__name__=="MergedCell": continue
-                if cell.has_style:
-                    nc.font=copy.copy(cell.font); nc.border=copy.copy(cell.border)
-                    nc.fill=copy.copy(cell.fill); nc.alignment=copy.copy(cell.alignment)
+        from openpyxl.styles import Border, Side, PatternFill, Font
+        from openpyxl.styles.numbers import FORMAT_DATE_YYYYMMDD2
 
-        total=sum((c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0) for c in cases_data)
-        set_val(ws_list_new,2,8,f"({biz_label}) {biz_full} {yy}년 {mm}월 사업비 지출 목록")
-        set_val(ws_list_new,3,21,f"최종 수정: {yy}. {str(mm).zfill(2)}.")
-        set_val(ws_list_new,4,21,total)
-        for col,val in [(2,"결의서"),(3,"변호사"),(4,"접수번호"),(8,"신청인"),(9,"구조날짜"),
-                        (10,"사건"),(11,"금액"),(14,"예금주"),(15,"은행"),(16,"은행번호"),
-                        (17,"계좌"),(18,"비고"),(20,"메일")]:
-            set_val(ws_list_new,5,col,val)
-        for i,c in enumerate(cases_data):
-            row=6+i
-            amt=(c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
-            num=(c.get("num","") or "").replace("국부 ","").replace("서금 ","")
-            if num.startswith("미인식"): num=""
-            parts=num.split("-")
-            yr=int(parts[0]) if len(parts)>0 and str(parts[0]).isdigit() else ""
-            seq=int(parts[1]) if len(parts)>1 and str(parts[1]).isdigit() else ""
-            linfo=lawyers_dict.get(c.get("lawyer",""),{})
-            try: cdate=datetime.strptime(c.get("date",""),"%Y-%m-%d") if c.get("date") else datetime.today()
-            except: cdate=datetime.today()
-            for col,val in [
-                (2,i+1),(3,c.get("lawyer","")),(4,yr),(5,seq),(6,num),(7,"재단"),
-                (8,c.get("client","")),(9,cdate),(10,c.get("case","") or c.get("caseName","")),
-                (11,amt),(12,num+c.get("client","")),(13,"재단"+c.get("client","")),
-                (14,linfo.get("owner","")),(15,linfo.get("bank","")),(16,linfo.get("bankCode","")),
-                (17,linfo.get("acct","")),(18,c.get("note","") or c.get("type","")),(20,linfo.get("email",""))
-            ]: ws_list_new.cell(row,col).value=val
-        ws_list_new.cell(6+len(cases_data),11).value=total
+        ws_l = wb_new.create_sheet(f"{yy}년 {mm}월({biz_label})")
+
+        # 열 너비
+        col_widths = {
+            'A':1.5, 'B':4.0, 'C':7.0, 'D':4.0, 'E':4.0, 'F':6.0,
+            'G':4.0, 'H':7.0, 'I':12.0, 'J':8.0, 'K':6.0, 'L':8.0,
+            'M':7.0, 'N':6.0, 'O':5.0, 'P':12.0, 'Q':5.0, 'R':4.0,
+            'S':20.0, 'T':4.0
+        }
+        for col, w in col_widths.items():
+            ws_l.column_dimensions[col].width = w
+
+        # 행 높이
+        ws_l.row_dimensions[1].height = 10
+        ws_l.row_dimensions[2].height = 22
+        ws_l.row_dimensions[3].height = 15
+        ws_l.row_dimensions[4].height = 15
+        ws_l.row_dimensions[5].height = 30
+
+        th = Side(style='thin')
+        md = Side(style='medium')
+        def bdr(l=None,r=None,t=None,b=None):
+            return Border(
+                left=Side(style=l) if l else Side(),
+                right=Side(style=r) if r else Side(),
+                top=Side(style=t) if t else Side(),
+                bottom=Side(style=b) if b else Side()
+            )
+
+        # 제목
+        total = sum((c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0) for c in cases_data)
+        ws_l.merge_cells('B2:T2')
+        ws_l['B2'].value = f"({biz_label}) {biz_full} {yy}년 {mm}월 사업비 지출 목록 (실무자확인표)"
+        ws_l['B2'].font = Font(bold=True, size=12)
+        ws_l['B2'].alignment = Alignment(horizontal='center', vertical='center')
+
+        ws_l.merge_cells('S3:T3')
+        ws_l['S3'].value = f"최종 수정: {yy}. {str(mm).zfill(2)}."
+        ws_l['S3'].alignment = Alignment(horizontal='right')
+
+        ws_l.merge_cells('S4:T4')
+        ws_l['S4'].value = total
+        ws_l['S4'].number_format = '#,##0'
+        ws_l['S4'].alignment = Alignment(horizontal='right')
+
+        # 헤더 (5행)
+        headers = [
+            (2,'순번'),(3,'변호사'),(4,'연도'),(5,'접수'),(6,'접수번호'),
+            (7,'구분'),(8,'신청인'),(9,'사건명'),(10,'금액'),
+            (11,'출금통장표시'),(12,'입금통장표시'),
+            (13,'예금주'),(14,'은행'),(15,'은행코드'),(16,'계좌번호'),
+            (17,'비고'),(18,''),(19,'메일'),(20,'')
+        ]
+        hdr_font = Font(bold=True, size=9)
+        hdr_fill = PatternFill(fill_type='solid', fgColor='D9E1F2')
+        for col, txt in headers:
+            c = ws_l.cell(5, col)
+            c.value = txt
+            c.font = hdr_font
+            c.fill = hdr_fill
+            c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            c.border = bdr('thin','thin','medium','medium')
+
+        # 데이터 (6행~)
+        data_font = Font(size=9)
+        for i, case in enumerate(cases_data):
+            row = 6 + i
+            ws_l.row_dimensions[row].height = 18
+            amt = (case.get("fee",0) or 0)+(case.get("stamp",0) or 0)+(case.get("delivery",0) or 0)
+            num = (case.get("num","") or "").strip()
+            # 접수번호 분리 (예: "법무부 26-8" → yr=26, seq=8)
+            import re
+            m2 = re.search(r'(\d+)-(\d+)', num)
+            yr_n = int(m2.group(1)) if m2 else ""
+            seq_n = int(m2.group(2)) if m2 else ""
+            num_str = f"{yr_n}-{seq_n}" if m2 else num
+
+            linfo = lawyers_dict.get(case.get("lawyer",""), {})
+            try:
+                cdate = datetime.strptime(case.get("date",""), "%Y-%m-%d") if case.get("date") else datetime.today()
+            except:
+                cdate = datetime.today()
+
+            is_biz = case.get("tax","") == "사업소득"
+            net = amt - round(amt * 0.033) if is_biz else amt
+            client = case.get("client","")
+            lawyer = case.get("lawyer","")
+
+            row_data = [
+                (2, i+1),
+                (3, lawyer),
+                (4, yr_n),
+                (5, seq_n),
+                (6, num_str),
+                (7, "재단"),
+                (8, client),
+                (9, case.get("case","") or case.get("caseName","")),
+                (10, amt),
+                (11, f"{num_str}{client}"),
+                (12, f"재단{client}"),
+                (13, linfo.get("owner","")),
+                (14, linfo.get("bank","")),
+                (15, linfo.get("bankCode","")),
+                (16, linfo.get("acct","")),
+                (17, case.get("note","") or case.get("type","")),
+                (18, ""),
+                (19, linfo.get("email","")),
+                (20, ""),
+            ]
+            for col, val in row_data:
+                c = ws_l.cell(row, col)
+                c.value = val
+                c.font = data_font
+                c.alignment = Alignment(vertical='center', wrap_text=False)
+                c.border = bdr('thin','thin','thin','thin')
+                if col == 10:  # 금액 오른쪽 정렬 + 숫자 형식
+                    c.number_format = '#,##0'
+                    c.alignment = Alignment(horizontal='right', vertical='center')
+
+        # 합계 행
+        total_row = 6 + len(cases_data)
+        ws_l.row_dimensions[total_row].height = 18
+        ws_l.merge_cells(f'B{total_row}:I{total_row}')
+        ws_l.cell(total_row, 2).value = "합  계"
+        ws_l.cell(total_row, 2).font = Font(bold=True, size=9)
+        ws_l.cell(total_row, 2).alignment = Alignment(horizontal='center', vertical='center')
+        ws_l.cell(total_row, 10).value = total
+        ws_l.cell(total_row, 10).font = Font(bold=True, size=9)
+        ws_l.cell(total_row, 10).number_format = '#,##0'
+        ws_l.cell(total_row, 10).alignment = Alignment(horizontal='right', vertical='center')
+        for col in range(2, 21):
+            ws_l.cell(total_row, col).border = bdr('thin','thin','medium','medium')
 
     # ══════════════════════════════════════════
     # ③ 정산보고서 (mode: 'report' 또는 'all')
