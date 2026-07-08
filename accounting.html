@@ -1434,10 +1434,14 @@ const STORAGE_KEY = 'jeonse_acc_data_v1';
 function savePersistedData() {
   try {
     const ALL_KEYS = Object.keys(BIZ);
-    const cases = {}, executed = {};
-    ALL_KEYS.forEach(k => { cases[k] = BIZ[k].cases; executed[k] = BIZ[k].executed; });
+    const cases = {}, executed = {}, lawyers = {};
+    ALL_KEYS.forEach(k => {
+      cases[k] = BIZ[k].cases;
+      executed[k] = BIZ[k].executed;
+      lawyers[k] = BIZ[k].lawyers;
+    });
     const data = {
-      cases, executed,
+      cases, executed, lawyers,
       resolList,
       EXEC_DATA,
       PAID_CASES,
@@ -1462,6 +1466,9 @@ function loadPersistedData() {
     }
     if (data.executed) {
       ALL_KEYS.forEach(k => { if (typeof data.executed[k] === 'number') BIZ[k].executed = data.executed[k]; });
+    }
+    if (data.lawyers) {
+      ALL_KEYS.forEach(k => { if (Array.isArray(data.lawyers[k])) BIZ[k].lawyers = data.lawyers[k]; });
     }
     if (data.resolList) {
       ALL_KEYS.forEach(k => { if (Array.isArray(data.resolList[k])) resolList[k] = data.resolList[k]; });
