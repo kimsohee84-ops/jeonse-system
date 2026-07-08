@@ -2315,14 +2315,12 @@ function saveLawyerModal() {
   };
 
   if(lawyerEditIdx === -1) {
-    // 추가
-    BIZ.kt.lawyers.push(data);
-    BIZ.sf.lawyers.push(data);
+    // 추가 — 모든 사업에 동일하게
+    Object.keys(BIZ).forEach(k => { BIZ[k].lawyers.push(data); });
     showToast(`${name} 변호사 추가됐습니다`);
   } else {
-    // 수정 (두 사업 모두 업데이트)
-    BIZ.kt.lawyers[lawyerEditIdx] = data;
-    BIZ.sf.lawyers[lawyerEditIdx] = data;
+    // 수정 — 모든 사업에 동일하게
+    Object.keys(BIZ).forEach(k => { BIZ[k].lawyers[lawyerEditIdx] = data; });
     showToast(`${name} 변호사 정보가 수정됐습니다`);
   }
 
@@ -2334,8 +2332,7 @@ function saveLawyerModal() {
 function deleteLawyer(idx) {
   const name = BIZ[curBiz].lawyers[idx].name;
   if(!confirm(`${name} 변호사를 삭제할까요?`)) return;
-  BIZ.kt.lawyers.splice(idx, 1);
-  BIZ.sf.lawyers.splice(idx, 1);
+  Object.keys(BIZ).forEach(k => { BIZ[k].lawyers.splice(idx, 1); });
   renderLawyers();
   showToast(`${name} 삭제됐습니다`);
 }
@@ -3117,9 +3114,8 @@ function handleLawyerUpload(event) {
           tax:      "전자계산서",
         }));
 
-      // 두 사업 모두 업데이트
-      BIZ.kt.lawyers = lawyers;
-      BIZ.sf.lawyers = lawyers;
+      // 모든 사업에 동일하게 적용 (변호사 계좌는 사업 구분 없이 공통)
+      Object.keys(BIZ).forEach(k => { BIZ[k].lawyers = lawyers; });
 
       renderLawyers();
       const status = document.getElementById("lawyer-upload-status");
