@@ -821,6 +821,9 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
               </span>
             </label>
             <span id="lawyer-upload-status" style="font-size:12px;color:var(--muted)">파일 미선택</span>
+            <button class="btn btn-success" id="lawyer-save-btn" onclick="saveLawyerData()" style="display:none">
+              <i class="ti ti-device-floppy" aria-hidden="true"></i> 저장 확인
+            </button>
             <button class="btn" onclick="resetLawyerData()" style="margin-left:auto">
               <i class="ti ti-refresh" aria-hidden="true"></i> 초기화 (기본값 복원)
             </button>
@@ -3120,7 +3123,10 @@ function handleLawyerUpload(event) {
       renderLawyers();
       const status = document.getElementById("lawyer-upload-status");
       if(status) status.textContent = `✅ ${file.name} — ${lawyers.length}명 로드 완료`;
-      showToast(`변호사 계좌 ${lawyers.length}명 업로드 완료`);
+      // 저장 확인 버튼 표시
+      const saveBtn = document.getElementById("lawyer-save-btn");
+      if(saveBtn) saveBtn.style.display = 'inline-flex';
+      showToast(`변호사 계좌 ${lawyers.length}명 업로드 완료 — "저장 확인" 버튼을 눌러 저장하세요`);
 
     } catch(err) {
       showToast("파일 오류: " + err.message);
@@ -3128,6 +3134,20 @@ function handleLawyerUpload(event) {
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// ── 변호사 계좌 저장 확인 ──
+function saveLawyerData() {
+  savePersistedData();
+  const count = BIZ[curBiz].lawyers.length;
+  const saveBtn = document.getElementById("lawyer-save-btn");
+  if(saveBtn) saveBtn.style.display = 'none';
+  const status = document.getElementById("lawyer-upload-status");
+  if(status) {
+    status.textContent = `✅ ${count}명 저장 완료!`;
+    status.style.color = 'var(--green)';
+  }
+  showToast(`변호사 계좌 ${count}명 저장 완료!`);
 }
 
 // ── 변호사 데이터 기본값으로 초기화 ──
