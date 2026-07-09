@@ -946,6 +946,24 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
         <div id="report-body"></div>
       </div>
 
+      <!-- 사용자 관리 (관리자 전용) -->
+      <div class="view" id="view-usermgmt">
+        <p class="page-title">사용자 관리</p>
+        <p class="page-sub">계정 추가/수정/삭제 및 사업별 접근 권한 설정</p>
+        <div class="card" style="margin-bottom:1rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <span style="font-size:13px;font-weight:600">등록된 계정</span>
+            <button class="btn btn-primary" onclick="openUserModal(-1)">
+              <i class="ti ti-plus" aria-hidden="true"></i> 계정 추가
+            </button>
+          </div>
+          <table class="tbl">
+            <thead><tr><th>아이디</th><th>이름</th><th>역할</th><th>접근 사업</th><th>관리</th></tr></thead>
+            <tbody id="usermgmt-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -5854,25 +5872,6 @@ function recordExecution(cases, b, yy, mm, dd) {
     </div>
   </div>
 </div>
-
-
-      <!-- 사용자 관리 (관리자 전용) -->
-      <div class="view" id="view-usermgmt">
-        <p class="page-title">사용자 관리</p>
-        <p class="page-sub">계정 추가/수정/삭제 및 사업별 접근 권한 설정</p>
-        <div class="card" style="margin-bottom:1rem">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-            <span style="font-size:13px;font-weight:600">등록된 계정</span>
-            <button class="btn btn-primary" onclick="openUserModal(-1)">
-              <i class="ti ti-plus" aria-hidden="true"></i> 계정 추가
-            </button>
-          </div>
-          <table class="tbl">
-            <thead><tr><th>아이디</th><th>이름</th><th>역할</th><th>접근 사업</th><th>관리</th></tr></thead>
-            <tbody id="usermgmt-tbody"></tbody>
-          </table>
-        </div>
-      </div>
 
 <!-- 전역 모달 -->
 <!-- 사용자 추가/수정 모달 -->
