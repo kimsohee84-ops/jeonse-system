@@ -168,11 +168,6 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
     </div>
     <p class="login-error" id="lerr"><i class="ti ti-alert-circle" aria-hidden="true"></i> 아이디 또는 비밀번호 오류</p>
     <button class="btn-login" onclick="doLogin()">로그인</button>
-    <p class="login-hint">
-      admin / 1234 (관리자)<br>
-      user1 / 1234 (담당자)<br>
-      finance / 1234 (재무이사)
-    </p>
   </div>
 </div>
 
@@ -203,34 +198,34 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
         사업 선택 <span id="biz-list-toggle" style="font-size:10px">▲</span>
       </div>
       <div id="biz-list" style="overflow:hidden;transition:max-height .3s ease">
-        <div class="nav-item biz-nav active" id="nav-biz-kt" onclick="selectBizNav('kt')">
+        <div class="nav-item biz-nav active" id="nav-biz-kt" data-biz-key="kt" onclick="selectBizNav('kt')">
           <i class="ti ti-home" aria-hidden="true"></i> 전세(국토부)
         </div>
-        <div class="nav-item biz-nav" id="nav-biz-sf" onclick="selectBizNav('sf')">
+        <div class="nav-item biz-nav" id="nav-biz-sf" data-biz-key="sf" onclick="selectBizNav('sf')">
           <i class="ti ti-coin" aria-hidden="true"></i> 전세(서민금융)
         </div>
-        <div class="nav-item biz-nav" id="nav-biz-yangik" onclick="selectBizNav('yangik')">
+        <div class="nav-item biz-nav" id="nav-biz-yangik" data-biz-key="yangik" onclick="selectBizNav('yangik')">
           <i class="ti ti-heart" aria-hidden="true"></i> 양육비이행관리원
         </div>
-        <div class="nav-item biz-nav" id="nav-biz-court" onclick="selectBizNav('court')">
+        <div class="nav-item biz-nav" id="nav-biz-court" data-biz-key="court" onclick="selectBizNav('court')">
           <i class="ti ti-scale" aria-hidden="true"></i> 대법원
         </div>
-        <div class="nav-item biz-nav" id="nav-biz-moj" onclick="selectBizNav('moj')">
+        <div class="nav-item biz-nav" id="nav-biz-moj" data-biz-key="moj" onclick="selectBizNav('moj')">
           <i class="ti ti-building" aria-hidden="true"></i> 법무부(보장원)
         </div>
-        <div class="nav-item biz-nav" id="nav-biz-gender" onclick="selectBizNav('gender')">
+        <div class="nav-item biz-nav" id="nav-biz-gender" data-biz-key="gender" onclick="selectBizNav('gender')">
           <i class="ti ti-users" aria-hidden="true"></i> 성평등가족부
         </div>
-        <div class="nav-item biz-nav" id="nav-biz-mois" onclick="selectBizNav('mois')">
+        <div class="nav-item biz-nav" id="nav-biz-mois" data-biz-key="mois" onclick="selectBizNav('mois')">
           <i class="ti ti-building-community" aria-hidden="true"></i> 행안부(이태원)
         </div>
-        <div class="nav-item biz-nav" id="nav-biz-seoul" onclick="selectBizNav('seoul')">
+        <div class="nav-item biz-nav" id="nav-biz-seoul" data-biz-key="seoul" onclick="selectBizNav('seoul')">
           <i class="ti ti-map-pin" aria-hidden="true"></i> 서울시복지재단
         </div>
-        <div class="nav-item biz-nav" id="nav-biz-green" onclick="selectBizNav('green')">
+        <div class="nav-item biz-nav" id="nav-biz-green" data-biz-key="green" onclick="selectBizNav('green')">
           <i class="ti ti-tree" aria-hidden="true"></i> 초록우산
         </div>
-        <div class="nav-item biz-nav" id="nav-biz-air" onclick="selectBizNav('air')">
+        <div class="nav-item biz-nav" id="nav-biz-air" data-biz-key="air" onclick="selectBizNav('air')">
           <i class="ti ti-plane" aria-hidden="true"></i> 여객기(국토부)
         </div>
       </div>
@@ -249,7 +244,12 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
         <div class="nav-item" onclick="showView('lawyer')"><i class="ti ti-user-check" aria-hidden="true"></i> 변호사 계좌</div>
         <div class="nav-item" id="nav-report" onclick="showView('report')"><i class="ti ti-file-analytics" aria-hidden="true"></i> 정산보고서</div>
       </div>
-    </aside>
+
+      <!-- 관리자 전용 메뉴 -->
+      <div id="admin-menu-section" style="display:none;margin-top:4px">
+        <div class="nav-section" style="margin-top:8px">관리자</div>
+        <div class="nav-item" onclick="showView('usermgmt')"><i class="ti ti-users-group" aria-hidden="true"></i> 사용자 관리</div>
+      </div>
 
     <main class="main">
 
@@ -953,11 +953,27 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
 <div class="toast" id="toast"></div>
 
 <script>
-const USERS = {
-  admin:   {pw:"1234", name:"관리자 (홍길동)"},
-  user1:   {pw:"1234", name:"담당자 (김소희)"},
-  finance: {pw:"1234", name:"재무이사"},
+// ── 사용자 계정 관리 (localStorage 기반) ──
+// 기본 계정은 최초 1회만 생성, 이후 관리자가 수정 가능
+const DEFAULT_USERS = {
+  admin: { pw: "admin1234", name: "관리자", role: "admin", bizAccess: ["all"] }
 };
+
+function loadUsers() {
+  try {
+    const raw = localStorage.getItem('jeonse_users');
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  // 최초 실행 시 기본 admin 계정만 생성
+  saveUsers(DEFAULT_USERS);
+  return DEFAULT_USERS;
+}
+
+function saveUsers(users) {
+  localStorage.setItem('jeonse_users', JSON.stringify(users));
+}
+
+let USERS = loadUsers();
 
 // ── 사업별 데이터 ──
 const BIZ = {
@@ -1361,12 +1377,36 @@ function doLogin() {
     document.getElementById("login-screen").style.display = "none";
     document.getElementById("app").classList.add("visible");
     document.getElementById("ubadge").textContent = curUser.name;
+    applyBizAccess();  // 사업 접근 권한 적용
     init();
   } else {
     const e = document.getElementById("lerr");
     e.style.display = "block";
     setTimeout(()=> e.style.display="none", 3000);
   }
+}
+
+// 사업 접근 권한 적용 — 권한 없는 사업 사이드바에서 숨기기
+function applyBizAccess() {
+  const access = curUser.bizAccess || ['all'];
+  const isAdmin = curUser.role === 'admin' || access.includes('all');
+
+  // 사이드바 사업 항목 표시/숨김
+  document.querySelectorAll('[data-biz-key]').forEach(el => {
+    const key = el.getAttribute('data-biz-key');
+    el.style.display = (isAdmin || access.includes(key)) ? '' : 'none';
+  });
+
+  // 관리자 메뉴 표시/숨김
+  const adminMenu = document.getElementById('admin-menu-section');
+  if (adminMenu) adminMenu.style.display = isAdmin ? '' : 'none';
+}
+
+// 로그인한 사용자가 특정 사업에 접근 가능한지 체크
+function canAccessBiz(bizKey) {
+  if (!curUser) return false;
+  const access = curUser.bizAccess || ['all'];
+  return curUser.role === 'admin' || access.includes('all') || access.includes(bizKey);
 }
 document.addEventListener("DOMContentLoaded", ()=>{
   document.getElementById("lpw").addEventListener("keydown", e=>{ if(e.key==="Enter") doLogin(); });
@@ -1551,6 +1591,7 @@ function showView(name) {
   if (name === "lawyer")    renderLawyers();
   if (name === "dashboard") renderDashboard();
   if (name === "report")    renderReport();
+  if (name === "usermgmt")  renderUserMgmt();
 }
 
 function renderDashboard() {
@@ -3149,6 +3190,120 @@ function handleLawyerUpload(event) {
 }
 
 // ── 변호사 계좌 저장 확인 ──
+// ══════════════════════════════════════════
+// 사용자 관리 (관리자 전용)
+// ══════════════════════════════════════════
+let _userEditId = null;
+
+function renderUserMgmt() {
+  const tbody = document.getElementById('usermgmt-tbody');
+  if (!tbody) return;
+  const BIZ_NAMES = {kt:'국토부',sf:'서민금융',yangik:'양육비',court:'대법원',moj:'법무부',gender:'성평등',mois:'이태원',seoul:'서울시',green:'초록우산',air:'여객기'};
+  tbody.innerHTML = Object.entries(USERS).map(([id, u]) => {
+    const role = u.role === 'admin' ? '<span class="badge bb">관리자</span>' : '<span class="badge bn">담당자</span>';
+    const biz = u.bizAccess?.includes('all') ? '전체' : (u.bizAccess||[]).map(k=>BIZ_NAMES[k]||k).join(', ');
+    const isAdmin = id === 'admin';
+    return `<tr>
+      <td class="mono">${id}</td>
+      <td>${u.name}</td>
+      <td>${role}</td>
+      <td style="font-size:12px">${biz}</td>
+      <td>
+        <button class="btn btn-sm" onclick="openUserModal('${id}')"><i class="ti ti-edit" aria-hidden="true"></i></button>
+        ${!isAdmin ? `<button class="btn btn-sm" style="color:#DC2626" onclick="deleteUser('${id}')"><i class="ti ti-trash" aria-hidden="true"></i></button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openUserModal(id) {
+  _userEditId = id === -1 ? null : id;
+  const title = document.getElementById('user-modal-title');
+  const idEl = document.getElementById('um-id');
+  const pwEl = document.getElementById('um-pw');
+  const nameEl = document.getElementById('um-name');
+  const roleEl = document.getElementById('um-role');
+
+  if (_userEditId) {
+    title.textContent = '계정 수정';
+    const u = USERS[_userEditId];
+    idEl.value = _userEditId;
+    idEl.disabled = true;
+    pwEl.value = '';
+    pwEl.placeholder = '변경 시에만 입력';
+    nameEl.value = u.name;
+    roleEl.value = u.role || 'staff';
+    // 사업 체크박스
+    document.querySelectorAll('#um-biz-checks input[type=checkbox]').forEach(cb => {
+      cb.checked = (u.bizAccess||[]).includes(cb.value) || (u.bizAccess||[]).includes('all');
+    });
+  } else {
+    title.textContent = '계정 추가';
+    idEl.value = '';
+    idEl.disabled = false;
+    pwEl.value = '';
+    pwEl.placeholder = '비밀번호 입력';
+    nameEl.value = '';
+    roleEl.value = 'staff';
+    document.querySelectorAll('#um-biz-checks input[type=checkbox]').forEach(cb => cb.checked = false);
+  }
+  toggleUserBizSelect();
+  document.getElementById('user-modal').style.display = 'flex';
+}
+
+function closeUserModal() {
+  document.getElementById('user-modal').style.display = 'none';
+  _userEditId = null;
+}
+
+function toggleUserBizSelect() {
+  const role = document.getElementById('um-role').value;
+  document.getElementById('um-biz-section').style.display = role === 'admin' ? 'none' : '';
+}
+
+function saveUserModal() {
+  const id = document.getElementById('um-id').value.trim();
+  const pw = document.getElementById('um-pw').value;
+  const name = document.getElementById('um-name').value.trim();
+  const role = document.getElementById('um-role').value;
+
+  if (!id) { showToast('아이디는 필수입니다'); return; }
+  if (!_userEditId && !pw) { showToast('비밀번호는 필수입니다'); return; }
+  if (!name) { showToast('이름은 필수입니다'); return; }
+
+  const bizAccess = role === 'admin' ? ['all'] :
+    Array.from(document.querySelectorAll('#um-biz-checks input[type=checkbox]:checked')).map(cb => cb.value);
+
+  if (role !== 'admin' && bizAccess.length === 0) {
+    showToast('접근 가능 사업을 1개 이상 선택해주세요'); return;
+  }
+
+  if (_userEditId) {
+    USERS[_userEditId] = {
+      ...USERS[_userEditId],
+      name, role, bizAccess,
+      ...(pw ? {pw} : {})
+    };
+  } else {
+    if (USERS[id]) { showToast('이미 존재하는 아이디입니다'); return; }
+    USERS[id] = { pw, name, role, bizAccess };
+  }
+
+  saveUsers(USERS);
+  closeUserModal();
+  renderUserMgmt();
+  showToast(`${name} 계정이 저장됐습니다`);
+}
+
+function deleteUser(id) {
+  if (id === 'admin') { showToast('admin 계정은 삭제할 수 없습니다'); return; }
+  if (!confirm(`${USERS[id]?.name}(${id}) 계정을 삭제할까요?`)) return;
+  delete USERS[id];
+  saveUsers(USERS);
+  renderUserMgmt();
+  showToast('삭제됐습니다');
+}
+
 function saveLawyerData() {
   savePersistedData();
   const count = BIZ[curBiz].lawyers.length;
@@ -5701,7 +5856,75 @@ function recordExecution(cases, b, yy, mm, dd) {
 </div>
 
 
+      <!-- 사용자 관리 (관리자 전용) -->
+      <div class="view" id="view-usermgmt">
+        <p class="page-title">사용자 관리</p>
+        <p class="page-sub">계정 추가/수정/삭제 및 사업별 접근 권한 설정</p>
+        <div class="card" style="margin-bottom:1rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <span style="font-size:13px;font-weight:600">등록된 계정</span>
+            <button class="btn btn-primary" onclick="openUserModal(-1)">
+              <i class="ti ti-plus" aria-hidden="true"></i> 계정 추가
+            </button>
+          </div>
+          <table class="tbl">
+            <thead><tr><th>아이디</th><th>이름</th><th>역할</th><th>접근 사업</th><th>관리</th></tr></thead>
+            <tbody id="usermgmt-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
 <!-- 전역 모달 -->
+<!-- 사용자 추가/수정 모달 -->
+<div id="user-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:460px;max-width:92vw;box-shadow:var(--shadow-md)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
+      <h3 id="user-modal-title" style="font-size:15px;font-weight:600;color:var(--navy)">계정 추가</h3>
+      <button onclick="closeUserModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div style="display:grid;gap:12px">
+      <div class="field">
+        <label>아이디 <span style="color:#DC2626">*</span></label>
+        <input class="form-input" id="um-id" placeholder="영문+숫자">
+      </div>
+      <div class="field">
+        <label>비밀번호 <span style="color:#DC2626">*</span></label>
+        <input class="form-input" id="um-pw" type="password" placeholder="비밀번호 입력">
+      </div>
+      <div class="field">
+        <label>이름</label>
+        <input class="form-input" id="um-name" placeholder="예: 김소희 대리">
+      </div>
+      <div class="field">
+        <label>역할</label>
+        <select class="form-select" id="um-role" onchange="toggleUserBizSelect()">
+          <option value="staff">사업 담당자</option>
+          <option value="admin">관리자 (전체 접근)</option>
+        </select>
+      </div>
+      <div class="field" id="um-biz-section">
+        <label>접근 가능 사업 (복수 선택 가능)</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px" id="um-biz-checks">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="kt"> 전세(국토부)</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="sf"> 전세(서민금융)</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="yangik"> 양육비이행관리원</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="court"> 대법원</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="moj"> 법무부</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="gender"> 성평등가족부</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="mois"> 행안부(이태원)</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="seoul"> 서울시복지재단</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="green"> 초록우산</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="air"> 여객기(국토부)</label>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:1.2rem">
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeUserModal()">취소</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveUserModal()">저장</button>
+    </div>
+  </div>
+</div>
+
 <div id="sheet-select-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
   <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:380px;max-width:94vw;box-shadow:var(--shadow-md)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
