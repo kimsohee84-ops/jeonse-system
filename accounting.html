@@ -426,7 +426,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
               </div>
               <div class="field">
                 <label>사건구분 <span style="font-size:11px;color:var(--muted)" id="sc-casetype-hint"></span></label>
-                <select class="form-select" id="sc-casetype">
+                <select class="form-select" id="sc-casetype" onchange="onCaseTypeManualChange('sc')">
                   <option value="민사">민사</option>
                   <option value="형사">형사</option>
                   <option value="신청">신청</option>
@@ -633,7 +633,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
           <div class="form-grid-3">
             <div class="field">
               <label>사건 유형 <span style="font-size:11px;color:var(--muted)" id="f-casetype-hint"></span></label>
-              <select class="form-select" id="f-type">
+              <select class="form-select" id="f-type" onchange="onCaseTypeManualChange('f')">
                 <option>민사</option>
                 <option>형사</option>
                 <option>신청</option>
@@ -1973,7 +1973,15 @@ function detectCaseTypeFromCourtNum(text) {
 }
 
 // prefix: 'sc' (청구서 등록 폼) 또는 'f' (비용 입력 폼)
+// 사용자가 직접 드롭다운을 변경한 경우 자동인식이 덮어쓰지 않음
+const _caseTypeManualSet = { sc: false, f: false };
+
+function onCaseTypeManualChange(prefix) {
+  _caseTypeManualSet[prefix] = true;  // 사용자가 직접 선택했음을 기록
+}
+
 function autoDetectCaseType(prefix) {
+  if (_caseTypeManualSet[prefix]) return;  // 수동 선택 후엔 자동인식 개입 안 함
   const input = document.getElementById(prefix + '-courtnum');
   const sel   = document.getElementById(prefix === 'sc' ? 'sc-casetype' : 'f-type');
   const hint  = document.getElementById(prefix + '-casetype-hint');
@@ -1985,6 +1993,10 @@ function autoDetectCaseType(prefix) {
   } else {
     if (hint) { hint.textContent = '(자동인식 안됨 — 직접 선택)'; hint.style.color = 'var(--muted)'; }
   }
+}
+
+function resetCaseTypeManual(prefix) {
+  _caseTypeManualSet[prefix] = false;  // 새 청구서 등록 시 초기화
 }
 
 // 청구서 등록 폼: 보수+인지대+송달료 합산 → 청구 합계 자동 채움
@@ -5289,6 +5301,8 @@ function saveScanEntry() {
     if (fee > 0) BIZ[curBiz].cases[idx].fee = fee;
     if (acct) BIZ[curBiz].cases[idx].account = acct;
     BIZ[curBiz].cases[idx].tax = tax;
+    BIZ[curBiz].cases[idx].type = caseType;  // 사건유형 업데이트
+    BIZ[curBiz].cases[idx].note = caseType;  // 비고도 동일하게
     BIZ[curBiz].cases[idx].resol = '대기';
   } else {
     BIZ[curBiz].cases.push(newCase);
@@ -5297,7 +5311,9 @@ function saveScanEntry() {
   scanDoneList.unshift({num: fullNum, lawyer, client, amt, doctype, date, tax});
   renderScanDone();
   renderDashboard();
+  savePersistedData();
   showToast('등록 완료! — 지출목록 및 결의서에 반영됩니다');
+  resetCaseTypeManual('sc');  // 수동 선택 플래그 초기화
   resetScan();
   document.getElementById('scan-empty').style.display = 'none';
   document.getElementById('scan-form').style.display = 'block';
