@@ -1789,9 +1789,12 @@ function renderAllBizTable() {
 
       html += `<tr style="border-bottom:1px solid var(--border)${b.linked ? ';background:#F8FAFF' : ''}">
         ${typeCell}
-        <td style="padding:8px;max-width:160px">
-          <div style="font-weight:500">${isLinked}${b.agency}</div>
-
+        <td style="padding:8px;max-width:180px">
+          <div style="font-weight:500;cursor:pointer;display:flex;align-items:center;gap:4px"
+               onclick="toggleBizItems(${b._origIdx})">
+            ${isLinked}${b.agency}
+            ${b.items && b.items.length ? `<span id="biz-arrow-${b._origIdx}" style="font-size:10px;color:var(--muted)">▶</span>` : ''}
+          </div>
         </td>
         <td style="padding:8px;text-align:right;font-family:monospace;font-size:11px">${(b.budget/100000000).toFixed(2)}억</td>
         <td style="padding:8px;text-align:right;font-family:monospace;font-size:11px;color:${pctColor}">${b.exec.toLocaleString()}</td>
@@ -1809,6 +1812,17 @@ function renderAllBizTable() {
           <button onclick="editBizRow(${b._origIdx})" style="background:none;border:none;cursor:pointer;color:var(--navy);font-size:12px;padding:2px 4px">✏️</button>
         </td>
       </tr>`;
+
+      // 항목 트리 행 (접힌 상태로 시작)
+      if (b.items && b.items.length) {
+        html += `<tr id="biz-items-${b._origIdx}" style="display:none">
+          <td colspan="8" style="padding:0 8px 8px 8px;background:#FAFBFF">
+            <div style="border-left:3px solid var(--navy);padding-left:12px;margin-top:4px">
+              ${renderBizItemsHTML(b.items, b.exec)}
+            </div>
+          </td>
+        </tr>`;
+      }
     });
   });
 
@@ -1902,6 +1916,39 @@ function addBizNavItem(key, agency) {
   newItem.innerHTML = `<i class="ti ti-building" aria-hidden="true"></i> ${agency}`;
   newItem.onclick = () => selectBizNav(key);
   bizMenu.parentNode.insertBefore(newItem, bizMenu);
+}
+
+// ── 예산 항목 트리 렌더링 ──
+function renderBizItemsHTML(items, totalExec, depth=0) {
+  if (!items || !items.length) return '';
+  const indent = depth * 16;
+  return items.map(item => {
+    const budget = item.budget || 0;
+    const bal    = budget > 0 ? budget : null;
+    const budgetStr = budget > 0 ? `<span style="font-family:monospace;color:var(--navy)">${budget.toLocaleString()}</span>원` : '';
+    const balStr    = bal !== null ? `<span style="font-family:monospace;color:${bal>0?'#059669':'#DC2626'}">${bal.toLocaleString()}</span>원 남음` : '';
+    const hasChildren = item.children && item.children.length > 0;
+    const bullet = depth === 0 ? '●' : depth === 1 ? '○' : '·';
+    const fontSize = depth === 0 ? '12px' : '11px';
+    const fontWeight = depth === 0 ? '600' : '400';
+
+    return `<div style="margin-left:${indent}px;padding:3px 0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+      <span style="color:var(--muted);font-size:10px">${bullet}</span>
+      <span style="font-size:${fontSize};font-weight:${fontWeight};color:var(--text)">${item.name}</span>
+      ${budgetStr ? `<span style="font-size:11px;color:var(--muted)">예산 ${budgetStr}</span>` : ''}
+      ${balStr && depth > 0 ? `<span style="font-size:10px">/ ${balStr}</span>` : ''}
+    </div>
+    ${hasChildren ? renderBizItemsHTML(item.children, 0, depth+1) : ''}`;
+  }).join('');
+}
+
+function toggleBizItems(idx) {
+  const row   = document.getElementById(`biz-items-${idx}`);
+  const arrow = document.getElementById(`biz-arrow-${idx}`);
+  if (!row) return;
+  const isHidden = row.style.display === 'none';
+  row.style.display   = isHidden ? '' : 'none';
+  if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
 }
 
 // ── 사업 현황 수정 모달 ──
@@ -3359,53 +3406,159 @@ const ALL_BIZ_DATA = [
     budget:500000000, exec:88798000, target:250, done:25,
     paid:400000000, pending:100000000,
     detail:'소송구조 287,800,000 / 법률상담 30,000,000 / 법률교육 20,000,000 / 홍보영상 4,500,000 / 임차료 27,600,000 / 인건비 126,000,000 / 경상비 4,100,000',
-    status:'진행중', note:'1분기,2분기 교부신청 제출. 27년도 산출내역(5억원 동결) 제출' },
+    status:'진행중', note:'1분기,2분기 교부신청 제출. 27년도 산출내역(5억원 동결) 제출',
+    items:[
+      { name:'법률구조사업비', budget:342300000, children:[
+        { name:'소송구조', budget:287800000, children:[
+          { name:'변호사보수', budget:0 },
+          { name:'인지대/송달료', budget:0 },
+        ]},
+        { name:'법률상담', budget:30000000, children:[] },
+        { name:'법률교육', budget:20000000, children:[] },
+        { name:'홍보영상', budget:4500000, children:[] },
+      ]},
+      { name:'법률구조운영비', budget:157700000, children:[
+        { name:'임차료', budget:27600000, children:[] },
+        { name:'임금지원비(인건비)', budget:126000000, children:[] },
+        { name:'경상비', budget:4100000, children:[
+          { name:'사무용품비', budget:0 },
+        ]},
+      ]},
+    ]},
   { type:'국고보조금', agency:'대법원', name:'대법원 소송구조', manager:'',
     budget:118000000, exec:17342900, target:126, done:20,
     paid:59000000, pending:59000000,
     detail:'소송구조 117,100,000 / 검증비 574,000 / 사무용품비 326,000',
-    status:'진행중', note:'연장평가 완료. 상반기 교부신청 제출' },
+    status:'진행중', note:'연장평가 완료. 상반기 교부신청 제출',
+    items:[
+      { name:'소송구조', budget:117100000, children:[
+        { name:'변호사보수', budget:0 },
+        { name:'인지대/송달료', budget:0 },
+      ]},
+      { name:'검증비', budget:574000, children:[] },
+      { name:'경상비', budget:326000, children:[
+        { name:'사무용품비', budget:326000 },
+      ]},
+    ]},
   { type:'국고보조금', agency:'성평등가족부', name:'성평등가족부 소송구조', manager:'',
     budget:605000000, exec:184018092, target:330, done:95,
     paid:302500000, pending:302500000,
     detail:'소송구조 512,700,000 / 사무용품비 2,300,000 / 인건비 90,000,000',
-    status:'진행중', note:'상반기 교부신청 제출. 25년도 실적 및 정산보고 제출' },
+    status:'진행중', note:'상반기 교부신청 제출. 25년도 실적 및 정산보고 제출',
+    items:[
+      { name:'법률구조사업비', budget:512700000, children:[
+        { name:'소송구조', budget:512700000, children:[
+          { name:'변호사보수', budget:0 },
+          { name:'인지대/송달료', budget:0 },
+        ]},
+      ]},
+      { name:'운영비', budget:92300000, children:[
+        { name:'인건비', budget:90000000, children:[] },
+        { name:'경상비', budget:2300000, children:[
+          { name:'사무용품비', budget:2300000 },
+        ]},
+      ]},
+    ]},
   { type:'국고보조금', agency:'행안부(이태원)', name:'이태원 법률지원', manager:'',
     budget:80000000, exec:9200000, target:37, done:2,
     paid:64000000, pending:16000000,
     detail:'법률지원 50,527,600 / 인건비 25,472,400 / 일반관리비 4,000,000',
-    status:'신규', note:'신규사업. e나라도움 등록완료. 예산 80% 교부완료' },
+    status:'신규', note:'신규사업. e나라도움 등록완료. 예산 80% 교부완료',
+    items:[
+      { name:'법률구조사업비', budget:50527600, children:[
+        { name:'법률지원(소송구조)', budget:50527600, children:[] },
+      ]},
+      { name:'운영비', budget:29472400, children:[
+        { name:'인건비', budget:25472400, children:[] },
+        { name:'일반관리비', budget:4000000, children:[] },
+      ]},
+    ]},
   // 위탁협약
   { type:'위탁협약', agency:'양육비이행관리원', name:'양육비 소송구조', manager:'',
     budget:200000000, exec:63289870, target:210, done:47,
     paid:200000000, pending:0,
     detail:'소송구조 173,000,000 / 교통비 250,000 / 통신비 350,000 / 인건비 26,400,000',
-    status:'진행중', note:'26년도 사업계획 및 교부신청 제출' },
+    status:'진행중', note:'26년도 사업계획 및 교부신청 제출',
+    items:[
+      { name:'법률구조사업비', budget:173000000, children:[
+        { name:'소송구조', budget:173000000, children:[
+          { name:'변호사보수', budget:0 },
+          { name:'인지대/송달료', budget:0 },
+        ]},
+      ]},
+      { name:'운영비', budget:27000000, children:[
+        { name:'인건비', budget:26400000, children:[] },
+        { name:'경상비', budget:600000, children:[
+          { name:'교통비', budget:250000 },
+          { name:'통신비', budget:350000 },
+        ]},
+      ]},
+    ]},
   { type:'위탁협약', agency:'국토부(전세)', name:'전세피해자 소송구조(국토부)', manager:'',
     budget:480267174, exec:112580000, target:432, done:104,
     paid:195000000, pending:285267174,
     detail:'소송구조 432,000,000 / 인건비(보조) 26,328,493 / 일반관리비 21,999,768 / 부가세 48,032,826',
-    status:'진행중', note:'매주/매월 사업 및 집행보고 중. 예산 40% 지급받음', linked:'kt' },
+    status:'진행중', note:'매주/매월 사업 및 집행보고 중. 예산 40% 지급받음', linked:'kt',
+    items:[
+      { name:'법률구조사업비', budget:432000000, children:[
+        { name:'소송구조', budget:432000000, children:[
+          { name:'변호사보수', budget:0 },
+          { name:'인지대/송달료', budget:0 },
+        ]},
+      ]},
+      { name:'운영비', budget:48328261, children:[
+        { name:'인건비(보조)', budget:26328493, children:[] },
+        { name:'일반관리비', budget:21999768, children:[] },
+      ]},
+    ]},
   { type:'위탁협약', agency:'서민금융재단(전세)', name:'전세피해자 소송구조(서민)', manager:'',
     budget:181542617, exec:61770520, target:210, done:34,
     paid:181542617, pending:0,
     detail:'소송구조 181,542,617 (전년도 잔액)',
-    status:'진행중', note:'25년도 잔액 사업. 상담잔액 반납완료(4.28.)', linked:'sf' },
+    status:'진행중', note:'25년도 잔액 사업. 상담잔액 반납완료(4.28.)', linked:'sf',
+    items:[
+      { name:'법률구조사업비', budget:181542617, children:[
+        { name:'소송구조', budget:181542617, children:[
+          { name:'변호사보수', budget:0 },
+          { name:'인지대/송달료', budget:0 },
+        ]},
+      ]},
+    ]},
   { type:'위탁협약', agency:'서울시복지재단', name:'서울시 소송구조', manager:'',
     budget:40000000, exec:17151500, target:10, done:4,
     paid:40000000, pending:0,
     detail:'소송구조 36,000,000 / 운영비 800,000 / 일반관리비 3,200,000',
-    status:'진행중', note:'2월 협약완료. 전체 예산 지급받음' },
+    status:'진행중', note:'2월 협약완료. 전체 예산 지급받음',
+    items:[
+      { name:'법률구조사업비', budget:36000000, children:[
+        { name:'소송구조', budget:36000000, children:[] },
+      ]},
+      { name:'운영비', budget:4000000, children:[
+        { name:'일반운영비', budget:800000, children:[] },
+        { name:'일반관리비', budget:3200000, children:[] },
+      ]},
+    ]},
   { type:'위탁협약', agency:'국토부(여객기)', name:'여객기 법률지원', manager:'',
     budget:40000000, exec:0, target:12, done:0,
     paid:0, pending:40000000,
     detail:'법률지원 23,000,000 (12/9)',
-    status:'신규', note:'신규사업. 예산 80% 교부완료' },
+    status:'신규', note:'신규사업. 예산 80% 교부완료',
+    items:[
+      { name:'법률구조사업비', budget:23000000, children:[
+        { name:'법률지원', budget:23000000, children:[] },
+      ]},
+    ]},
   { type:'위탁협약', agency:'초록우산', name:'초록우산 소송구조', manager:'',
     budget:30000000, exec:0, target:10, done:0,
     paid:0, pending:30000000,
     detail:'소송구조 23,000,000 / 홍보영상 7,000,000',
-    status:'진행중', note:'26년도 사업계획 및 교부신청 제출' },
+    status:'진행중', note:'26년도 사업계획 및 교부신청 제출',
+    items:[
+      { name:'법률구조사업비', budget:23000000, children:[
+        { name:'소송구조', budget:23000000, children:[] },
+      ]},
+      { name:'홍보영상', budget:7000000, children:[] },
+    ]},
 ];
 
 
