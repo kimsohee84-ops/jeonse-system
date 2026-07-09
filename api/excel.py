@@ -259,8 +259,7 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
 PAY_METHOD_LABEL = {"current": "계좌이체"}
 
 def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mode='all', biz_full=None, pay_method=None):
-    # sheets=[] 이면 부속시트 없음 (resol/list/report 단독 모드)
-    # sheets=None 이면 기본값으로 전체 부속시트 포함
+    # mode: 'resol' | 'list' | 'report' | 'transfer' | 'all'
     if sheets is None:
         sheets = ['resol', 'lawyer', 'transfer']
     if not biz_full:
@@ -413,83 +412,118 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                 for col, key in [(1,"name"),(2,"bank"),(3,"bankCode"),(4,"acct"),(5,"owner"),(6,"email")]:
                     ws_acct_new.cell(r,col).value=l.get(key,"") if isinstance(l,dict) else None
 
-        # ── 대량이체 시트 (transfer 선택 시 — resol 모드 내 부속 옵션) ──
-        if 'transfer' in sheets:
-            ws_tr = wb_new.create_sheet("대량이체")
-            headers_tr = ["*입금은행","*입금계좌","고객관리성명","*입금액","출금통장표시내용","입금통장표시내용","입금인코드","비고","업체사용key"]
-            for j, h in enumerate(headers_tr, 1):
-                ws_tr.cell(1, j).value = h
-            for j, w in enumerate([8, 20, 20, 12, 18, 18, 10, 10, 10], 1):
-                from openpyxl.utils import get_column_letter as gcl
-                ws_tr.column_dimensions[gcl(j)].width = w
 
-            row_tr = 2
-            for c in cases_data:
-                if c.get("_allowance"): continue  # 직원수당은 별도
-                amt = (c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
-                if not amt: continue
-                linfo = lawyers_dict.get(c.get("lawyer",""), {})
-                num = (c.get("num","") or "").replace("국부 ","").replace("서금 ","")
-                is_biz = c.get("tax","") == "사업소득"
-                net = amt - round(amt * 0.033) if is_biz else amt
-                bank_code = (linfo.get("bankCode","") or "").replace("-","").strip()
-                acct_no   = (linfo.get("acct","") or "").replace("-","").strip()
-                owner     = linfo.get("owner","") or linfo.get("name","") or c.get("lawyer","")
-                out_memo  = f"{num} {c.get('client','')}"
-                in_memo   = f"구조재단{c.get('client','')}"
-                ws_tr.cell(row_tr, 1).value = bank_code
-                ws_tr.cell(row_tr, 2).value = acct_no
-                ws_tr.cell(row_tr, 3).value = owner
-                ws_tr.cell(row_tr, 4).value = net
-                ws_tr.cell(row_tr, 5).value = out_memo
-                ws_tr.cell(row_tr, 6).value = in_memo
-                row_tr += 1
-
-            for c in cases_data:
-                if not c.get("_allowance"): continue
-                amt = c.get("fee", 0) or 0
-                if not amt: continue
-                is_biz = c.get("tax","") == "사업소득"
-                net = amt - round(amt * 0.033) if is_biz else amt
-                linfo = lawyers_dict.get(c.get("client",""), {})
-                bank_code = (linfo.get("bankCode","") or "").replace("-","").strip()
-                acct_no   = (linfo.get("acct","") or "").replace("-","").strip()
-                if not acct_no: continue
-                ws_tr.cell(row_tr, 1).value = bank_code
-                ws_tr.cell(row_tr, 2).value = acct_no
-                ws_tr.cell(row_tr, 3).value = c.get("client","")
-                ws_tr.cell(row_tr, 4).value = net
-                ws_tr.cell(row_tr, 5).value = "인건비지원"
-                ws_tr.cell(row_tr, 6).value = f"구조재단{c.get('client','')}"
-                row_tr += 1
-
-        # 저장 전 핵심 병합셀 강제 확인 및 재추가
-        ws_resol = wb_new[new_name]
-        required_merges_per_page = ["A31:K31"]
-        for p_idx in range(len(pages)):
-            o = p_idx * 32
-            for mc in required_merges_per_page:
-                parts = mc.split(':')
-                c1 = ''.join(c for c in parts[0] if c.isalpha())
-                r1 = int(''.join(c for c in parts[0] if c.isdigit())) + o
-                c2 = ''.join(c for c in parts[1] if c.isalpha())
-                r2 = int(''.join(c for c in parts[1] if c.isdigit())) + o
-                mc_shifted = f"{c1}{r1}:{c2}{r2}"
-                min_col = column_index_from_string(c1)
-                max_col = column_index_from_string(c2)
-                to_remove = []
-                for existing in list(ws_resol.merged_cells.ranges):
-                    if (existing.min_row <= r2 and existing.max_row >= r1 and
-                        existing.min_col <= max_col and existing.max_col >= min_col):
-                        to_remove.append(str(existing))
-                for rm in to_remove:
-                    try: ws_resol.unmerge_cells(rm)
-                    except: pass
-                try: ws_resol.merge_cells(mc_shifted)
-                except: pass
 
     # ══════════════════════════════════════════
-    # ② 지출목록/실무자확인표 (mode: 'list' 또는 'all')
+    # ④ 대량이체 (mode: transfer 또는 all, 또는 resol+transfer)
+    # ══════════════════════════════════════════
+    if mode in ('transfer', 'all') or (mode == 'resol' and 'transfer' in (sheets or [])):
+        # ── 대량이체 시트 ──
+        ws_tr = wb_new.create_sheet("대량이체")
+        headers_tr = ["*입금은행","*입금계좌","고객관리성명","*입금액","출금통장표시내용","입금통장표시내용","입금인코드","비고","업체사용key"]
+        for j, h in enumerate(headers_tr, 1):
+            ws_tr.cell(1, j).value = h
+        for j, w in enumerate([8, 22, 22, 12, 20, 20, 10, 10, 10], 1):
+            from openpyxl.utils import get_column_letter as gcl
+            ws_tr.column_dimensions[gcl(j)].width = w
+
+        # 재단 계좌 (원천세 납부용)
+        FOUNDATION_BANK = "088"
+        FOUNDATION_ACCT = "100038614312"
+        FOUNDATION_OWNER = "대한변협법률구조재단"
+
+        def add_tr_row(ws, row, bank, acct, owner, amt, out_memo, in_memo, key=""):
+            acct_clean = str(acct).replace("-","").strip()
+            ws.cell(row, 1).value = bank
+            ws.cell(row, 2).value = acct_clean
+            ws.cell(row, 3).value = owner
+            ws.cell(row, 4).value = int(amt)
+            ws.cell(row, 5).value = out_memo
+            ws.cell(row, 6).value = in_memo
+            ws.cell(row, 7).value = ""
+            ws.cell(row, 8).value = ""
+            ws.cell(row, 9).value = key
+            return row + 1
+
+        row_tr = 2
+
+        # 변호사 지급 (사건별)
+        for c in cases_data:
+            if c.get("_allowance"): continue
+            amt = (c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
+            if not amt: continue
+            linfo = lawyers_dict.get(c.get("lawyer",""), {})
+            num = (c.get("num","") or "").replace("국부 ","").replace("서금 ","").replace("법무부 ","").strip()
+            is_biz = c.get("tax","") == "사업소득"
+            withholding = round(amt * 0.033) if is_biz else 0
+            net = amt - withholding
+            bank_code = (linfo.get("bankCode","") or "").replace("-","").strip()
+            acct_no   = (linfo.get("acct","") or "").replace("-","").strip()
+            owner     = linfo.get("owner","") or linfo.get("name","") or c.get("lawyer","")
+            client    = c.get("client","")
+            out_memo  = f"{num}{client}"
+            in_memo   = f"재단{client}"
+            if not bank_code or not acct_no: continue
+
+            row_tr = add_tr_row(ws_tr, row_tr, bank_code, acct_no, owner,
+                                net, out_memo, in_memo, "사업소득" if is_biz else "")
+
+            # 사업소득이면 원천세를 재단 계좌로 별도 행 추가
+            if is_biz and withholding > 0:
+                row_tr = add_tr_row(ws_tr, row_tr,
+                                    FOUNDATION_BANK, FOUNDATION_ACCT, FOUNDATION_OWNER,
+                                    withholding, f"{owner}원천세", f"{owner}원천세", "사업소득")
+
+        # 수당 (직원)
+        for c in cases_data:
+            if not c.get("_allowance"): continue
+            amt = c.get("fee", 0) or 0
+            if not amt: continue
+            is_biz = c.get("tax","") == "사업소득"
+            withholding = round(amt * 0.033) if is_biz else 0
+            net = amt - withholding
+            linfo = lawyers_dict.get(c.get("client",""), {})
+            bank_code = (linfo.get("bankCode","") or "").replace("-","").strip()
+            acct_no   = (linfo.get("acct","") or "").replace("-","").strip()
+            if not acct_no: continue
+            out_memo = c.get("note","") or "수당"
+            row_tr = add_tr_row(ws_tr, row_tr, bank_code, acct_no,
+                                c.get("client",""), net, out_memo, "", "")
+            if is_biz and withholding > 0:
+                row_tr = add_tr_row(ws_tr, row_tr,
+                                    FOUNDATION_BANK, FOUNDATION_ACCT, FOUNDATION_OWNER,
+                                    withholding, f"{c.get('client','')}원천세", f"{c.get('client','')}원천세", "사업소득")
+
+    # 저장 전 핵심 병합셀 강제 확인 및 재추가 (resol 시트가 있을 때만)
+    if mode in ('resol', 'all') and new_name in wb_new.sheetnames:
+        ws_resol = wb_new[new_name]
+    required_merges_per_page = ["A31:K31"]
+    for p_idx in range(len(pages)):
+        o = p_idx * 32
+        for mc in required_merges_per_page:
+            parts = mc.split(':')
+            c1 = ''.join(c for c in parts[0] if c.isalpha())
+            r1 = int(''.join(c for c in parts[0] if c.isdigit())) + o
+            c2 = ''.join(c for c in parts[1] if c.isalpha())
+            r2 = int(''.join(c for c in parts[1] if c.isdigit())) + o
+            mc_shifted = f"{c1}{r1}:{c2}{r2}"
+            min_col = column_index_from_string(c1)
+            max_col = column_index_from_string(c2)
+            to_remove = []
+            for existing in list(ws_resol.merged_cells.ranges):
+                if (existing.min_row <= r2 and existing.max_row >= r1 and
+                    existing.min_col <= max_col and existing.max_col >= min_col):
+                    to_remove.append(str(existing))
+            for rm in to_remove:
+                try: ws_resol.unmerge_cells(rm)
+                except: pass
+            try: ws_resol.merge_cells(mc_shifted)
+            except: pass
+
+    # transfer 모드면 sheets에 transfer 강제 포함
+    if mode == 'transfer':
+        sheets = ['transfer']
+
     # ══════════════════════════════════════════
     if mode in ('list', 'all'):
         from openpyxl.styles import Border, Side, PatternFill, Font
