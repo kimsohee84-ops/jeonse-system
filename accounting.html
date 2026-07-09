@@ -1642,7 +1642,7 @@ function renderDashboard() {
         <div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:8px">
           <i class="ti ti-list-tree"></i> 항목별 예산 현황
         </div>
-        ${renderDashBizItems(bizData.items, b.executed)}
+        ${renderDashBizItems(bizData.items)}
       </div>` : '';
 
   document.getElementById("dash-budget").innerHTML = `
@@ -1677,30 +1677,40 @@ function renderDashboard() {
 }
 
 // ── 대시보드 예산 항목 트리 ──
-function renderDashBizItems(items, totalExec, depth=0) {
+function renderDashBizItems(items, depth=0) {
   if (!items || !items.length) return '';
   return items.map(item => {
     const budget = item.budget || 0;
-    const indent = depth * 12;
+    const exec   = item.exec   || 0;
+    const bal    = budget > 0 ? budget - exec : null;
+    const pct    = budget > 0 ? Math.round(exec / budget * 100) : null;
+    const indent = depth * 14;
     const bullet = depth === 0 ? '●' : depth === 1 ? '○' : '·';
-    const fontSize = depth === 0 ? '12px' : '11px';
+    const fontSize   = depth === 0 ? '12px' : '11px';
     const fontWeight = depth === 0 ? '600' : '400';
-    const textColor = depth === 0 ? 'var(--navy)' : 'var(--text)';
-    const budgetStr = budget > 0
-      ? `<span style="font-size:10px;color:var(--muted);font-family:monospace">${budget.toLocaleString()}원</span>`
-      : '';
+    const textColor  = depth === 0 ? 'var(--navy)' : 'var(--text)';
+    const balColor   = bal !== null ? (bal < 0 ? '#DC2626' : bal < budget * 0.1 ? '#B45309' : '#059669') : 'var(--muted)';
     const hasChildren = item.children && item.children.length > 0;
-
+    const pctBar = pct !== null && budget > 0 ? `
+      <div style="height:3px;background:var(--light);border-radius:2px;margin-top:2px;overflow:hidden">
+        <div style="height:100%;width:${Math.min(pct,100)}%;background:${pct>=80?'#DC2626':pct>=50?'#B45309':'var(--navy)'};border-radius:2px"></div>
+      </div>` : '';
     return `
-      <div style="margin-left:${indent}px;display:flex;align-items:baseline;justify-content:space-between;
-                  padding:2px 0;border-bottom:${depth===0?'1px solid var(--light)':'none'}">
-        <div style="display:flex;align-items:baseline;gap:5px">
-          <span style="color:var(--muted);font-size:10px">${bullet}</span>
-          <span style="font-size:${fontSize};font-weight:${fontWeight};color:${textColor}">${item.name}</span>
+      <div style="margin-left:${indent}px;padding:4px 0;border-bottom:${depth===0?'1px solid var(--border)':'none'}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <div style="display:flex;align-items:baseline;gap:4px">
+            <span style="color:var(--muted);font-size:10px">${bullet}</span>
+            <span style="font-size:${fontSize};font-weight:${fontWeight};color:${textColor}">${item.name}</span>
+          </div>
+          <div style="text-align:right;white-space:nowrap;flex-shrink:0">
+            ${budget > 0 ? `<div style="font-size:10px;color:var(--muted)">예산 ${budget.toLocaleString()}원</div>` : ''}
+            ${exec   > 0 ? `<div style="font-size:10px;color:#B45309">집행 ${exec.toLocaleString()}원</div>` : ''}
+            ${bal !== null && budget > 0 ? `<div style="font-size:10px">잔액 <span style="color:${balColor};font-weight:600">${bal.toLocaleString()}원</span></div>` : ''}
+          </div>
         </div>
-        ${budgetStr}
+        ${pctBar}
       </div>
-      ${hasChildren ? renderDashBizItems(item.children, 0, depth+1) : ''}`;
+      ${hasChildren ? renderDashBizItems(item.children, depth+1) : ''}`;
   }).join('');
 }
 
@@ -1861,7 +1871,7 @@ function renderAllBizTable() {
         html += `<tr id="biz-items-${b._origIdx}" style="display:none">
           <td colspan="8" style="padding:0 8px 8px 8px;background:#FAFBFF">
             <div style="border-left:3px solid var(--navy);padding-left:12px;margin-top:4px">
-              ${renderBizItemsHTML(b.items, b.exec)}
+              ${renderBizItemsHTML(b.items)}
             </div>
           </td>
         </tr>`;
@@ -1962,26 +1972,31 @@ function addBizNavItem(key, agency) {
 }
 
 // ── 예산 항목 트리 렌더링 ──
-function renderBizItemsHTML(items, totalExec, depth=0) {
+function renderBizItemsHTML(items, depth=0) {
   if (!items || !items.length) return '';
   const indent = depth * 16;
   return items.map(item => {
     const budget = item.budget || 0;
-    const bal    = budget > 0 ? budget : null;
-    const budgetStr = budget > 0 ? `<span style="font-family:monospace;color:var(--navy)">${budget.toLocaleString()}</span>원` : '';
-    const balStr    = bal !== null ? `<span style="font-family:monospace;color:${bal>0?'#059669':'#DC2626'}">${bal.toLocaleString()}</span>원 남음` : '';
-    const hasChildren = item.children && item.children.length > 0;
+    const exec   = item.exec   || 0;
+    const bal    = budget > 0 ? budget - exec : null;
+    const pct    = budget > 0 ? Math.round(exec / budget * 100) : null;
     const bullet = depth === 0 ? '●' : depth === 1 ? '○' : '·';
-    const fontSize = depth === 0 ? '12px' : '11px';
+    const fontSize   = depth === 0 ? '12px' : '11px';
     const fontWeight = depth === 0 ? '600' : '400';
-
-    return `<div style="margin-left:${indent}px;padding:3px 0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-      <span style="color:var(--muted);font-size:10px">${bullet}</span>
-      <span style="font-size:${fontSize};font-weight:${fontWeight};color:var(--text)">${item.name}</span>
-      ${budgetStr ? `<span style="font-size:11px;color:var(--muted)">예산 ${budgetStr}</span>` : ''}
-      ${balStr && depth > 0 ? `<span style="font-size:10px">/ ${balStr}</span>` : ''}
+    const balColor   = bal !== null ? (bal < 0 ? '#DC2626' : bal < budget * 0.1 ? '#B45309' : '#059669') : '';
+    const hasChildren = item.children && item.children.length > 0;
+    return `<div style="margin-left:${indent}px;padding:3px 0;display:flex;justify-content:space-between;align-items:baseline;gap:8px;border-bottom:${depth===0?'1px solid var(--light)':'none'}">
+      <div style="display:flex;align-items:baseline;gap:4px">
+        <span style="color:var(--muted);font-size:10px">${bullet}</span>
+        <span style="font-size:${fontSize};font-weight:${fontWeight}">${item.name}</span>
+      </div>
+      <div style="text-align:right;white-space:nowrap;font-size:10px;color:var(--muted)">
+        ${budget > 0 ? `예산 ${budget.toLocaleString()}` : ''}
+        ${exec > 0 ? ` / 집행 <span style="color:#B45309">${exec.toLocaleString()}</span>` : ''}
+        ${bal !== null && budget > 0 ? ` / 잔액 <span style="color:${balColor}">${bal.toLocaleString()}</span>` : ''}
+      </div>
     </div>
-    ${hasChildren ? renderBizItemsHTML(item.children, 0, depth+1) : ''}`;
+    ${hasChildren ? renderBizItemsHTML(item.children, depth+1) : ''}`;
   }).join('');
 }
 
@@ -3446,25 +3461,27 @@ function showToast(msg) {
 const ALL_BIZ_DATA = [
   // 국고보조금
   { type:'국고보조금', agency:'법무부', name:'법무부 법률구조 사업비', manager:'',
-    budget:500000000, exec:88798000, target:250, done:25,
+    budget:500000000, exec:118790970, target:250, done:25,
     paid:400000000, pending:100000000,
     detail:'소송구조 287,800,000 / 법률상담 30,000,000 / 법률교육 20,000,000 / 홍보영상 4,500,000 / 임차료 27,600,000 / 인건비 126,000,000 / 경상비 4,100,000',
     status:'진행중', note:'1분기,2분기 교부신청 제출. 27년도 산출내역(5억원 동결) 제출',
     items:[
-      { name:'법률구조사업비', budget:342300000, children:[
-        { name:'소송구조', budget:287800000, children:[
-          { name:'변호사보수', budget:0 },
-          { name:'인지대/송달료', budget:0 },
+      { name:'법률구조사업비', budget:342300000, exec:40192100, children:[
+        { name:'소송구조', budget:287800000, exec:40192100, children:[
+          { name:'일반', budget:0, exec:15180400 },
+          { name:'다문화', budget:0, exec:18867400 },
+          { name:'외국인', budget:0, exec:2083800 },
+          { name:'탈북민', budget:0, exec:4060500 },
         ]},
-        { name:'법률상담', budget:30000000, children:[] },
-        { name:'법률교육', budget:20000000, children:[] },
-        { name:'홍보영상', budget:4500000, children:[] },
+        { name:'법률상담', budget:30000000, exec:0, children:[] },
+        { name:'법률교육', budget:20000000, exec:0, children:[] },
+        { name:'홍보영상', budget:4500000, exec:0, children:[] },
       ]},
-      { name:'법률구조운영비', budget:157700000, children:[
-        { name:'임차료', budget:27600000, children:[] },
-        { name:'임금지원비(인건비)', budget:126000000, children:[] },
-        { name:'경상비', budget:4100000, children:[
-          { name:'사무용품비', budget:0 },
+      { name:'법률구조운영비', budget:157700000, exec:78598870, children:[
+        { name:'임차료', budget:27600000, exec:14850000, children:[] },
+        { name:'임금지원비(인건비)', budget:126000000, exec:62600000, children:[] },
+        { name:'경상비', budget:4100000, exec:1148870, children:[
+          { name:'사무용품비 등', budget:0, exec:1148870 },
         ]},
       ]},
     ]},
