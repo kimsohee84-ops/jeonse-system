@@ -5584,12 +5584,13 @@ async function downloadExcelByMode(mode) {
   const today = new Date();
   const yy = today.getFullYear(), mm = today.getMonth()+1, dd = today.getDate();
 
-  const labelMap = { resol:'지출결의서', list:'지출목록', report:'정산보고서', all:'전체' };
+  const labelMap = { resol:'지출결의서', list:'실무자확인표', report:'정산보고서', transfer:'대량이체', all:'전체' };
   const fileLabel = labelMap[mode] || '엑셀';
 
   // mode='resol'(지출결의서만)일 때는 부속 시트(변호사계좌/변호사리스트/대량이체) 없이
   // 결의서 양식 시트 하나만 생성. 'all'일 때만 부속 시트 포함.
-  const sheetsToSend = mode === 'all' ? ['resol', 'lawyer', 'transfer'] : [];
+  const sheetsToSend = mode === 'all' ? ['resol', 'lawyer', 'transfer'] :
+                       mode === 'transfer' ? ['transfer'] : [];
 
   showToast(`${fileLabel} 엑셀 생성 중...`);
 
@@ -5951,6 +5952,13 @@ function recordExecution(cases, b, yy, mm, dd) {
         <div style="text-align:left">
           <div style="font-size:13px;font-weight:500">정산(결과)보고서만</div>
           <div style="font-size:11px;color:var(--muted)">예산 대비 집행 정산표 시트 1개만</div>
+        </div>
+      </button>
+      <button class="btn" style="justify-content:flex-start;gap:10px;padding:12px" onclick="downloadExcelByMode('transfer')">
+        <i class="ti ti-building-bank" style="color:var(--navy);font-size:18px"></i>
+        <div style="text-align:left">
+          <div style="font-size:13px;font-weight:500">대량이체만</div>
+          <div style="font-size:11px;color:var(--muted)">은행 대량이체 파일 · 원천세 행 자동 분리</div>
         </div>
       </button>
       <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:12px" onclick="downloadExcelByMode('all')">
