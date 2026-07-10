@@ -2,6 +2,8 @@ import openpyxl, copy, io, base64, json
 from openpyxl import load_workbook, Workbook
 from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter, column_index_from_string
+from openpyxl.drawing.image import Image as XLImage
+from openpyxl.drawing.spreadsheet_drawing import TwoCellAnchor, AnchorMarker
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler
 
@@ -80,6 +82,18 @@ def _dash(v):
     """값이 비어 있으면 작대기(─)로 출력"""
     s = "" if v is None else str(v).strip()
     return s if (s and s != "__") else "─"
+
+def _diagonal_line_png():
+    """빈 구간에 겹쳐 그릴 사선(왼쪽아래→오른쪽위) 투명 PNG 생성"""
+    from PIL import Image, ImageDraw
+    W, H = 1000, 1000
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.line([(0, H), (W, 0)], fill=(0, 0, 0, 255), width=3)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
 
 def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, start_seq=1,
               ay=None, am=None, ad=None):
@@ -267,20 +281,19 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
         else:
             for col in [2,5,12,16]: set_val(ws,r,col,None)
 
-    # 빈 줄 전체(있다면)의 B~Q(순번 제외)를 하나의 칸으로 병합해서 사선(말소선)을 한 줄만 쭉 긋는다
+    # 빈 줄 전체(있다면) 위에 사선 이미지를 겹쳐서 표시 — 셀 병합/테두리는 건드리지 않아 격자선이 그대로 보임
     n_blank = 20 - len(page_rows)
     if n_blank > 0:
-        blank_start = 11 + len(page_rows) + o
-        blank_end   = 30 + o
-        for mr in list(ws.merged_cells.ranges):
-            if mr.min_row >= blank_start and mr.max_row <= blank_end and mr.min_col >= 2:
-                ws.unmerge_cells(str(mr))
-        ws.merge_cells(start_row=blank_start, start_column=2, end_row=blank_end, end_column=17)
-        th_side = Side(style='thin')
-        ws.cell(blank_start,2).border = Border(
-            left=th_side, right=th_side, top=th_side, bottom=th_side,
-            diagonal=th_side, diagonalUp=True
+        blank_start = 11 + len(page_rows) + o   # 1-based 첫 빈 행
+        blank_end   = 30 + o                     # 1-based 마지막 빈 행
+        img = XLImage(_diagonal_line_png())
+        anchor = TwoCellAnchor(
+            editAs='twoCell',
+            _from=AnchorMarker(col=1, colOff=0, row=blank_start-1, rowOff=0),   # B열(0-based col=1)
+            to=AnchorMarker(col=17, colOff=0, row=blank_end, rowOff=0)          # Q열 끝(0-based col=17)
         )
+        img.anchor = anchor
+        ws.add_image(img)
 
     ws.row_dimensions[31+o].height = 24
     set_val(ws,31+o,1,"계"); set_val(ws,31+o,12,page_total)
