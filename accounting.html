@@ -5962,8 +5962,46 @@ function toggleApprovalDateInputs() {
   }
 }
 
+// 엑셀/CSV로 내보낼 때도 화면과 동일한 정렬(연도 우선 → 선택한 기준)을 적용
+function sortCasesForExport(list) {
+  // 다운로드 버튼이 있는 "지출목록" 표의 정렬 기준을 최우선으로 사용
+  let field, asc;
+  if (typeof caseListSortField !== 'undefined' && caseListSortField) {
+    field = caseListSortField;
+    asc   = (typeof caseListSortAsc !== 'undefined') ? caseListSortAsc : true;
+  } else if (typeof resolSortField !== 'undefined' && resolSortField) {
+    field = resolSortField;
+    asc   = (typeof resolSortAsc !== 'undefined') ? resolSortAsc : true;
+  } else {
+    field = 'lawyer'; asc = true;
+  }
+  const arr = list.map((c,i)=>({c,i}));
+  arr.sort((a,b)=>{
+    const ya = caseYearNum(a.c.num), yb = caseYearNum(b.c.num);
+    if (ya !== yb) return ya - yb;
+    let va, vb;
+    if (field === 'num') {
+      va = parseInt((a.c.num||'').replace(/\D/g,'').slice(-6))||0;
+      vb = parseInt((b.c.num||'').replace(/\D/g,'').slice(-6))||0;
+    } else if (field === 'amt' || field === 'total') {
+      va = (a.c.fee||0)+(a.c.stamp||0)+(a.c.delivery||0);
+      vb = (b.c.fee||0)+(b.c.stamp||0)+(b.c.delivery||0);
+    } else if (field === 'case') {
+      va = (a.c.case||a.c.caseName||'').toString().toLowerCase();
+      vb = (b.c.case||b.c.caseName||'').toString().toLowerCase();
+    } else {
+      va = (a.c[field]||'').toString().toLowerCase();
+      vb = (b.c[field]||'').toString().toLowerCase();
+    }
+    if (va<vb) return asc?-1:1;
+    if (va>vb) return asc?1:-1;
+    return a.i-b.i;
+  });
+  return arr.map(x=>x.c);
+}
+
 async function downloadBatchExcel() {
-  const cases = [...BIZ[curBiz].cases, ...resolList[curBiz]];
+  const cases = sortCasesForExport([...BIZ[curBiz].cases, ...resolList[curBiz]]);
   if (!cases.length) { showToast('등록된 사건이 없습니다'); return; }
 
   // 시트 선택 모달 열기
@@ -5985,7 +6023,7 @@ function closeSheetSelectModal() {
 async function downloadExcelByMode(mode) {
   // mode: 'resol' | 'list' | 'report' | 'all'
   closeSheetSelectModal();
-  const cases = [...BIZ[curBiz].cases, ...resolList[curBiz]];
+  const cases = sortCasesForExport([...BIZ[curBiz].cases, ...resolList[curBiz]]);
   const b     = BIZ[curBiz];
   const today = new Date();
   const yy = today.getFullYear(), mm = today.getMonth()+1, dd = today.getDate();
