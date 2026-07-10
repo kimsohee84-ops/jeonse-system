@@ -352,7 +352,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         A4_COL_WIDTHS = {
             'A':3.46,'B':5.13,'C':7.25,'D':3.57,'E':8.70,'F':4.77,'G':3.75,
             'H':3.46,'I':3.93,'J':3.88,'K':5.75,'L':6.08,'M':3.69,'N':4.63,
-            'O':4.63,'P':8.23,'Q':3.0
+            'O':4.63,'P':8.23,'Q':1.38
         }
         for col, w in A4_COL_WIDTHS.items():
             ws_new.column_dimensions[col].width = w
