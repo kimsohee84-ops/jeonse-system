@@ -49,7 +49,7 @@ def expand_rows(cases_data):
         client=c.get("client","") or ""
         case_nm=c.get("case","") or c.get("caseName","") or ""
         acct_type = c.get("accountType","법률구조사업비")
-        note = c.get("note","") or c.get("type","")
+        note = c.get("type","") or c.get("note","")  # 유형이 정정되면 항상 우선 반영
 
         if not lawyer and not num:
             desc_base = (client+" "+case_nm).strip()
@@ -256,8 +256,8 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
     for i in range(20):
         r = 11+i+o
         ws.row_dimensions[r].height = 24  # 11~30행 높이 고정
+        set_val(ws,r,1,start_seq+i)   # 순번은 빈 줄이어도 계속 이어서 매김
         if i < len(page_rows):
-            set_val(ws,r,1,start_seq+i)   # 데이터가 있는 줄에만 순번
             row = page_rows[i]
             acct_label = "일반관리비\n전세피해자사업비" if row["acct_type"]=="일반관리비" else "법률구조사업비(사)"
             set_val(ws,r,2,acct_label,center)
@@ -265,18 +265,23 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
             set_val(ws,r,12,row["amt"])
             set_val(ws,r,16,row["note"])
         else:
-            # 빈 줄: 값은 모두 비우고, 한 줄 전체를 병합해서 사선(말소선)을 그음
-            for col in [1,2,5,12,16]: set_val(ws,r,col,None)
-            # 이 행에 이미 걸려있는 부분 병합(적요 E:K, 금액 L:O 등)을 해제한 뒤 A~Q 전체를 한 칸으로 병합
-            for mr in list(ws.merged_cells.ranges):
-                if mr.min_row == r and mr.max_row == r:
-                    ws.unmerge_cells(str(mr))
-            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=17)
-            th_side = Side(style='thin')
-            ws.cell(r,1).border = Border(
-                left=th_side, right=th_side, top=th_side, bottom=th_side,
-                diagonal=th_side, diagonalUp=True
-            )
+            for col in [2,5,12,16]: set_val(ws,r,col,None)
+
+    # 빈 줄 전체(있다면)의 B~Q(순번 제외)를 하나의 칸으로 병합해서 사선(말소선)을 한 줄만 쭉 긋는다
+    n_blank = 20 - len(page_rows)
+    if n_blank > 0:
+        blank_start = 11 + len(page_rows) + o
+        blank_end   = 30 + o
+        for mr in list(ws.merged_cells.ranges):
+            if mr.min_row >= blank_start and mr.max_row <= blank_end and mr.min_col >= 2:
+                ws.unmerge_cells(str(mr))
+        ws.merge_cells(start_row=blank_start, start_column=2, end_row=blank_end, end_column=17)
+        th_side = Side(style='thin')
+        ws.cell(blank_start,2).border = Border(
+            left=th_side, right=th_side, top=th_side, bottom=th_side,
+            diagonal=th_side, diagonalUp=True
+        )
+
     ws.row_dimensions[31+o].height = 24
     set_val(ws,31+o,1,"계"); set_val(ws,31+o,12,page_total)
 
@@ -332,7 +337,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
 
         # 열너비 — A4 세로 인쇄에 맞게 조정 (원본 비율 유지하면서 축소)
         A4_COL_WIDTHS = {
-            'A':3.46,'B':5.13,'C':5.75,'D':3.57,'E':8.70,'F':4.77,'G':3.10,
+            'A':3.46,'B':5.13,'C':7.25,'D':3.57,'E':8.70,'F':4.77,'G':3.10,
             'H':3.46,'I':3.93,'J':3.88,'K':5.75,'L':6.08,'M':3.69,'N':4.63,
             'O':4.63,'P':8.23,'Q':3.0
         }
@@ -350,7 +355,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                 client=c.get("client","") or ""
                 case_nm=c.get("case","") or c.get("caseName","") or ""
                 acct_type = c.get("accountType","법률구조사업비")
-                note = c.get("note","") or c.get("type","")
+                note = c.get("type","") or c.get("note","")  # 유형이 정정되면 항상 우선 반영
                 amt = (c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
                 if not lawyer and not num:
                     desc = (client+" "+case_nm).strip()
