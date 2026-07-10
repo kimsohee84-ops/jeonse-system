@@ -2369,6 +2369,7 @@ function saveResol() {
   });
   if (typeof savePersistedData === "function") savePersistedData();
   renderDashboard();
+  if (typeof renderCaseList === "function") renderCaseList();
   showToast(added ? `${added}건 저장되었습니다` : "이미 저장된 건입니다");
 }
 
@@ -2477,6 +2478,10 @@ function renderCaseList() {
   // 정렬 적용
   all = all.map((c,i)=>({c,i}));
   all.sort((a,b2)=>{
+    // 1순위: 접수번호 연도 (25-xxx가 26-xxx보다 항상 위로)
+    const ya = caseYearNum(a.c.num), yb = caseYearNum(b2.c.num);
+    if (ya !== yb) return ya - yb;
+
     let va, vb;
     if (caseListSortField === 'total') {
       va = (a.c.fee||0)+(a.c.stamp||0)+(a.c.delivery||0);
@@ -4736,6 +4741,13 @@ function switchScanTab(tab) {
 }
 
 // 정렬 상태
+// 접수번호에서 연도(YY) 추출 — "서금 25-815", "국부 26-45" 등에서 25/26 뽑아냄
+// 연도를 알 수 없으면 맨 뒤로 보냄 (99)
+function caseYearNum(numStr) {
+  const m = (numStr||'').match(/(\d{2})-/);
+  return m ? parseInt(m[1],10) : 99;
+}
+
 let resolSortField = 'num';
 let resolSortAsc   = true;
 // 행 선택 상태 (체크박스)
@@ -4761,6 +4773,11 @@ function renderResolPanel() {
   // 정렬 적용 (원본 인덱스 보존)
   const indexed = raw.map((c, i) => ({ c, i }));
   indexed.sort((a, b) => {
+    // 1순위: 접수번호 연도 (25-xxx가 26-xxx보다 항상 위로)
+    const ya = caseYearNum(a.c.num), yb = caseYearNum(b.c.num);
+    if (ya !== yb) return ya - yb;
+
+    // 2순위: 선택한 정렬 기준
     let va, vb;
     if (resolSortField === 'num') {
       va = parseInt((a.c.num||'').replace(/\D/g,'').slice(-6)) || 0;
@@ -5019,6 +5036,11 @@ document.addEventListener('click', function(e) {
       else                                        { c.fee=amt;      c.stamp=0; c.delivery=0; }
     }
     else if (field==='case') { c.case=val; c.caseName=val; }
+    else if (field==='type') {
+      c.type = val;
+      // 엑셀 '비고' 칸은 note를 우선 참조하므로, OCR로 자동 채워졌던 옛 note 값도 함께 갱신
+      if (c._fromOcr || !c.note || ['민사','형사','신청','행정','수당'].includes(c.note)) c.note = val;
+    }
     else                     { c[field]=val; }
     renderResolPanel();
     renderDashboard();
@@ -5702,6 +5724,7 @@ function autoSaveScanEntry(parsed, fileName) {
   scanDoneList.unshift({ num: fullNum||'미인식', lawyer, client, amt, doctype, date: today, tax: '전자계산서' });
   renderScanDone();
   renderDashboard();
+  if (typeof renderCaseList === "function") renderCaseList();
 
   // 지출결의서 탭 뱃지 업데이트
   const badge = document.getElementById('scan-resol-badge');
@@ -5855,6 +5878,7 @@ function saveScanEntry() {
   scanDoneList.unshift({num: fullNum, lawyer, client, amt, doctype, date, tax});
   renderScanDone();
   renderDashboard();
+  if (typeof renderCaseList === "function") renderCaseList();
   savePersistedData();
   showToast('등록 완료! — 지출목록 및 결의서에 반영됩니다');
   resetCaseTypeManual('sc');  // 수동 선택 플래그 초기화
