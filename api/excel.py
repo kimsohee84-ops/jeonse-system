@@ -76,15 +76,26 @@ def expand_rows(cases_data):
     return rows
 
 
-def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, start_seq=1):
+def _dash(v):
+    """값이 비어 있으면 작대기(─)로 출력"""
+    s = "" if v is None else str(v).strip()
+    return s if (s and s != "__") else "─"
+
+def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, start_seq=1,
+              ay=None, am=None, ad=None):
     from openpyxl.styles import Border, Side
     th = Side(style='thin')
     md = Side(style='medium')
     no = Side(style=None)
     center = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
+    # 사업명 괄호(예: (서민금융재단))는 다음 줄로 내려서 표시
+    biz_title = (biz_title or "").replace(" (", "\n(")
+
     set_val(ws,1+o,1,"지   출   결   의   서 ")
     set_val(ws,3+o,1,biz_title, center)
+    # 사업명(3행) 높이 27
+    ws.row_dimensions[3+o].height = 27
 
     # 사업명 A3:E3 병합 테두리 — 병합 해제 후 테두리 설정 후 재병합
     merge_str = f"A{3+o}:E{3+o}"
@@ -137,10 +148,13 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
     ws.merge_cells(f"N{4+o}:O{4+o}")
     ws.merge_cells(f"P{3+o}:Q{3+o}"); ws.cell(3+o,16).value="재무이사"; ws.cell(3+o,16).alignment=center
     ws.merge_cells(f"P{4+o}:Q{4+o}")
-    set_val(ws,6+o,6,mm); set_val(ws,6+o,7,"월"); set_val(ws,6+o,8,dd); set_val(ws,6+o,10,"일")
+    # 작성일자 — 비면 작대기(─)로 출력 (변경 가능)
+    set_val(ws,6+o,1,"작성일자"); set_val(ws,6+o,3,_dash(yy)); set_val(ws,6+o,5,"년")
+    set_val(ws,6+o,6,_dash(mm)); set_val(ws,6+o,7,"월"); set_val(ws,6+o,8,_dash(dd)); set_val(ws,6+o,10,"일")
     set_val(ws,6+o,11,"처리사항"); set_val(ws,6+o,14,"구분"); set_val(ws,6+o,16,"결제방식")
-    set_val(ws,7+o,1,"결재일자"); set_val(ws,7+o,3,yy); set_val(ws,7+o,5,"년")
-    set_val(ws,7+o,6,mm); set_val(ws,7+o,7,"월"); set_val(ws,7+o,8,"__"); set_val(ws,7+o,10,"일")
+    # 결재일자 — 기본은 빈칸(작대기), 값이 있으면 채움 (변경 가능)
+    set_val(ws,7+o,1,"결재일자"); set_val(ws,7+o,3,_dash(ay)); set_val(ws,7+o,5,"년")
+    set_val(ws,7+o,6,_dash(am)); set_val(ws,7+o,7,"월"); set_val(ws,7+o,8,_dash(ad)); set_val(ws,7+o,10,"일")
     set_val(ws,7+o,14,"영수증"); set_val(ws,7+o,16,PAY_METHOD_LABEL.get("current","계좌이체"))
     set_val(ws,8+o,11,page_total)
 
@@ -242,8 +256,8 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
     for i in range(20):
         r = 11+i+o
         ws.row_dimensions[r].height = 24  # 11~30행 높이 고정
-        set_val(ws,r,1,start_seq+i)
         if i < len(page_rows):
+            set_val(ws,r,1,start_seq+i)   # 데이터가 있는 줄에만 순번
             row = page_rows[i]
             acct_label = "일반관리비\n전세피해자사업비" if row["acct_type"]=="일반관리비" else "법률구조사업비(사)"
             set_val(ws,r,2,acct_label,center)
@@ -251,15 +265,17 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
             set_val(ws,r,12,row["amt"])
             set_val(ws,r,16,row["note"])
         else:
-            for col in [2,5,12,16]: set_val(ws,r,col,None)
+            # 빈 줄: 순번 포함 각 칸에 대시(─)로 표시 (사용 불가 표시)
+            for col in [1,2,5,12,16]: set_val(ws,r,col,"─",center)
     ws.row_dimensions[31+o].height = 24
     set_val(ws,31+o,1,"계"); set_val(ws,31+o,12,page_total)
 
 # 결제방식 라벨 — build_excel에서 모듈 전역으로 1회 세팅 (fill_page가 매 페이지 동일하게 참조)
 PAY_METHOD_LABEL = {"current": "계좌이체"}
 
-def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mode='all', biz_full=None, pay_method=None):
+def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mode='all', biz_full=None, pay_method=None, ay=None, am=None, ad=None):
     # mode: 'resol' | 'list' | 'report' | 'transfer' | 'all'
+    # ay/am/ad: 결재일자(년/월/일). None이면 작대기(─)로 비워서 출력
     if sheets is None:
         sheets = ['resol', 'lawyer', 'transfer']
     if not biz_full:
@@ -306,8 +322,8 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
 
         # 열너비 — A4 세로 인쇄에 맞게 조정 (원본 비율 유지하면서 축소)
         A4_COL_WIDTHS = {
-            'A':3.46,'B':5.13,'C':4.29,'D':3.57,'E':8.70,'F':4.77,'G':3.10,
-            'H':3.46,'I':3.93,'J':3.82,'K':5.38,'L':6.08,'M':3.69,'N':4.41,
+            'A':3.46,'B':5.13,'C':5.75,'D':3.57,'E':8.70,'F':4.77,'G':3.10,
+            'H':3.46,'I':3.93,'J':3.88,'K':5.75,'L':6.08,'M':3.69,'N':4.63,
             'O':4.63,'P':8.23,'Q':3.0
         }
         for col, w in A4_COL_WIDTHS.items():
@@ -361,7 +377,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                         nc.fill=copy.copy(cell.fill); nc.number_format=cell.number_format
                         nc.alignment=copy.copy(cell.alignment)
 
-            fill_page(ws_new,o,page_rows,page_total,biz_title,yy,mm,dd,p_idx,start_seq=seq)
+            fill_page(ws_new,o,page_rows,page_total,biz_title,yy,mm,dd,p_idx,start_seq=seq,ay=ay,am=am,ad=ad)
             seq += len(page_rows)
         # ── 인쇄 설정: 원본 양식과 동일하게 ──
         from openpyxl.worksheet.properties import PageSetupProperties
@@ -795,6 +811,11 @@ class handler(BaseHTTPRequestHandler):
             biz_full=data.get("bizFull","") or biz_short
             pay_method=data.get("payMethod","") or "계좌이체"
             yy=int(data.get("yy",today.year)); mm=int(data.get("mm",today.month)); dd=int(data.get("dd",today.day))
+            # 결재일자(선택) — 없으면 None → 작대기(─)로 출력
+            def _optint(v):
+                try: return int(v) if v not in (None,"","─") else None
+                except: return None
+            ay=_optint(data.get("ay")); am=_optint(data.get("am")); ad=_optint(data.get("ad"))
             sheets=data.get("sheets",["resol","lawyer","transfer"])
             mode=data.get("mode","all")
             # 변호사계좌/리스트/대량이체는 'all' 모드일 때만 포함
@@ -803,7 +824,7 @@ class handler(BaseHTTPRequestHandler):
                 sheets = data.get("sheets", ["resol","lawyer","transfer"])
             else:
                 sheets = []  # resol/list/report 단독 모드에선 부속시트 없음
-            b64=build_excel(cases,lawyers,biz_short,yy,mm,dd,sheets,mode,biz_full,pay_method)
+            b64=build_excel(cases,lawyers,biz_short,yy,mm,dd,sheets,mode,biz_full,pay_method,ay=ay,am=am,ad=ad)
             result=json.dumps({"xlsx":b64}).encode("utf-8")
             self.send_response(200); self._cors()
             self.send_header("Content-Type","application/json")
