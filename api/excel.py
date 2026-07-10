@@ -265,8 +265,18 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
             set_val(ws,r,12,row["amt"])
             set_val(ws,r,16,row["note"])
         else:
-            # 빈 줄: 순번 포함 각 칸에 대시(─)로 표시 (사용 불가 표시)
-            for col in [1,2,5,12,16]: set_val(ws,r,col,"─",center)
+            # 빈 줄: 값은 모두 비우고, 한 줄 전체를 병합해서 사선(말소선)을 그음
+            for col in [1,2,5,12,16]: set_val(ws,r,col,None)
+            # 이 행에 이미 걸려있는 부분 병합(적요 E:K, 금액 L:O 등)을 해제한 뒤 A~Q 전체를 한 칸으로 병합
+            for mr in list(ws.merged_cells.ranges):
+                if mr.min_row == r and mr.max_row == r:
+                    ws.unmerge_cells(str(mr))
+            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=17)
+            th_side = Side(style='thin')
+            ws.cell(r,1).border = Border(
+                left=th_side, right=th_side, top=th_side, bottom=th_side,
+                diagonal=th_side, diagonalUp=True
+            )
     ws.row_dimensions[31+o].height = 24
     set_val(ws,31+o,1,"계"); set_val(ws,31+o,12,page_total)
 
