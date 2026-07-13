@@ -42,38 +42,51 @@ def apply_merge_list(ws, merge_strings, row_offset=0):
 def expand_rows(cases_data):
     """사건별 보수/인지대/송달료를 각각 별도 행으로 펼친다.
     예: 보수 1,000,000 + 인지대 221,000 + 송달료 165,000 → 3개 행으로 분리,
-    맨 아래 합계(1,386,000)만 한 줄로 모음 — genResol() 화면 표시 방식과 동일하게 맞춤."""
+    맨 아래 합계(1,386,000)만 한 줄로 모음 — genResol() 화면 표시 방식과 동일하게 맞춤.
+    사건 하나가 이상한 값이어도 전체 다운로드가 죽지 않도록 건별로 방어."""
     rows = []
     for c in cases_data:
-        num=(c.get("num","") or "").replace("국부 ","").replace("서금 ","")
-        if num.startswith("미인식"): num=""
-        lawyer=c.get("lawyer","") or ""
-        client=c.get("client","") or ""
-        case_nm=c.get("case","") or c.get("caseName","") or ""
-        acct_type = c.get("accountType","법률구조사업비")
-        note = c.get("type","") or c.get("note","")  # 유형이 정정되면 항상 우선 반영
+        try:
+            if c is None:
+                continue
+            num=(c.get("num","") or "").replace("국부 ","").replace("서금 ","")
+            if num.startswith("미인식"): num=""
+            lawyer=c.get("lawyer","") or ""
+            client=c.get("client","") or ""
+            case_nm=c.get("case","") or c.get("caseName","") or ""
+            acct_type = c.get("accountType","법률구조사업비") or "법률구조사업비"
+            note = c.get("type","") or c.get("note","") or ""  # 유형이 정정되면 항상 우선 반영
 
-        if not lawyer and not num:
-            desc_base = (client+" "+case_nm).strip()
-        else:
-            desc_base = lawyer+" 弁 "+num+"호 "+client+" "+case_nm
+            if not lawyer and not num:
+                desc_base = (client+" "+case_nm).strip()
+            else:
+                desc_base = lawyer+" 弁 "+num+"호 "+client+" "+case_nm
 
-        fee      = c.get("fee",0) or 0
-        stamp    = c.get("stamp",0) or 0
-        delivery = c.get("delivery",0) or 0
+            def _num(v):
+                try: return float(v) if v not in (None,"") else 0
+                except (TypeError, ValueError): return 0
+            fee      = _num(c.get("fee",0))
+            stamp    = _num(c.get("stamp",0))
+            delivery = _num(c.get("delivery",0))
 
-        items = []
-        if fee:      items.append(("변호사 보수", fee))
-        if stamp:    items.append(("인지대",      stamp))
-        if delivery: items.append(("송달료",      delivery))
-        if not items:  # 셋 다 0이면 빈 행이라도 하나는 표시
-            items.append((note, 0))
+            items = []
+            if fee:      items.append(("변호사 보수", fee))
+            if stamp:    items.append(("인지대",      stamp))
+            if delivery: items.append(("송달료",      delivery))
+            if not items:  # 셋 다 0이면 빈 행이라도 하나는 표시
+                items.append((note, 0))
 
-        for label, amt in items:
+            for label, amt in items:
+                rows.append({
+                    "desc": desc_base, "amt": amt,
+                    "acct_type": acct_type,
+                    "note": label if len(items) > 1 else note
+                })
+        except Exception as _e:
+            # 이 건만 건너뛰고 나머지는 정상 진행 (전체 다운로드가 죽지 않도록)
             rows.append({
-                "desc": desc_base, "amt": amt,
-                "acct_type": acct_type,
-                "note": label if len(items) > 1 else note
+                "desc": f"[읽기오류: {c.get('num','?') if isinstance(c,dict) else '?'}] {_e}",
+                "amt": 0, "acct_type": "법률구조사업비", "note": "확인필요"
             })
     return rows
 
@@ -362,19 +375,30 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         def make_resol_rows(cases):
             rows = []
             for c in cases:
-                num=(c.get("num","") or "").replace("국부 ","").replace("서금 ","")
-                if num.startswith("미인식"): num=""
-                lawyer=c.get("lawyer","") or ""
-                client=c.get("client","") or ""
-                case_nm=c.get("case","") or c.get("caseName","") or ""
-                acct_type = c.get("accountType","법률구조사업비")
-                note = c.get("type","") or c.get("note","")  # 유형이 정정되면 항상 우선 반영
-                amt = (c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
-                if not lawyer and not num:
-                    desc = (client+" "+case_nm).strip()
-                else:
-                    desc = lawyer+" 弁 "+num+"호 "+client+" "+case_nm
-                rows.append({"desc":desc,"amt":amt,"acct_type":acct_type,"note":note})
+                try:
+                    if c is None:
+                        continue
+                    num=(c.get("num","") or "").replace("국부 ","").replace("서금 ","")
+                    if num.startswith("미인식"): num=""
+                    lawyer=c.get("lawyer","") or ""
+                    client=c.get("client","") or ""
+                    case_nm=c.get("case","") or c.get("caseName","") or ""
+                    acct_type = c.get("accountType","법률구조사업비") or "법률구조사업비"
+                    note = c.get("type","") or c.get("note","") or ""  # 유형이 정정되면 항상 우선 반영
+                    def _num(v):
+                        try: return float(v) if v not in (None,"") else 0
+                        except (TypeError, ValueError): return 0
+                    amt = _num(c.get("fee",0)) + _num(c.get("stamp",0)) + _num(c.get("delivery",0))
+                    if amt == int(amt): amt = int(amt)
+                    if not lawyer and not num:
+                        desc = (client+" "+case_nm).strip()
+                    else:
+                        desc = lawyer+" 弁 "+num+"호 "+client+" "+case_nm
+                    rows.append({"desc":desc,"amt":amt,"acct_type":acct_type,"note":note})
+                except Exception as _e:
+                    # 이 건만 건너뛰고 나머지는 정상 진행 (전체 다운로드가 죽지 않도록)
+                    safe_num = c.get('num','?') if isinstance(c,dict) else '?'
+                    rows.append({"desc":f"[읽기오류: {safe_num}] {_e}","amt":0,"acct_type":"법률구조사업비","note":"확인필요"})
             return rows
 
         all_rows = make_resol_rows(cases_data)
