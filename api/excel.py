@@ -324,6 +324,12 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
     if not pay_method:
         pay_method = '계좌이체'
 
+    # 원천세율: 사업소득 3.3%, 기타소득 8.8%, 그 외(전자세금계산서/미수령 등)는 원천징수 없음
+    def withhold_rate(tax_type):
+        if tax_type == "사업소득": return 0.033
+        if tax_type == "기타소득": return 0.088
+        return 0.0
+
     lawyers_dict = {l["name"]:l for l in (lawyers_data or []) if isinstance(l, dict) and l.get("name")}
     wb_src_resol = load_workbook(io.BytesIO(base64.b64decode(RESOL_B64)))
     wb_src_list  = load_workbook(io.BytesIO(base64.b64decode(LIST_B64)))
@@ -522,8 +528,9 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
             if not amt: continue
             linfo = lawyers_dict.get(c.get("lawyer",""), {})
             num = (c.get("num","") or "").replace("국부 ","").replace("서금 ","").replace("법무부 ","").strip()
-            is_biz = c.get("tax","") == "사업소득"
-            withholding = round(amt * 0.033) if is_biz else 0
+            tax_type = c.get("tax","")
+            rate = withhold_rate(tax_type)
+            withholding = round(amt * rate) if rate else 0
             net = amt - withholding
             bank_code = (linfo.get("bankCode","") or "").replace("-","").strip()
             acct_no   = (linfo.get("acct","") or "").replace("-","").strip()
@@ -534,21 +541,22 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
             if not bank_code or not acct_no: continue
 
             row_tr = add_tr_row(ws_tr, row_tr, bank_code, acct_no, owner,
-                                net, out_memo, in_memo, "사업소득" if is_biz else "")
+                                net, out_memo, in_memo, tax_type if rate else "")
 
-            # 사업소득이면 원천세를 재단 계좌로 별도 행 추가
-            if is_biz and withholding > 0:
+            # 사업소득/기타소득이면 원천세를 재단 계좌로 별도 행 추가
+            if rate and withholding > 0:
                 row_tr = add_tr_row(ws_tr, row_tr,
                                     FOUNDATION_BANK, FOUNDATION_ACCT, FOUNDATION_OWNER,
-                                    withholding, f"{owner}원천세", f"{owner}원천세", "사업소득")
+                                    withholding, f"{owner}원천세", f"{owner}원천세", tax_type)
 
         # 수당 (직원)
         for c in cases_data:
             if not c.get("_allowance"): continue
             amt = c.get("fee", 0) or 0
             if not amt: continue
-            is_biz = c.get("tax","") == "사업소득"
-            withholding = round(amt * 0.033) if is_biz else 0
+            tax_type = c.get("tax","")
+            rate = withhold_rate(tax_type)
+            withholding = round(amt * rate) if rate else 0
             net = amt - withholding
             linfo = lawyers_dict.get(c.get("client",""), {})
             bank_code = (linfo.get("bankCode","") or "").replace("-","").strip()
@@ -557,10 +565,10 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
             out_memo = c.get("note","") or "수당"
             row_tr = add_tr_row(ws_tr, row_tr, bank_code, acct_no,
                                 c.get("client",""), net, out_memo, "", "")
-            if is_biz and withholding > 0:
+            if rate and withholding > 0:
                 row_tr = add_tr_row(ws_tr, row_tr,
                                     FOUNDATION_BANK, FOUNDATION_ACCT, FOUNDATION_OWNER,
-                                    withholding, f"{c.get('client','')}원천세", f"{c.get('client','')}원천세", "사업소득")
+                                    withholding, f"{c.get('client','')}원천세", f"{c.get('client','')}원천세", tax_type)
 
     # 저장 전 핵심 병합셀 강제 확인 및 재추가 (resol 시트가 있을 때만)
     if mode in ('resol', 'all') and new_name in wb_new.sheetnames:
@@ -680,8 +688,8 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
             except:
                 cdate = datetime.today()
 
-            is_biz = case.get("tax","") == "사업소득"
-            net = amt - round(amt * 0.033) if is_biz else amt
+            rate = withhold_rate(case.get("tax",""))
+            net = amt - round(amt * rate) if rate else amt
             client = case.get("client","")
             lawyer = case.get("lawyer","")
 
