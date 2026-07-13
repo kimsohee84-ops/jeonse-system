@@ -468,6 +468,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
                 <select class="form-select" id="sc-tax">
                   <option>전자세금계산서</option>
                   <option>사업소득</option>
+                  <option>기타소득</option>
                   <option>미수령</option>
                 </select>
               </div>
@@ -647,6 +648,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
               <select class="form-select" id="f-tax">
                 <option>전자세금계산서</option>
                 <option>사업소득</option>
+                <option>기타소득</option>
                 <option>미수령</option>
               </select>
             </div>
@@ -1110,7 +1112,7 @@ const BIZ = {
     lawyers: [], cases: [], monthly: []
   },
   seoul: {
-    name: "서울시복지재단 소송구조", short: "서울시", prefix: "서울시",
+    name: "서울시복지재단 소송구조", short: "서울시", prefix: "서",
     budget: 40000000, executed: 17151500,
     payMethod: "계좌이체",
     lawyers: [], cases: [], monthly: []
@@ -1372,8 +1374,9 @@ function makeNum(raw, biz) {
   if (!raw) return '';
   const b = biz || curBiz;
   const prefix = BIZ[b]?.prefix || '';
-  const clean = raw.toString().replace(/^(국부|서금|양이원|대법원|법무부|성평등|이태원|서울시|초록우산|여객기)\s*/,'').trim();
-  return prefix ? prefix + ' ' + clean : clean;
+  const clean = raw.toString().replace(/^(국부|서금|양이원|대법원|법무부|성평등|이태원|서울시|서|초록우산|여객기)\s*/,'').trim();
+  if (!prefix) return clean;
+  return prefix.length <= 1 ? prefix + clean : prefix + ' ' + clean;
 }
 let resolList = {kt:[], sf:[], yangik:[], court:[], moj:[], gender:[], mois:[], seoul:[], green:[], air:[]};
 
@@ -4150,7 +4153,7 @@ async function regenExcel(monthlyIdx) {
 
   // PAID_CASES 데이터를 cases 형식으로 변환
   const cases = paid.map(c => ({
-    num:      c.num ? BIZ[curBiz].prefix + ' ' + c.num : '',
+    num:      c.num ? makeNum(c.num, curBiz) : '',
     lawyer:   c.lawyer || '',
     client:   c.client || '',
     case:     c.note || '',
@@ -4862,9 +4865,11 @@ function renderResolPanel() {
             <td style="${cs};cursor:pointer;text-align:center;font-size:10px" data-field="tax" data-idx="${i}">
               ${c.tax==='사업소득'
                 ? `<span style="padding:2px 6px;border-radius:99px;background:#FEF3C7;color:#92400E">사업소득</span>`
-                : c.tax==='미수령'
-                  ? `<span style="padding:2px 6px;border-radius:99px;background:#FFF7F7;color:#DC2626">미수령</span>`
-                  : `<span style="padding:2px 6px;border-radius:99px;background:#F0FDF4;color:#166534">세금계산서</span>`}
+                : c.tax==='기타소득'
+                  ? `<span style="padding:2px 6px;border-radius:99px;background:#FCE7F3;color:#9D174D">기타소득</span>`
+                  : c.tax==='미수령'
+                    ? `<span style="padding:2px 6px;border-radius:99px;background:#FFF7F7;color:#DC2626">미수령</span>`
+                    : `<span style="padding:2px 6px;border-radius:99px;background:#F0FDF4;color:#166534">세금계산서</span>`}
             </td>
             <td style="${cs};text-align:center">
               <button onclick="toggleTax(${i})" title="${c.tax==='수령'?'수령완료':'미수령'}"
@@ -4998,7 +5003,7 @@ document.addEventListener('click', function(e) {
 
   if (field === 'tax') {
     input = document.createElement('select');
-    ['전자세금계산서','사업소득','미수령'].forEach(opt => {
+    ['전자세금계산서','사업소득','기타소득','미수령'].forEach(opt => {
       const o = document.createElement('option');
       o.value=opt; o.textContent=opt;
       if(opt===currentVal) o.selected=true;
@@ -5192,7 +5197,7 @@ function saveResolEdit() {
 
   BIZ[curBiz].cases[resolIdx] = {
     ...c,
-    num:      BIZ[curBiz].prefix + " " + get("rv-num"),
+    num:      makeNum(get("rv-num"), curBiz),
     lawyer:   get("rv-lawyer"),
     firm:     get("rv-firm"),
     client:   get("rv-client"),
@@ -5839,7 +5844,7 @@ function saveScanEntry() {
   // 비고: 사건유형 + 접수번호 연결 (원본 양식 비고 형식)
   const note = caseType;
 
-  const fullNum = BIZ[curBiz].prefix + ' ' + num;
+  const fullNum = makeNum(num, curBiz);
   const newCase = {
     num: fullNum,
     lawyer,
