@@ -754,7 +754,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
       <!-- 지출 목록 -->
       <div class="view" id="view-list">
         <p class="page-title">지출 목록</p>
-        <p class="page-sub">계산서 수령 상태별 색상 표시</p>
+        <p class="page-sub">헤더 클릭 → 정렬 · 보수/인지대/송달료/유형/계산서 칸 클릭 → 바로 수정</p>
         <div style="display:flex;gap:8px;margin-bottom:1rem;align-items:center;flex-wrap:wrap">
           <span style="font-size:11px;color:var(--muted)">범례</span>
           <span class="badge bg">계산서 수령완료</span>
@@ -1529,16 +1529,23 @@ function loadPersistedData() {
     const ALL_KEYS = Object.keys(BIZ);
 
     if (data.cases) {
-      ALL_KEYS.forEach(k => { if (Array.isArray(data.cases[k])) BIZ[k].cases = data.cases[k]; });
+      ALL_KEYS.forEach(k => { if (Array.isArray(data.cases[k])) BIZ[k].cases = data.cases[k].filter(c => c); });
     }
     if (data.executed) {
       ALL_KEYS.forEach(k => { if (typeof data.executed[k] === 'number') BIZ[k].executed = data.executed[k]; });
     }
     if (data.lawyers) {
-      ALL_KEYS.forEach(k => { if (Array.isArray(data.lawyers[k])) BIZ[k].lawyers = data.lawyers[k]; });
+      ALL_KEYS.forEach(k => {
+        if (Array.isArray(data.lawyers[k])) {
+          // 과거 버그로 생긴 null/빈 항목 자동 정리
+          BIZ[k].lawyers = data.lawyers[k].filter(l => l && l.name);
+        }
+      });
     }
     if (data.resolList) {
-      ALL_KEYS.forEach(k => { if (Array.isArray(data.resolList[k])) resolList[k] = data.resolList[k]; });
+      ALL_KEYS.forEach(k => {
+        if (Array.isArray(data.resolList[k])) resolList[k] = data.resolList[k].filter(c => c);
+      });
     }
     if (data.EXEC_DATA) {
       ALL_KEYS.forEach(k => {
@@ -2088,6 +2095,7 @@ function renderLawyerSelect() {
   const sel = document.getElementById("f-lawyer");
   sel.innerHTML = '<option value="">-- 선택 --</option>';
   BIZ[curBiz].lawyers.forEach(l=>{
+    if (!l || !l.name) return;   // null/빈 항목 방어
     const opt = document.createElement("option");
     opt.value = l.name;
     opt.textContent = l.name;
@@ -2097,7 +2105,7 @@ function renderLawyerSelect() {
 
 function fillAccount() {
   const name = document.getElementById("f-lawyer").value;
-  const l = BIZ[curBiz].lawyers.find(x=>x.name===name);
+  const l = BIZ[curBiz].lawyers.find(x=>x && x.name===name);
   document.getElementById("f-bank").value = l ? l.bank : "";
   document.getElementById("f-acct").value = l ? l.acct : "";
   document.getElementById("f-owner").value = l ? l.owner : "";
@@ -2504,28 +2512,109 @@ function renderCaseList() {
   });
   all = all.map(x=>x.c);
 
-  document.getElementById("list-tbody").innerHTML = all.map(c=>{
+  document.getElementById("list-tbody").innerHTML = all.map((c,ri)=>{
+    const src = ri < b.cases.length ? 'cases' : 'resol';
+    const srcIdx = ri < b.cases.length ? ri : (ri - b.cases.length);
     const rowClass = c.tax==="수령"||c.tax==="전자세금계산서" ? "row-g" : "row-a";
     const taxB = (c.tax==="수령"||c.tax==="전자세금계산서") ? '<span class="badge bg">수령완료</span>' : '<span class="badge ba">미수령</span>';
     const resolB = c.resol==="완료" ? '<span class="badge bb">작성완료</span>' : '<span class="badge" style="background:var(--light);color:var(--muted)">대기</span>';
     const typeMap = {민사:"bn",형사:"br",신청:"badge",가사:"bg",행정:"ba",지급명령:"bn"};
     const fee = c.fee||0, stamp = c.stamp||0, delivery = c.delivery||0;
     const total = (fee+stamp+delivery).toLocaleString();
+    const ed = `data-lsrc="${src}" data-lidx="${srcIdx}"`;
     return `<tr class="${rowClass}">
       <td class="mono" style="font-size:11px">${c.num}</td>
       <td>${c.lawyer}</td>
       <td>${c.client}</td>
       <td style="font-size:11px">${c.case||c.caseName}</td>
-      <td><span class="badge ${typeMap[c.type]||"bn"}">${c.type}</span></td>
-      <td class="mono">${fee ? fee.toLocaleString() : '—'}</td>
-      <td class="mono">${stamp ? stamp.toLocaleString() : '—'}</td>
-      <td class="mono">${delivery ? delivery.toLocaleString() : '—'}</td>
+      <td><span class="badge ${typeMap[c.type]||"bn"}" ${ed} data-lfield="type" style="cursor:pointer">${c.type}</span></td>
+      <td class="mono" ${ed} data-lfield="fee" style="cursor:pointer">${fee ? fee.toLocaleString() : '<span style="color:#9CA3AF">클릭입력</span>'}</td>
+      <td class="mono" ${ed} data-lfield="stamp" style="cursor:pointer">${stamp ? stamp.toLocaleString() : '<span style="color:#9CA3AF">클릭입력</span>'}</td>
+      <td class="mono" ${ed} data-lfield="delivery" style="cursor:pointer">${delivery ? delivery.toLocaleString() : '<span style="color:#9CA3AF">클릭입력</span>'}</td>
       <td class="mono" style="font-weight:600">${total}</td>
-      <td>${taxB}</td>
+      <td ${ed} data-lfield="tax" style="cursor:pointer">${taxB}</td>
       <td>${resolB}</td>
     </tr>`;
   }).join("");
 }
+
+// ── 지출목록(list-tbody) 전용 인라인 수정 ──
+// 청구서 업로드 탭의 기존 td[data-field][data-idx] 시스템과 충돌하지 않도록 별도 속성(data-lfield 등) 사용
+document.addEventListener('click', function(e) {
+  const el = e.target.closest('[data-lfield][data-lidx][data-lsrc]');
+  if (!el) return;
+  if (el.querySelector('input,select')) return;
+
+  const src   = el.dataset.lsrc;
+  const idx   = parseInt(el.dataset.lidx);
+  const field = el.dataset.lfield;
+  const arr   = src === 'cases' ? BIZ[curBiz].cases : resolList[curBiz];
+  const c     = arr && arr[idx];
+  if (!c) return;
+
+  let currentVal = '';
+  if      (field === 'fee' || field === 'stamp' || field === 'delivery') currentVal = c[field] || 0;
+  else if (field === 'type') currentVal = c.type || '민사';
+  else if (field === 'tax')  currentVal = c.tax  || '전자세금계산서';
+
+  const parentTd = el.tagName === 'TD' ? el : el.closest('td');
+  const originalHTML = parentTd.innerHTML;
+  parentTd.innerHTML = '';
+
+  let input;
+  if (field === 'type') {
+    input = document.createElement('select');
+    ['민사','형사','신청','행정','수당'].forEach(opt => {
+      const o = document.createElement('option');
+      o.value = opt; o.textContent = opt;
+      if (opt === currentVal) o.selected = true;
+      input.appendChild(o);
+    });
+  } else if (field === 'tax') {
+    input = document.createElement('select');
+    ['전자세금계산서','사업소득','기타소득','미수령'].forEach(opt => {
+      const o = document.createElement('option');
+      o.value = opt; o.textContent = opt;
+      if (opt === currentVal) o.selected = true;
+      input.appendChild(o);
+    });
+  } else {
+    input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentVal ? currentVal.toLocaleString() : '';
+    input.style.textAlign = 'right';
+  }
+  input.style.cssText += 'width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:12px;font-family:inherit;padding:2px 4px;box-sizing:border-box;min-width:60px';
+
+  parentTd.appendChild(input);
+  input.focus();
+  if (input.select) input.select();
+
+  let done = false;
+  const save = () => {
+    if (done) return; done = true;
+    const val = typeof input.value === 'string' ? input.value.trim() : input.value;
+    if (field === 'fee' || field === 'stamp' || field === 'delivery') {
+      c[field] = parseInt(String(val).replace(/,/g,'')) || 0;
+    } else if (field === 'type') {
+      c.type = val;
+      if (c._fromOcr || !c.note || ['민사','형사','신청','행정','수당'].includes(c.note)) c.note = val;
+    } else if (field === 'tax') {
+      c.tax = val;
+    }
+    if (typeof savePersistedData === 'function') savePersistedData();
+    renderCaseList();
+    if (typeof renderDashboard === 'function') renderDashboard();
+  };
+  const cancel = () => { if (done) return; done = true; parentTd.innerHTML = originalHTML; };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') { ev.preventDefault(); save(); }
+    if (ev.key === 'Escape') { ev.preventDefault(); cancel(); }
+  });
+  if (input.tagName === 'SELECT') input.addEventListener('change', save);
+});
 
 function renderBudget() {
   const b  = BIZ[curBiz];
@@ -2608,8 +2697,10 @@ function renderLawyers() {
 
 // ── 모달 열기 (idx=-1: 추가, idx>=0: 수정) ──
 let lawyerEditIdx = -1;
+let lawyerEditOrigName = null;   // 수정 시작 시점의 원래 이름 (사업 간 이름 기준 동기화용)
 function openLawyerModal(idx) {
   lawyerEditIdx = idx;
+  lawyerEditOrigName = null;
   const modal = document.getElementById("lawyer-modal");
   const title = document.getElementById("lawyer-modal-title");
   modal.style.display = "flex";
@@ -2624,6 +2715,8 @@ function openLawyerModal(idx) {
     // 수정 모드 — 기존 데이터 채우기
     title.textContent = "변호사 정보 수정";
     const l = BIZ[curBiz].lawyers[idx];
+    if (!l) { showToast('데이터를 찾을 수 없습니다'); closeLawyerModal(); return; }
+    lawyerEditOrigName = l.name || null;
     document.getElementById("lm-name").value     = l.name     || "";
     document.getElementById("lm-bank").value     = l.bank     || "";
     document.getElementById("lm-bankCode").value = l.bankCode || "";
@@ -2653,12 +2746,23 @@ function saveLawyerModal() {
   };
 
   if(lawyerEditIdx === -1) {
-    // 추가 — 모든 사업에 동일하게
-    Object.keys(BIZ).forEach(k => { BIZ[k].lawyers.push(data); });
+    // 추가 — 이미 같은 이름이 있는 사업은 건너뛰고, 없는 사업에만 추가
+    Object.keys(BIZ).forEach(k => {
+      if (!Array.isArray(BIZ[k].lawyers)) BIZ[k].lawyers = [];
+      const exists = BIZ[k].lawyers.some(l => l && l.name === name);
+      if (!exists) BIZ[k].lawyers.push({...data});
+    });
     showToast(`${name} 변호사 추가됐습니다`);
   } else {
-    // 수정 — 모든 사업에 동일하게
-    Object.keys(BIZ).forEach(k => { BIZ[k].lawyers[lawyerEditIdx] = data; });
+    // 수정 — 인덱스가 아니라 "원래 이름"을 기준으로 각 사업에서 찾아 교체
+    // (사업마다 변호사 목록 길이/순서가 달라 인덱스 공유는 위험 — null 구멍이 생기는 원인이었음)
+    const origName = lawyerEditOrigName;
+    Object.keys(BIZ).forEach(k => {
+      if (!Array.isArray(BIZ[k].lawyers)) { BIZ[k].lawyers = []; return; }
+      const i = BIZ[k].lawyers.findIndex(l => l && l.name === origName);
+      if (i >= 0) BIZ[k].lawyers[i] = {...data};
+      else if (k === curBiz) BIZ[k].lawyers[lawyerEditIdx] = {...data}; // 현재 사업은 그대로 보정
+    });
     showToast(`${name} 변호사 정보가 수정됐습니다`);
   }
 
@@ -2668,9 +2772,15 @@ function saveLawyerModal() {
 
 // ── 변호사 삭제 ──
 function deleteLawyer(idx) {
-  const name = BIZ[curBiz].lawyers[idx].name;
+  const target = BIZ[curBiz].lawyers[idx];
+  if (!target) { showToast('이미 삭제된 항목입니다'); renderLawyers(); return; }
+  const name = target.name;
   if(!confirm(`${name} 변호사를 삭제할까요?`)) return;
-  Object.keys(BIZ).forEach(k => { BIZ[k].lawyers.splice(idx, 1); });
+  // 인덱스가 아니라 이름으로 각 사업에서 찾아 제거 (사업별 목록 길이가 달라 인덱스 공유는 위험)
+  Object.keys(BIZ).forEach(k => {
+    if (!Array.isArray(BIZ[k].lawyers)) return;
+    BIZ[k].lawyers = BIZ[k].lawyers.filter(l => l && l.name !== name);
+  });
   renderLawyers();
   showToast(`${name} 삭제됐습니다`);
 }
@@ -5628,7 +5738,7 @@ function autoSaveScanEntry(parsed, fileName) {
   // OCR에서 변호사명 + 계좌정보가 인식됐으면 lawyers 목록에 자동 반영
   if (lawyer && acct) {
     const lawyers = BIZ[curBiz].lawyers;
-    const lIdx = lawyers.findIndex(l => l.name === lawyer);
+    const lIdx = lawyers.findIndex(l => l && l.name === lawyer);
     // 계좌번호에서 은행명/은행코드 추출
     const bankMatch = acct.match(/(신한|국민|기업|농협|우리|하나|새마을|SC|카카오|토스|씨티)/);
     const bankName  = bankMatch ? bankMatch[1] : '';
