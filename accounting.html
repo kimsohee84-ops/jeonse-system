@@ -6001,11 +6001,18 @@ function sortCasesForExport(list) {
 }
 
 async function downloadBatchExcel() {
-  const cases = sortCasesForExport([...BIZ[curBiz].cases, ...resolList[curBiz]]);
-  if (!cases.length) { showToast('등록된 사건이 없습니다'); return; }
+  try {
+    if (!resolList[curBiz]) resolList[curBiz] = [];       // 방어: 데이터 누락 시 빈 배열로 보정
+    if (!BIZ[curBiz].cases) BIZ[curBiz].cases = [];
+    const cases = sortCasesForExport([...BIZ[curBiz].cases, ...resolList[curBiz]]);
+    if (!cases.length) { showToast('등록된 사건이 없습니다'); return; }
 
-  // 시트 선택 모달 열기
-  openSheetSelectModal(cases);
+    // 시트 선택 모달 열기
+    openSheetSelectModal(cases);
+  } catch (err) {
+    console.error('downloadBatchExcel 오류:', err);
+    showToast('다운로드 준비 중 오류: ' + (err && err.message ? err.message : err));
+  }
 }
 
 // ── 시트 선택 모달 ──
@@ -6023,31 +6030,34 @@ function closeSheetSelectModal() {
 async function downloadExcelByMode(mode) {
   // mode: 'resol' | 'list' | 'report' | 'all'
   closeSheetSelectModal();
-  const cases = sortCasesForExport([...BIZ[curBiz].cases, ...resolList[curBiz]]);
-  const b     = BIZ[curBiz];
-  const today = new Date();
-  const yy = today.getFullYear(), mm = today.getMonth()+1, dd = today.getDate();
-
-  const labelMap = { resol:'지출결의서', list:'실무자확인표', report:'정산보고서', transfer:'대량이체', all:'전체' };
-  const fileLabel = labelMap[mode] || '엑셀';
-
-  // mode='resol'(지출결의서만)일 때는 부속 시트(변호사계좌/변호사리스트/대량이체) 없이
-  // 결의서 양식 시트 하나만 생성. 'all'일 때만 부속 시트 포함.
-  const sheetsToSend = mode === 'all' ? ['resol', 'lawyer', 'transfer'] :
-                       mode === 'transfer' ? ['transfer'] : [];
-
-  showToast(`${fileLabel} 엑셀 생성 중...`);
-
-  // 결재일자: 결의서 미리보기에서 직접 입력한 값을 우선 사용, 없으면 다운로드 모달 체크박스 값 사용
-  let { ay, am, ad } = getResolApprovalYMD();
-  if (ay===null) {
-    const approvalOn = document.getElementById('dl-approval-check') && document.getElementById('dl-approval-check').checked;
-    ay = approvalOn ? (parseInt(document.getElementById('dl-ay').value)||null) : null;
-    am = approvalOn ? (parseInt(document.getElementById('dl-am').value)||null) : null;
-    ad = approvalOn ? (parseInt(document.getElementById('dl-ad').value)||null) : null;
-  }
 
   try {
+    if (!resolList[curBiz]) resolList[curBiz] = [];        // 방어: 데이터 누락 시 빈 배열로 보정
+    if (!BIZ[curBiz].cases) BIZ[curBiz].cases = [];
+    const cases = sortCasesForExport([...BIZ[curBiz].cases, ...resolList[curBiz]]);
+    const b     = BIZ[curBiz];
+    const today = new Date();
+    const yy = today.getFullYear(), mm = today.getMonth()+1, dd = today.getDate();
+
+    const labelMap = { resol:'지출결의서', list:'실무자확인표', report:'정산보고서', transfer:'대량이체', all:'전체' };
+    const fileLabel = labelMap[mode] || '엑셀';
+
+    // mode='resol'(지출결의서만)일 때는 부속 시트(변호사계좌/변호사리스트/대량이체) 없이
+    // 결의서 양식 시트 하나만 생성. 'all'일 때만 부속 시트 포함.
+    const sheetsToSend = mode === 'all' ? ['resol', 'lawyer', 'transfer'] :
+                         mode === 'transfer' ? ['transfer'] : [];
+
+    showToast(`${fileLabel} 엑셀 생성 중...`);
+
+    // 결재일자: 결의서 미리보기에서 직접 입력한 값을 우선 사용, 없으면 다운로드 모달 체크박스 값 사용
+    let { ay, am, ad } = getResolApprovalYMD();
+    if (ay===null) {
+      const approvalOn = document.getElementById('dl-approval-check') && document.getElementById('dl-approval-check').checked;
+      ay = approvalOn ? (parseInt(document.getElementById('dl-ay').value)||null) : null;
+      am = approvalOn ? (parseInt(document.getElementById('dl-am').value)||null) : null;
+      ad = approvalOn ? (parseInt(document.getElementById('dl-ad').value)||null) : null;
+    }
+
     const res = await fetch('/api/excel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
