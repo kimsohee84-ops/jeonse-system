@@ -161,43 +161,39 @@ function parseDoc(text) {
     }
   }
 
-  // 금액 (착수금/보수)
-  for (const line of lines) {
-    const m = line.match(/착\s*수\s*금\s+([\d,\s]+)/) ||
-              line.match(/합\s*계\s+([\d,\s]+)/);
-    if (m) {
-      r.amount = m[1].replace(/[\s,]/g,'').trim();
-      if (r.amount && parseInt(r.amount) > 0) break;
-    }
+  // 금액 (착수금/보수) — 라벨과 다음 라벨 사이 구간에서 마지막 숫자를 채택
+  // (취소선으로 정정된 금액이 나란히 적힌 경우, 정정된 값이 뒤에 오는 경우가 많음)
+  function lastAmountAfterLabel(labelPattern, stopPattern) {
+    const re = new RegExp(labelPattern.source + '([\\s\\S]{0,60}?)(?=' + stopPattern.source + '|$)', 'm');
+    const m = text.match(re);
+    if (!m) return null;
+    const chunk = m[1];
+    const nums = [...chunk.matchAll(/(\d{1,3}(?:,\d{3})+|\d{3,})/g)].map(x => x[1].replace(/,/g,''));
+    const valid = nums.filter(n => parseInt(n,10) > 0);
+    return valid.length ? valid[valid.length-1] : null;
   }
 
-  // 인지대 / 송달료
+  const STOP_LABELS = /착\s*수\s*금|보\s*관\s*금|인\s*지\s*대|송\s*달\s*료|합\s*계|입\s*금\s*계좌|기지급금/;
+
+  {
+    const amt = lastAmountAfterLabel(/착\s*수\s*금/, STOP_LABELS) || lastAmountAfterLabel(/합\s*계/, STOP_LABELS);
+    if (amt) r.amount = amt;
+  }
+
+  // 인지대 / 송달료 / 보관금
   // 양식: "( O ) 인지대   221,000" / "(0)인지대 221,000" / "인지대 221,000" 등
-  // 체크표시(O,0,√,✓)는 있을 수도 없을 수도 있어 무시하고 숫자만 추출
-  for (const line of lines) {
-    if (r.stamp) break;
-    const m = line.match(/인\s*지\s*대[^\d]{0,10}([\d,]{3,})/);
-    if (m) {
-      const v = m[1].replace(/,/g,'').trim();
-      if (v && parseInt(v) > 0) r.stamp = v;
-    }
+  // 정정선(취소선)으로 두 금액이 나란히 있거나, 표 셀 특성상 라벨과 금액이 줄바꿈으로 분리된 경우도 처리
+  {
+    const v = lastAmountAfterLabel(/인\s*지\s*대/, STOP_LABELS);
+    if (v) r.stamp = v;
   }
-  for (const line of lines) {
-    if (r.delivery) break;
-    const m = line.match(/송\s*달\s*료[^\d]{0,10}([\d,]{3,})/);
-    if (m) {
-      const v = m[1].replace(/,/g,'').trim();
-      if (v && parseInt(v) > 0) r.delivery = v;
-    }
+  {
+    const v = lastAmountAfterLabel(/송\s*달\s*료/, STOP_LABELS);
+    if (v) r.delivery = v;
   }
-  // 보관금 / 여비도 같은 표 양식에 있을 수 있어 함께 인식
-  for (const line of lines) {
-    if (r.deposit) break;
-    const m = line.match(/보\s*관\s*금[^\d]{0,10}([\d,]{3,})/);
-    if (m) {
-      const v = m[1].replace(/,/g,'').trim();
-      if (v && parseInt(v) > 0) r.deposit = v;
-    }
+  {
+    const v = lastAmountAfterLabel(/보\s*관\s*금/, STOP_LABELS);
+    if (v) r.deposit = v;
   }
 
   // 입금 계좌번호
