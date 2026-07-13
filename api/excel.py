@@ -324,7 +324,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
     if not pay_method:
         pay_method = '계좌이체'
 
-    lawyers_dict = {l["name"]:l for l in (lawyers_data or [])}
+    lawyers_dict = {l["name"]:l for l in (lawyers_data or []) if isinstance(l, dict) and l.get("name")}
     wb_src_resol = load_workbook(io.BytesIO(base64.b64decode(RESOL_B64)))
     wb_src_list  = load_workbook(io.BytesIO(base64.b64decode(LIST_B64)))
 
