@@ -6072,6 +6072,7 @@ async function downloadExcelByMode(mode) {
 
     if (!res.ok) {
       const err = await res.json();
+      console.error('서버 traceback:', err.trace || '(없음)');
       throw new Error(err.error || '서버 오류');
     }
 
