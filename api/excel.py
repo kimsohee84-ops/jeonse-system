@@ -183,7 +183,10 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
     set_val(ws,7+o,1,"결재일자"); set_val(ws,7+o,3,_dash(ay)); set_val(ws,7+o,5,"년")
     set_val(ws,7+o,6,_dash(am)); set_val(ws,7+o,7,"월"); set_val(ws,7+o,8,_dash(ad)); set_val(ws,7+o,10,"일")
     set_val(ws,7+o,14,"영수증"); set_val(ws,7+o,16,PAY_METHOD_LABEL.get("current","계좌이체"))
-    set_val(ws,8+o,11,page_total)
+    # 일금(한글금액)/₩숫자 — 페이지마다 자기 자신의 합계(L{31+o})를 가리키도록 수식을 다시 맞춤
+    # (원본 템플릿을 그대로 복사하면 2페이지 이후에도 "=K8"/"=L31"이 문자 그대로 남아 1페이지 금액을 계속 참조하는 문제가 있었음)
+    ws.cell(8+o,11).value = f"=L{31+o}"   # K열: ₩ 숫자 = 그 페이지 "계" 금액
+    ws.cell(8+o,3).value = f"=K{8+o}"     # C열: 한글금액 = 같은 페이지의 K열
 
     # 6~8행 테두리 원본 그대로 적용
     # 원본에서 읽은 값: 6~8행 모든 셀 top/bottom=thin, 좌우는 셀별 차이
@@ -349,7 +352,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
     # ① 지출결의서 (mode: 'resol' 또는 'all')
     # ══════════════════════════════════════════
     if mode in ('resol', 'all'):
-        PAY_METHOD_LABEL["current"] = pay_method
+        PAY_METHOD_LABEL["current"] = "계좌이체"  # 지출결의서 결제방식은 사업 구분 없이 항상 "계좌이체"로 표기
         ws_src = wb_src_resol[src_name]
 
         # 병합셀 목록을 문자열로 미리 추출 (원본 양식 자체가 이미 2페이지 분량 셀(32행 이후)을
@@ -370,8 +373,8 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         # 열너비 — A4 세로 인쇄에 맞게 조정 (원본 비율 유지하면서 축소)
         A4_COL_WIDTHS = {
             'A':3.46,'B':5.13,'C':7.25,'D':3.57,'E':8.70,'F':4.77,'G':3.75,
-            'H':3.46,'I':3.93,'J':3.88,'K':5.75,'L':6.08,'M':3.69,'N':4.63,
-            'O':4.63,'P':8.23,'Q':1.38
+            'H':3.46,'I':3.93,'J':4.63,'K':4.88,'L':6.08,'M':3.69,'N':4.63,
+            'O':4.63,'P':6.5,'Q':1.38
         }
         for col, w in A4_COL_WIDTHS.items():
             ws_new.column_dimensions[col].width = w
@@ -407,7 +410,28 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                     rows.append({"desc":f"[읽기오류: {safe_num}] {_e}","amt":0,"acct_type":"법률구조사업비","note":"확인필요"})
             return rows
 
-        all_rows = make_resol_rows(cases_data)
+        # 직원 수당은 개별 직원별로 나열하지 않고 하나로 합쳐서 표시 (지출결의서 전용 — 대량이체/지출목록 시트는 개별 유지)
+        _allowance_items = [c for c in cases_data if isinstance(c, dict) and c.get("_allowance")]
+        _other_cases     = [c for c in cases_data if not (isinstance(c, dict) and c.get("_allowance"))]
+        if _allowance_items:
+            def _num(v):
+                try: return float(v) if v not in (None,"") else 0
+                except (TypeError, ValueError): return 0
+            _allowance_total = sum(_num(c.get("fee",0))+_num(c.get("stamp",0))+_num(c.get("delivery",0)) for c in _allowance_items)
+            if _allowance_total == int(_allowance_total): _allowance_total = int(_allowance_total)
+            _unique_names = {c.get("client","") for c in _allowance_items if c.get("client")}
+            _headcount = len(_unique_names) if _unique_names else len(_allowance_items)
+            _combined = {
+                "num": "", "lawyer": "", "client": f"직원 수당 (전 직원 {_headcount}명)",
+                "case": "", "caseName": "",
+                "fee": _allowance_total, "stamp": 0, "delivery": 0,
+                "type": "수당", "note": "수당", "accountType": "법률구조사업비",
+            }
+            resol_cases_data = _other_cases + [_combined]
+        else:
+            resol_cases_data = _other_cases
+
+        all_rows = make_resol_rows(resol_cases_data)
         pages = [all_rows[i:i+20] for i in range(0, max(len(all_rows),1), 20)]
 
         seq = 1
