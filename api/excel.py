@@ -120,6 +120,8 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
     biz_title = (biz_title or "").replace(" (", "\n(")
 
     set_val(ws,1+o,1,"지   출   결   의   서 ")
+    ws.row_dimensions[1+o].height = 27     # 제목행(1행) 높이
+    ws.row_dimensions[4+o].height = 43.5   # 결재란(4행) 높이 — A4 사이즈에 맞춤
     set_val(ws,3+o,1,biz_title, center)
     # 사업명(3행) 높이 27
     ws.row_dimensions[3+o].height = 27
