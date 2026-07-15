@@ -121,6 +121,7 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
 
     set_val(ws,1+o,1,"지   출   결   의   서 ")
     ws.row_dimensions[1+o].height = 27     # 제목행(1행) 높이
+    ws.row_dimensions[2+o].height = 6.75   # 2행 높이
     ws.row_dimensions[4+o].height = 43.5   # 결재란(4행) 높이 — A4 사이즈에 맞춤
     set_val(ws,3+o,1,biz_title, center)
     # 사업명(3행) 높이 27
@@ -375,7 +376,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         # 열너비 — A4 세로 인쇄에 맞게 조정 (원본 비율 유지하면서 축소)
         A4_COL_WIDTHS = {
             'A':3.46,'B':5.13,'C':7.25,'D':3.57,'E':8.70,'F':4.77,'G':3.75,
-            'H':3.46,'I':3.93,'J':4.63,'K':4.88,'L':6.08,'M':3.69,'N':4.63,
+            'H':3.46,'I':3.93,'J':4.63,'K':6.5,'L':4.25,'M':3.69,'N':4.63,
             'O':4.63,'P':6.5,'Q':1.38
         }
         for col, w in A4_COL_WIDTHS.items():
@@ -633,12 +634,14 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
 
         ws_l = wb_new.create_sheet(f"{yy}년 {mm}월({biz_label})")
 
-        # 열 너비
+        # 열 너비 (보수/인지대/송달료 3칸을 금액 앞에 추가하면서 뒤 열들이 3칸씩 밀림)
         col_widths = {
             'A':1.5, 'B':4.0, 'C':7.0, 'D':4.0, 'E':4.0, 'F':6.0,
-            'G':4.0, 'H':7.0, 'I':12.0, 'J':8.0, 'K':6.0, 'L':8.0,
-            'M':7.0, 'N':6.0, 'O':5.0, 'P':12.0, 'Q':5.0, 'R':4.0,
-            'S':20.0, 'T':4.0
+            'G':4.0, 'H':7.0, 'I':12.0,
+            'J':8.0, 'K':6.0, 'L':6.0,       # 보수/인지대/송달료 (신규)
+            'M':8.0,                          # 금액 (합계, 기존 J 위치)
+            'N':6.0, 'O':8.0, 'P':7.0, 'Q':6.0, 'R':5.0, 'S':12.0,
+            'T':5.0, 'U':4.0, 'V':20.0, 'W':4.0
         }
         for col, w in col_widths.items():
             ws_l.column_dimensions[col].width = w
@@ -662,27 +665,28 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
 
         # 제목
         total = sum((c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0) for c in cases_data)
-        ws_l.merge_cells('B2:T2')
+        ws_l.merge_cells('B2:W2')
         ws_l['B2'].value = f"({biz_label}) {biz_full} {yy}년 {mm}월 사업비 지출 목록 (실무자확인표)"
         ws_l['B2'].font = Font(bold=True, size=12)
         ws_l['B2'].alignment = Alignment(horizontal='center', vertical='center')
 
-        ws_l.merge_cells('S3:T3')
-        ws_l['S3'].value = f"최종 수정: {yy}. {str(mm).zfill(2)}."
-        ws_l['S3'].alignment = Alignment(horizontal='right')
+        ws_l.merge_cells('V3:W3')
+        ws_l['V3'].value = f"최종 수정: {yy}. {str(mm).zfill(2)}."
+        ws_l['V3'].alignment = Alignment(horizontal='right')
 
-        ws_l.merge_cells('S4:T4')
-        ws_l['S4'].value = total
-        ws_l['S4'].number_format = '#,##0'
-        ws_l['S4'].alignment = Alignment(horizontal='right')
+        ws_l.merge_cells('V4:W4')
+        ws_l['V4'].value = total
+        ws_l['V4'].number_format = '#,##0'
+        ws_l['V4'].alignment = Alignment(horizontal='right')
 
         # 헤더 (5행)
         headers = [
             (2,'순번'),(3,'변호사'),(4,'연도'),(5,'접수'),(6,'접수번호'),
-            (7,'구분'),(8,'신청인'),(9,'사건명'),(10,'금액'),
-            (11,'출금통장표시'),(12,'입금통장표시'),
-            (13,'예금주'),(14,'은행'),(15,'은행코드'),(16,'계좌번호'),
-            (17,'비고'),(18,''),(19,'메일'),(20,'')
+            (7,'구분'),(8,'신청인'),(9,'사건명'),
+            (10,'보수'),(11,'인지대'),(12,'송달료'),(13,'금액'),
+            (14,'출금통장표시'),(15,'입금통장표시'),
+            (16,'예금주'),(17,'은행'),(18,'은행코드'),(19,'계좌번호'),
+            (20,'비고'),(21,''),(22,'메일'),(23,'')
         ]
         hdr_font = Font(bold=True, size=9)
         hdr_fill = PatternFill(fill_type='solid', fgColor='D9E1F2')
@@ -699,7 +703,10 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         for i, case in enumerate(cases_data):
             row = 6 + i
             ws_l.row_dimensions[row].height = 18
-            amt = (case.get("fee",0) or 0)+(case.get("stamp",0) or 0)+(case.get("delivery",0) or 0)
+            fee_amt      = case.get("fee",0) or 0
+            stamp_amt    = case.get("stamp",0) or 0
+            delivery_amt = case.get("delivery",0) or 0
+            amt = fee_amt + stamp_amt + delivery_amt
             num = (case.get("num","") or "").strip()
             # 접수번호 분리 (예: "법무부 26-8" → yr=26, seq=8)
             import re
@@ -728,17 +735,20 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                 (7, "재단"),
                 (8, client),
                 (9, case.get("case","") or case.get("caseName","")),
-                (10, amt),
-                (11, f"{num_str}{client}"),
-                (12, f"재단{client}"),
-                (13, linfo.get("owner","")),
-                (14, linfo.get("bank","")),
-                (15, linfo.get("bankCode","")),
-                (16, linfo.get("acct","")),
-                (17, case.get("note","") or case.get("type","")),
-                (18, ""),
-                (19, linfo.get("email","")),
-                (20, ""),
+                (10, fee_amt),
+                (11, stamp_amt),
+                (12, delivery_amt),
+                (13, amt),
+                (14, f"{num_str}{client}"),
+                (15, f"재단{client}"),
+                (16, linfo.get("owner","")),
+                (17, linfo.get("bank","")),
+                (18, linfo.get("bankCode","")),
+                (19, linfo.get("acct","")),
+                (20, case.get("note","") or case.get("type","")),
+                (21, ""),
+                (22, linfo.get("email","")),
+                (23, ""),
             ]
             for col, val in row_data:
                 c = ws_l.cell(row, col)
@@ -746,22 +756,27 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                 c.font = data_font
                 c.alignment = Alignment(vertical='center', wrap_text=False)
                 c.border = bdr('thin','thin','thin','thin')
-                if col == 10:  # 금액 오른쪽 정렬 + 숫자 형식
+                if col in (10,11,12,13):  # 보수/인지대/송달료/금액 오른쪽 정렬 + 숫자 형식
                     c.number_format = '#,##0'
                     c.alignment = Alignment(horizontal='right', vertical='center')
 
         # 합계 행
+        total_fee      = sum((c.get("fee",0) or 0) for c in cases_data)
+        total_stamp    = sum((c.get("stamp",0) or 0) for c in cases_data)
+        total_delivery = sum((c.get("delivery",0) or 0) for c in cases_data)
         total_row = 6 + len(cases_data)
         ws_l.row_dimensions[total_row].height = 18
         ws_l.merge_cells(f'B{total_row}:I{total_row}')
         ws_l.cell(total_row, 2).value = "합  계"
         ws_l.cell(total_row, 2).font = Font(bold=True, size=9)
         ws_l.cell(total_row, 2).alignment = Alignment(horizontal='center', vertical='center')
-        ws_l.cell(total_row, 10).value = total
-        ws_l.cell(total_row, 10).font = Font(bold=True, size=9)
-        ws_l.cell(total_row, 10).number_format = '#,##0'
-        ws_l.cell(total_row, 10).alignment = Alignment(horizontal='right', vertical='center')
-        for col in range(2, 21):
+        for col, val in [(10,total_fee), (11,total_stamp), (12,total_delivery), (13,total)]:
+            cc = ws_l.cell(total_row, col)
+            cc.value = val
+            cc.font = Font(bold=True, size=9)
+            cc.number_format = '#,##0'
+            cc.alignment = Alignment(horizontal='right', vertical='center')
+        for col in range(2, 24):
             ws_l.cell(total_row, col).border = bdr('thin','thin','medium','medium')
 
     # ══════════════════════════════════════════
@@ -818,19 +833,40 @@ def build_settlement(wb_new, wb_src_list, cases_data, biz_short, yy, mm):
                     nc.alignment = copy.copy(cell.alignment)
 
         # ── 이번 달 데이터 계산 ──
-        # 신청(A): type=="신청"인 착수금 합계
+        # 신청(A): type=="신청"인 착수금 합계 (가사는 본안으로, 감치/집행은 별도 항목)
         amt_A = sum((c.get("fee",0) or 0) for c in cases_data
                     if c.get("type","") == "신청" and not c.get("_allowance"))
-        # 본안(B): 민사/형사/행정 착수금 합계
+        # 본안(B): 민사/형사/행정/가사 착수금 합계
         amt_B = sum((c.get("fee",0) or 0) for c in cases_data
-                    if c.get("type","") in ("민사","형사","행정") and not c.get("_allowance"))
+                    if c.get("type","") in ("민사","형사","행정","가사") and not c.get("_allowance"))
         # 직원수당(C): _allowance=True인 합계
         amt_C = sum((c.get("fee",0) or 0) for c in cases_data
                     if c.get("_allowance"))
-        amt_D = amt_A + amt_B + amt_C  # 소계
+        # 감치/집행: 별도 항목으로 추적
+        amt_GAMCHI = sum((c.get("fee",0) or 0) for c in cases_data
+                    if c.get("type","") == "감치" and not c.get("_allowance"))
+        amt_JIPHAENG = sum((c.get("fee",0) or 0) for c in cases_data
+                    if c.get("type","") == "집행" and not c.get("_allowance"))
+        amt_D = amt_A + amt_B + amt_C  # 소계 (기존 서식 그대로 — 감치/집행은 별도 칸)
         amt_E = round(amt_D * 0.048)   # 일반관리비 (4.8%)
         amt_G = round((amt_D + amt_E) * 0.1)  # 부가가치세 10%
         amt_H = amt_D + amt_E + amt_G  # 월계
+
+        # 감치(I열)/집행(J열) 헤더를 기존 서식 뒤에 추가 (원본 서식은 손대지 않고 새 칸만 붙임)
+        from openpyxl.styles import Font, Alignment as _Align, Border as _Border, Side as _Side
+        _hdr_font  = copy.copy(ws_src.cell(19,2).font)
+        _hdr_align = copy.copy(ws_src.cell(19,2).alignment)
+        _hdr_fill  = copy.copy(ws_src.cell(19,2).fill)
+        _thin = _Side(style='thin')
+        _box  = _Border(left=_thin, right=_thin, top=_thin, bottom=_thin)
+        for col, label in [(9,"감치"), (10,"집행")]:
+            ws_new.column_dimensions[get_column_letter(col)].width = 12
+            c19 = ws_new.cell(19, col); c19.value = label
+            c20 = ws_new.cell(20, col); c20.value = None
+            for rr in (19,20,21):
+                cc = ws_new.cell(rr, col)
+                cc.font = copy.copy(_hdr_font); cc.alignment = copy.copy(_hdr_align)
+                cc.fill = copy.copy(_hdr_fill); cc.border = copy.copy(_box)
 
         # 행 번호 찾기: A열 값이 datetime이고 month==mm인 행
         target_row = None
@@ -850,6 +886,9 @@ def build_settlement(wb_new, wb_src_list, cases_data, biz_short, yy, mm):
             ws_new.cell(target_row, 6).value = amt_E if amt_E else None
             ws_new.cell(target_row, 7).value = amt_G if amt_G else None
             ws_new.cell(target_row, 8).value = amt_H if amt_H else None
+            # I(감치), J(집행) - 별도 항목
+            ws_new.cell(target_row, 9).value  = amt_GAMCHI if amt_GAMCHI else None
+            ws_new.cell(target_row, 10).value = amt_JIPHAENG if amt_JIPHAENG else None
 
         # 총계 행(34) 계산
         row34_B = sum(ws_new.cell(r, 2).value or 0 for r in range(22, 34))
@@ -859,6 +898,8 @@ def build_settlement(wb_new, wb_src_list, cases_data, biz_short, yy, mm):
         row34_F = sum(ws_new.cell(r, 6).value or 0 for r in range(22, 34))
         row34_G = sum(ws_new.cell(r, 7).value or 0 for r in range(22, 34))
         row34_H = sum(ws_new.cell(r, 8).value or 0 for r in range(22, 34))
+        row34_I = sum(ws_new.cell(r, 9).value or 0 for r in range(22, 34))
+        row34_J = sum(ws_new.cell(r, 10).value or 0 for r in range(22, 34))
         ws_new.cell(34, 2).value = row34_B
         ws_new.cell(34, 3).value = row34_C
         ws_new.cell(34, 4).value = row34_D
@@ -866,6 +907,8 @@ def build_settlement(wb_new, wb_src_list, cases_data, biz_short, yy, mm):
         ws_new.cell(34, 6).value = row34_F
         ws_new.cell(34, 7).value = row34_G
         ws_new.cell(34, 8).value = row34_H
+        ws_new.cell(34, 9).value = row34_I
+        ws_new.cell(34,10).value = row34_J
 
         # 잔여예산 행(35): 예산 - 총계
         budget_B = ws_src.cell(6, 3).value or 0   # 신청A 예산
