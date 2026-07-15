@@ -437,7 +437,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
               </div>
               <div class="field" style="grid-column:1/-1">
                 <label>사건명</label>
-                <input class="form-input" id="sc-case" placeholder="예: 임대차보증금반환소송">
+                <input class="form-input" id="sc-case" placeholder="예: 임대차보증금반환소송" oninput="autoDetectCaseType('sc')">
               </div>
               <div class="field">
                 <label>변호사 보수 (원) <span style="font-size:11px;color:var(--muted)">(자동인식 — 수정 가능)</span></label>
@@ -624,7 +624,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
             </div>
             <div class="field field-full">
               <label>사건명</label>
-              <input class="form-input" id="f-case" placeholder="예: 임대차보증금반환소송">
+              <input class="form-input" id="f-case" placeholder="예: 임대차보증금반환소송" oninput="autoDetectCaseType('f')">
             </div>
             <div class="field field-full">
               <label>법원 사건번호 <span style="font-size:11px;color:var(--muted)">(예: 2026가단205392 — 입력 시 사건유형 자동인식)</span></label>
@@ -2155,6 +2155,17 @@ function detectCaseTypeFromCourtNum(text) {
   return null;
 }
 
+// ── 사건명 문구 기반 유형 자동인식 (양육비이행관리원 등 사건번호 부호가 없는 경우 보조) ──
+function detectCaseTypeFromCaseName(text) {
+  if (!text) return null;
+  // "이행의무위반(감치)"/"이행명령위반(과태료)" 처럼 위반+감치 성격이면 감치
+  if (text.includes('감치')) return '감치';
+  if (text.includes('이행명령') && text.includes('위반')) return '감치';
+  // "이행명령" 단독이면 본안(민사)
+  if (text.includes('이행명령')) return '민사';
+  return null;
+}
+
 // prefix: 'sc' (청구서 등록 폼) 또는 'f' (비용 입력 폼)
 // 사용자가 직접 드롭다운을 변경한 경우 자동인식이 덮어쓰지 않음
 const _caseTypeManualSet = { sc: false, f: false };
@@ -2165,11 +2176,15 @@ function onCaseTypeManualChange(prefix) {
 
 function autoDetectCaseType(prefix) {
   if (_caseTypeManualSet[prefix]) return;  // 수동 선택 후엔 자동인식 개입 안 함
-  const input = document.getElementById(prefix + '-courtnum');
+  const numInput  = document.getElementById(prefix + '-courtnum');
+  const caseInput = document.getElementById(prefix + '-case');
   const sel   = document.getElementById(prefix === 'sc' ? 'sc-casetype' : 'f-type');
   const hint  = document.getElementById(prefix + '-casetype-hint');
-  if (!input || !sel) return;
-  const detected = detectCaseTypeFromCourtNum(input.value);
+  if (!sel) return;
+  // 1순위: 법원 사건번호 부호, 2순위: 사건명 문구 (예: "이행명령", "감치")
+  const detected = (numInput && detectCaseTypeFromCourtNum(numInput.value))
+                 || (caseInput && detectCaseTypeFromCaseName(caseInput.value))
+                 || null;
   if (detected) {
     sel.value = detected;
     if (hint) { hint.textContent = '(자동인식: ' + detected + ' — 틀리면 직접 변경)'; hint.style.color = '#1D4ED8'; }
