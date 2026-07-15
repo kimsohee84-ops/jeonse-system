@@ -432,7 +432,11 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
                   <option value="신청">신청</option>
                   <option value="가사">가사</option>
                   <option value="행정">행정</option>
+                  <option value="감치">감치</option>
+                  <option value="집행">집행</option>
                   <option value="지급명령">지급명령</option>
+                  <option value="인건비">인건비</option>
+                  <option value="우편비">우편비</option>
                 </select>
               </div>
               <div class="field" style="grid-column:1/-1">
@@ -509,6 +513,9 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem">
               <span id="resol-nav-text" style="font-size:13px;color:var(--muted);font-weight:500"></span>
               <div style="flex:1"></div>
+              <button class="btn btn-sm" onclick="reDetectAllCaseTypes()" style="border-color:var(--navy);color:var(--navy)">
+                <i class="ti ti-refresh" aria-hidden="true"></i> 유형 재인식
+              </button>
               <button class="btn btn-sm" onclick="addStaffAllowance()" style="border-color:var(--navy);color:var(--navy)">
                 <i class="ti ti-users" aria-hidden="true"></i> 직원 수당 추가
               </button>
@@ -643,6 +650,8 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
                 <option>감치</option>
                 <option>집행</option>
                 <option>지급명령</option>
+                <option>인건비</option>
+                <option>우편비</option>
               </select>
             </div>
             <div class="field">
@@ -2181,9 +2190,9 @@ function autoDetectCaseType(prefix) {
   const sel   = document.getElementById(prefix === 'sc' ? 'sc-casetype' : 'f-type');
   const hint  = document.getElementById(prefix + '-casetype-hint');
   if (!sel) return;
-  // 1순위: 법원 사건번호 부호, 2순위: 사건명 문구 (예: "이행명령", "감치")
-  const detected = (numInput && detectCaseTypeFromCourtNum(numInput.value))
-                 || (caseInput && detectCaseTypeFromCaseName(caseInput.value))
+  // 1순위: 사건명 문구 (예: "이행명령", "감치"), 2순위: 법원 사건번호 부호
+  const detected = (caseInput && detectCaseTypeFromCaseName(caseInput.value))
+                 || (numInput && detectCaseTypeFromCourtNum(numInput.value))
                  || null;
   if (detected) {
     sel.value = detected;
@@ -2538,7 +2547,7 @@ function renderCaseList() {
     const rowClass = c.tax==="수령"||c.tax==="전자세금계산서" ? "row-g" : "row-a";
     const taxB = (c.tax==="수령"||c.tax==="전자세금계산서") ? '<span class="badge bg">수령완료</span>' : '<span class="badge ba">미수령</span>';
     const resolB = c.resol==="완료" ? '<span class="badge bb">작성완료</span>' : '<span class="badge" style="background:var(--light);color:var(--muted)">대기</span>';
-    const typeMap = {민사:"bn",형사:"br",신청:"badge",가사:"bg",행정:"ba",감치:"br",집행:"bn",지급명령:"bn"};
+    const typeMap = {민사:"bn",형사:"br",신청:"badge",가사:"bg",행정:"ba",감치:"br",집행:"bn",지급명령:"bn",인건비:"bg",우편비:"ba"};
     const fee = c.fee||0, stamp = c.stamp||0, delivery = c.delivery||0;
     const total = (fee+stamp+delivery).toLocaleString();
     const ed = `data-lsrc="${src}" data-lidx="${srcIdx}"`;
@@ -2584,7 +2593,7 @@ document.addEventListener('click', function(e) {
   let input;
   if (field === 'type') {
     input = document.createElement('select');
-    ['민사','형사','신청','가사','행정','감치','집행','수당'].forEach(opt => {
+    ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비'].forEach(opt => {
       const o = document.createElement('option');
       o.value = opt; o.textContent = opt;
       if (opt === currentVal) o.selected = true;
@@ -2618,7 +2627,7 @@ document.addEventListener('click', function(e) {
       c[field] = parseInt(String(val).replace(/,/g,'')) || 0;
     } else if (field === 'type') {
       c.type = val;
-      if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당'].includes(c.note)) c.note = val;
+      if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비'].includes(c.note)) c.note = val;
     } else if (field === 'tax') {
       c.tax = val;
     }
@@ -2704,6 +2713,12 @@ function renderLawyers() {
       <td style="font-size:11px;color:var(--muted)">${l.email||"—"}</td>
       <td>${st}</td>
       <td style="white-space:nowrap">
+        <button onclick="moveLawyer(${i},-1)" ${i===0?'disabled':''} style="background:none;border:none;cursor:${i===0?'default':'pointer'};color:${i===0?'#D1D5DB':'var(--navy)'};font-size:13px;padding:2px 4px" title="위로">
+          <i class="ti ti-arrow-up" aria-hidden="true"></i>
+        </button>
+        <button onclick="moveLawyer(${i},1)" ${i===b.lawyers.length-1?'disabled':''} style="background:none;border:none;cursor:${i===b.lawyers.length-1?'default':'pointer'};color:${i===b.lawyers.length-1?'#D1D5DB':'var(--navy)'};font-size:13px;padding:2px 4px" title="아래로">
+          <i class="ti ti-arrow-down" aria-hidden="true"></i>
+        </button>
         <button onclick="openLawyerModal(${i})" style="background:none;border:none;cursor:pointer;color:var(--navy);font-size:13px;padding:2px 6px" title="수정">
           <i class="ti ti-pencil" aria-hidden="true"></i>
         </button>
@@ -2713,6 +2728,16 @@ function renderLawyers() {
       </td>
     </tr>`;
   }).join("");
+}
+
+// 변호사 목록 순서 이동 (dir: -1 위로, 1 아래로) — 현재 사업의 목록에서만 이동
+function moveLawyer(idx, dir) {
+  const arr = BIZ[curBiz].lawyers;
+  const j = idx + dir;
+  if (j < 0 || j >= arr.length) return;
+  [arr[idx], arr[j]] = [arr[j], arr[idx]];
+  if (typeof savePersistedData === 'function') savePersistedData();
+  renderLawyers();
 }
 
 // ── 모달 열기 (idx=-1: 추가, idx>=0: 수정) ──
@@ -4883,8 +4908,41 @@ function caseYearNum(numStr) {
 
 let resolSortField = 'num';
 let resolSortAsc   = true;
+let resolManualMode = false;   // 수동 순서 모드 (켜면 위/아래 화살표로 직접 옮기기 가능)
 // 행 선택 상태 (체크박스)
 let resolSelected = new Set();
+
+// idx(결합 배열 기준)를 실제 원본 배열(cases 또는 resolList)로 변환
+function _resolveResolIndex(idx) {
+  const casesLen = BIZ[curBiz].cases.length;
+  if (idx < casesLen) return { arr: BIZ[curBiz].cases, i: idx };
+  return { arr: resolList[curBiz], i: idx - casesLen };
+}
+
+function toggleResolManualMode() {
+  resolManualMode = !resolManualMode;
+  if (resolManualMode) {
+    // 수동정렬 처음 켤 때, 순서값이 없는 건들은 현재 화면 순서를 기준으로 초기화
+    const raw = [...BIZ[curBiz].cases, ...resolList[curBiz]];
+    raw.forEach((c, i) => { if (c && c._order === undefined) c._order = i; });
+    if (typeof savePersistedData === 'function') savePersistedData();
+  }
+  renderResolPanel();
+}
+
+// 수동정렬 모드에서 현재 화면에 보이는 순서 기준으로 한 칸 위/아래로 이동
+function moveResolRowManual(pos, dir) {
+  const raw = [...BIZ[curBiz].cases, ...resolList[curBiz]];
+  raw.forEach((c, i) => { if (c && c._order === undefined) c._order = i; });
+  const ordered = raw.filter(Boolean).sort((a,b) => (a._order??0) - (b._order??0));
+  const j = pos + dir;
+  if (j < 0 || j >= ordered.length) return;
+  const tmp = ordered[pos]._order;
+  ordered[pos]._order = ordered[j]._order;
+  ordered[j]._order = tmp;
+  if (typeof savePersistedData === 'function') savePersistedData();
+  renderResolPanel();
+}
 
 function renderResolPanel() {
   const empty   = document.getElementById("scan-resol-empty");
@@ -4905,6 +4963,11 @@ function renderResolPanel() {
 
   // 정렬 적용 (원본 인덱스 보존)
   const indexed = raw.map((c, i) => ({ c, i }));
+  if (resolManualMode) {
+    // 수동정렬: 저장된 _order 값 기준으로만 정렬 (연도/기준 자동정렬 건너뜀)
+    indexed.forEach(({c}, i) => { if (c && c._order === undefined) c._order = i; });
+    indexed.sort((a, b) => (a.c._order??0) - (b.c._order??0));
+  } else {
   indexed.sort((a, b) => {
     // 1순위: 접수번호 연도 (25-xxx가 26-xxx보다 항상 위로)
     const ya = caseYearNum(a.c.num), yb = caseYearNum(b.c.num);
@@ -4926,6 +4989,7 @@ function renderResolPanel() {
     if (va > vb) return resolSortAsc ?  1 : -1;
     return 0;
   });
+  }
 
   const total = raw.reduce((s,c) => s+(c.fee||0)+(c.stamp||0)+(c.delivery||0), 0);
   const nav   = document.getElementById("resol-nav-text");
@@ -4941,8 +5005,11 @@ function renderResolPanel() {
   const cs = "padding:7px 8px;border-bottom:1px solid var(--border)";
 
   tableEl.innerHTML = `
-    <p style="font-size:11px;color:var(--muted);margin-bottom:6px">
-      <i class="ti ti-info-circle"></i> 헤더 클릭 → 정렬 &nbsp;|&nbsp; 셀 클릭 → 수정 &nbsp;|&nbsp; 체크박스로 여러 건 선택 후 합치기/삭제 가능
+    <p style="font-size:11px;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span><i class="ti ti-info-circle"></i> 헤더 클릭 → 정렬 &nbsp;|&nbsp; 셀 클릭 → 수정 &nbsp;|&nbsp; 체크박스로 여러 건 선택 후 합치기/삭제 가능</span>
+      <button onclick="toggleResolManualMode()" class="btn btn-sm" style="${resolManualMode?'background:#1D4ED8;color:#fff;border-color:#1D4ED8':'border-color:var(--navy);color:var(--navy)'};padding:3px 10px;font-size:11px">
+        <i class="ti ti-arrows-sort" aria-hidden="true"></i> ${resolManualMode ? '수동정렬 켜짐 — 끄기' : '수동정렬로 순서 직접 바꾸기'}
+      </button>
     </p>
     <div id="resol-bulk-bar" style="display:none;align-items:center;gap:8px;margin-bottom:8px;padding:8px 10px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;font-size:12px">
       <span id="resol-bulk-count" style="font-weight:600;color:#1D4ED8"></span>
@@ -4970,7 +5037,7 @@ function renderResolPanel() {
         </tr>
       </thead>
       <tbody>
-        ${indexed.map(({ c, i }) => {
+        ${indexed.map(({ c, i }, pos) => {
           const amt     = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
           const num     = (c.num||'').replace(/^(국부|서금)\s*/,'');
           const missing = !c.lawyer || !c.client || !amt;
@@ -4981,8 +5048,11 @@ function renderResolPanel() {
           const typeColor = c.type==='형사' ? '#7C3AED' : c.type==='신청' ? '#B45309' : '#1D4ED8';
           const checked = resolSelected.has(i) ? 'checked' : '';
           return `<tr style="border-bottom:1px solid var(--border);${bg}">
-            <td style="${cs};text-align:center">
-              <input type="checkbox" class="resol-row-check" data-idx="${i}" ${checked} style="cursor:pointer">
+            <td style="${cs};text-align:center;white-space:nowrap">
+              ${resolManualMode ? `
+              <button onclick="moveResolRowManual(${pos},-1)" ${pos===0?'disabled':''} style="background:none;border:none;cursor:${pos===0?'default':'pointer'};color:${pos===0?'#D1D5DB':'var(--navy)'};font-size:11px;padding:1px 2px" title="위로"><i class="ti ti-arrow-up" aria-hidden="true"></i></button>
+              <button onclick="moveResolRowManual(${pos},1)" ${pos===indexed.length-1?'disabled':''} style="background:none;border:none;cursor:${pos===indexed.length-1?'default':'pointer'};color:${pos===indexed.length-1?'#D1D5DB':'var(--navy)'};font-size:11px;padding:1px 2px" title="아래로"><i class="ti ti-arrow-down" aria-hidden="true"></i></button>
+              ` : `<input type="checkbox" class="resol-row-check" data-idx="${i}" ${checked} style="cursor:pointer">`}
             </td>
             <td style="${cs};font-weight:500;cursor:pointer" data-field="num"    data-idx="${i}">${numTxt}</td>
             <td style="${cs};cursor:pointer"                 data-field="lawyer" data-idx="${i}">${c.lawyer||'<span style="color:#DC2626;font-size:11px">클릭입력</span>'}</td>
@@ -5104,6 +5174,7 @@ function deleteSelectedRows() {
 
 // 컬럼 정렬
 function resolSort(field) {
+  resolManualMode = false;   // 헤더로 정렬 기준을 고르면 수동정렬은 해제
   if (resolSortField === field) resolSortAsc = !resolSortAsc;
   else { resolSortField = field; resolSortAsc = true; }
   renderResolPanel();
@@ -5142,7 +5213,7 @@ document.addEventListener('click', function(e) {
     input.style.cssText='width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:11px;padding:2px 4px';
   } else if (field === 'type') {
     input = document.createElement('select');
-    ['민사','형사','신청','가사','행정','감치','집행','수당'].forEach(opt => {
+    ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비'].forEach(opt => {
       const o = document.createElement('option');
       o.value=opt; o.textContent=opt;
       if(opt===currentVal) o.selected=true;
@@ -5174,7 +5245,7 @@ document.addEventListener('click', function(e) {
     else if (field==='type') {
       c.type = val;
       // 엑셀 '비고' 칸은 note를 우선 참조하므로, OCR로 자동 채워졌던 옛 note 값도 함께 갱신
-      if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당'].includes(c.note)) c.note = val;
+      if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비'].includes(c.note)) c.note = val;
     }
     else                     { c[field]=val; }
     renderResolPanel();
@@ -5348,6 +5419,38 @@ function saveResolEdit() {
 }
 
 // ── 전체 엑셀 저장 ──
+// ── 기존 건들의 유형을 사건명/사건번호 기준으로 일괄 재인식 ──
+function reDetectAllCaseTypes() {
+  const b = BIZ[curBiz];
+  if (!b) return;
+  const all = [...(b.cases||[]), ...(resolList[curBiz]||[])];
+  if (!all.length) { showToast('재인식할 건이 없습니다'); return; }
+
+  let changed = 0;
+  all.forEach(c => {
+    if (!c) return;
+    const nameText = c.case || c.caseName || '';
+    const numText  = c.num || '';
+    const detected = detectCaseTypeFromCaseName(nameText) || detectCaseTypeFromCourtNum(numText);
+    if (detected && detected !== c.type) {
+      c.type = detected;
+      // OCR로 채워졌던 옛 note 값도 유형이 정정되면 함께 갱신
+      if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비'].includes(c.note)) c.note = detected;
+      changed++;
+    }
+  });
+
+  if (changed > 0) {
+    if (typeof savePersistedData === 'function') savePersistedData();
+    if (typeof renderResolPanel === 'function') renderResolPanel();
+    if (typeof renderCaseList  === 'function') renderCaseList();
+    if (typeof renderDashboard === 'function') renderDashboard();
+    showToast(`${changed}건의 유형을 다시 인식했습니다`);
+  } else {
+    showToast('변경된 건이 없습니다 (이미 다 맞거나 자동인식 불가)');
+  }
+}
+
 function addAllToList() {
   const all = [...BIZ[curBiz].cases, ...resolList[curBiz]];
   if(!all.length) { showToast("등록된 건이 없습니다"); return; }
@@ -6650,6 +6753,8 @@ function recordExecution(cases, b, yy, mm, dd) {
 <option value="감치">감치</option>
 <option value="집행">집행</option>
 <option value="수당">수당</option>
+<option value="인건비">인건비</option>
+<option value="우편비">우편비</option>
 <option value="운영비">운영비</option>
         </select>
       </div>
@@ -6766,6 +6871,8 @@ function recordExecution(cases, b, yy, mm, dd) {
 <option>감치</option>
 <option>집행</option>
 <option>수당</option>
+<option>인건비</option>
+<option>우편비</option>
         </select>
       </div>
       <div class="field">
