@@ -640,6 +640,8 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
                 <option>신청</option>
                 <option>가사</option>
                 <option>행정</option>
+                <option>감치</option>
+                <option>집행</option>
                 <option>지급명령</option>
               </select>
             </div>
@@ -2118,16 +2120,19 @@ function fillAccount() {
 // 자동인식은 보조 수단일 뿐 — 최종 선택은 사용자가 드롭다운에서 직접 확인/수정한다.
 const CASE_CODE_MAP = {
   // 민사
-  '가단':'민사', '가합':'민사', '가소':'민사', '나':'민사', '다':'민사',
-  '머':'민사', '너':'민사', '드':'민사',
+  '가단':'민사', '가합':'민사', '가소':'민사', '나':'민사', '다':'민사', '머':'민사',
   // 형사
   '고단':'형사', '고합':'형사', '고정':'형사', '노':'형사', '도':'형사',
-  // 신청 (가압류/가처분/경매/집행 등)
+  // 신청 (가압류/가처분/채무불이행자명부등재/재산명시/재산조회 등)
   '카단':'신청', '카합':'신청', '카기':'신청', '카명':'신청', '카불':'신청',
-  '타경':'신청', '본':'신청', '즈기':'신청', '즈단':'신청',
-  // 가사
+  '카조':'신청', '본':'신청', '즈단':'신청',
+  // 가사 (양육비심판청구/사전처분/이행명령/직접지급명령/담보제공명령 등)
   '느단':'가사', '느합':'가사', '드단':'가사', '드합':'가사', '드':'가사',
-  '너':'가사', '르':'가사', '호파':'가사',
+  '너':'가사', '르':'가사', '호파':'가사', '즈기':'가사',
+  // 감치 (이행명령위반)
+  '정드':'감치',
+  // 집행 (채권압류및추심명령/강제경매/강제집행)
+  '타채':'집행', '타경':'집행',
   // 행정
   '구단':'행정', '구합':'행정', '누':'행정', '구':'행정',
   // 지급명령
@@ -2518,7 +2523,7 @@ function renderCaseList() {
     const rowClass = c.tax==="수령"||c.tax==="전자세금계산서" ? "row-g" : "row-a";
     const taxB = (c.tax==="수령"||c.tax==="전자세금계산서") ? '<span class="badge bg">수령완료</span>' : '<span class="badge ba">미수령</span>';
     const resolB = c.resol==="완료" ? '<span class="badge bb">작성완료</span>' : '<span class="badge" style="background:var(--light);color:var(--muted)">대기</span>';
-    const typeMap = {민사:"bn",형사:"br",신청:"badge",가사:"bg",행정:"ba",지급명령:"bn"};
+    const typeMap = {민사:"bn",형사:"br",신청:"badge",가사:"bg",행정:"ba",감치:"br",집행:"bn",지급명령:"bn"};
     const fee = c.fee||0, stamp = c.stamp||0, delivery = c.delivery||0;
     const total = (fee+stamp+delivery).toLocaleString();
     const ed = `data-lsrc="${src}" data-lidx="${srcIdx}"`;
@@ -2564,7 +2569,7 @@ document.addEventListener('click', function(e) {
   let input;
   if (field === 'type') {
     input = document.createElement('select');
-    ['민사','형사','신청','행정','수당'].forEach(opt => {
+    ['민사','형사','신청','가사','행정','감치','집행','수당'].forEach(opt => {
       const o = document.createElement('option');
       o.value = opt; o.textContent = opt;
       if (opt === currentVal) o.selected = true;
@@ -2598,7 +2603,7 @@ document.addEventListener('click', function(e) {
       c[field] = parseInt(String(val).replace(/,/g,'')) || 0;
     } else if (field === 'type') {
       c.type = val;
-      if (c._fromOcr || !c.note || ['민사','형사','신청','행정','수당'].includes(c.note)) c.note = val;
+      if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당'].includes(c.note)) c.note = val;
     } else if (field === 'tax') {
       c.tax = val;
     }
@@ -5122,7 +5127,7 @@ document.addEventListener('click', function(e) {
     input.style.cssText='width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:11px;padding:2px 4px';
   } else if (field === 'type') {
     input = document.createElement('select');
-    ['민사','형사','신청','행정','수당'].forEach(opt => {
+    ['민사','형사','신청','가사','행정','감치','집행','수당'].forEach(opt => {
       const o = document.createElement('option');
       o.value=opt; o.textContent=opt;
       if(opt===currentVal) o.selected=true;
@@ -5154,7 +5159,7 @@ document.addEventListener('click', function(e) {
     else if (field==='type') {
       c.type = val;
       // 엑셀 '비고' 칸은 note를 우선 참조하므로, OCR로 자동 채워졌던 옛 note 값도 함께 갱신
-      if (c._fromOcr || !c.note || ['민사','형사','신청','행정','수당'].includes(c.note)) c.note = val;
+      if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당'].includes(c.note)) c.note = val;
     }
     else                     { c[field]=val; }
     renderResolPanel();
@@ -5192,7 +5197,7 @@ function addStaffAllowance() {
       fee: s.amt, stamp: 0, delivery: 0,
       tax: '비과세', resol: '대기', date: today,
       account: '', note: '직원 수당', doctype: '직원수당',
-      accountType: '일반관리비',  // 계정과목
+      accountType: '법률구조사업비',  // 계정과목 — 다른 건들과 동일하게 표시
       _allowance: true
     });
     added++;
@@ -6625,7 +6630,10 @@ function recordExecution(cases, b, yy, mm, dd) {
 <option value="민사">민사</option>
 <option value="형사">형사</option>
 <option value="신청">신청</option>
+<option value="가사">가사</option>
 <option value="행정">행정</option>
+<option value="감치">감치</option>
+<option value="집행">집행</option>
 <option value="수당">수당</option>
 <option value="운영비">운영비</option>
         </select>
@@ -6738,7 +6746,10 @@ function recordExecution(cases, b, yy, mm, dd) {
 <option>민사</option>
 <option>형사</option>
 <option>신청</option>
+<option>가사</option>
 <option>행정</option>
+<option>감치</option>
+<option>집행</option>
 <option>수당</option>
         </select>
       </div>
