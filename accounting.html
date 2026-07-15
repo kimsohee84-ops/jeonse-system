@@ -5029,7 +5029,10 @@ function renderResolPanel() {
           ${th('lawyer', '변호사')}
           ${th('client', '의뢰인')}
           ${th('case',   '사건명')}
-          ${th('amt',    '금액', 'right')}
+          ${th('fee',    '보수', 'right')}
+          ${th('stamp',  '인지대', 'right')}
+          ${th('delivery','송달료', 'right')}
+          ${th('amt',    '합계', 'right')}
           ${th('type',   '유형')}
           <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center;white-space:nowrap">세금</th>
           <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center;white-space:nowrap">계산서</th>
@@ -5058,7 +5061,10 @@ function renderResolPanel() {
             <td style="${cs};cursor:pointer"                 data-field="lawyer" data-idx="${i}">${c.lawyer||'<span style="color:#DC2626;font-size:11px">클릭입력</span>'}</td>
             <td style="${cs};cursor:pointer"                 data-field="client" data-idx="${i}">${c.client||'<span style="color:#DC2626;font-size:11px">클릭입력</span>'}</td>
             <td style="${cs};cursor:pointer;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(c.case||'').replace(/"/g,'')}" data-field="case" data-idx="${i}">${c.case||c.caseName||'<span style="color:#6B7280;font-size:11px">클릭입력</span>'}</td>
-            <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="fee" data-idx="${i}">${amt ? amt.toLocaleString() : '<span style="color:#DC2626;font-size:11px">0</span>'}</td>
+            <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="fee" data-idx="${i}">${c.fee ? c.fee.toLocaleString() : '<span style="color:#9CA3AF;font-size:11px">클릭입력</span>'}</td>
+            <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="stamp" data-idx="${i}">${c.stamp ? c.stamp.toLocaleString() : '<span style="color:#9CA3AF;font-size:11px">클릭입력</span>'}</td>
+            <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="delivery" data-idx="${i}">${c.delivery ? c.delivery.toLocaleString() : '<span style="color:#9CA3AF;font-size:11px">클릭입력</span>'}</td>
+            <td style="${cs};text-align:right;font-family:monospace;font-weight:600">${amt ? amt.toLocaleString() : '<span style="color:#DC2626;font-size:11px">0</span>'}</td>
             <td style="${cs};cursor:pointer;text-align:center" data-field="type" data-idx="${i}">
               <span style="font-size:10px;padding:2px 7px;border-radius:99px;background:#EEF2FF;color:${typeColor}">${c.type||'민사'}</span>
             </td>
@@ -5193,7 +5199,7 @@ document.addEventListener('click', function(e) {
 
   let currentVal = '';
   if      (field === 'num')  currentVal = (c.num||'').replace(/^(국부|서금)\s*/,'');
-  else if (field === 'fee')  currentVal = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+  else if (field === 'fee' || field === 'stamp' || field === 'delivery') currentVal = c[field] || 0;
   else if (field === 'case') currentVal = c.case||c.caseName||'';
   else if (field === 'type') currentVal = c.type||'민사';
   else if (field === 'tax')  currentVal = c.tax||'전자세금계산서';
@@ -5222,10 +5228,10 @@ document.addEventListener('click', function(e) {
     input.style.cssText='width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:11px;padding:2px 4px';
   } else {
     input = document.createElement('input');
-    input.type  = (field==='fee') ? 'number' : 'text';
+    input.type  = (field==='fee'||field==='stamp'||field==='delivery') ? 'number' : 'text';
     input.value = currentVal;
     input.style.cssText='width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:12px;font-family:inherit;padding:2px 4px;box-sizing:border-box;min-width:60px';
-    if(field==='fee') input.style.textAlign='right';
+    if(field==='fee'||field==='stamp'||field==='delivery') input.style.textAlign='right';
   }
 
   td.appendChild(input);
@@ -5235,11 +5241,8 @@ document.addEventListener('click', function(e) {
   const save = () => {
     const val = typeof input.value === 'string' ? input.value.trim() : input.value;
     if      (field==='num')  { c.num = val ? makeNum(val) : ''; }
-    else if (field==='fee')  {
-      const amt = parseInt(String(val).replace(/,/g,''))||0;
-      if     ((c.doctype||'')==='인지대 영수증') { c.stamp=amt;    c.fee=0; c.delivery=0; }
-      else if((c.doctype||'')==='송달료 영수증') { c.delivery=amt; c.fee=0; c.stamp=0; }
-      else                                        { c.fee=amt;      c.stamp=0; c.delivery=0; }
+    else if (field==='fee' || field==='stamp' || field==='delivery') {
+      c[field] = parseInt(String(val).replace(/,/g,''))||0;
     }
     else if (field==='case') { c.case=val; c.caseName=val; }
     else if (field==='type') {
