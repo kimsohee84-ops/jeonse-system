@@ -175,13 +175,8 @@ function parseDoc(text) {
 
   const STOP_LABELS = /착\s*수\s*금|보\s*관\s*금|인\s*지\s*대|송\s*달\s*료|합\s*계|입\s*금\s*계좌|기지급금/;
 
-  {
-    const amt = lastAmountAfterLabel(/착\s*수\s*금/, STOP_LABELS) || lastAmountAfterLabel(/합\s*계/, STOP_LABELS);
-    if (amt) r.amount = amt;
-  }
-
-  // 인지대 / 송달료 / 보관금
-  // 양식: "( O ) 인지대   221,000" / "(0)인지대 221,000" / "인지대 221,000" 등
+  // 인지대 / 송달료 / 보관금 — 착수금(보수)보다 먼저 뽑아서, 합계를 보수로 잘못 대체하지 않도록 함
+  // 양식: "( O ) 인지대   221,000" / "(0)인지대 221,000" / "(추납) 송달료 100,000원" 등
   // 정정선(취소선)으로 두 금액이 나란히 있거나, 표 셀 특성상 라벨과 금액이 줄바꿈으로 분리된 경우도 처리
   {
     const v = lastAmountAfterLabel(/인\s*지\s*대/, STOP_LABELS);
@@ -194,6 +189,18 @@ function parseDoc(text) {
   {
     const v = lastAmountAfterLabel(/보\s*관\s*금/, STOP_LABELS);
     if (v) r.deposit = v;
+  }
+
+  // 금액 (착수금/보수) — 라벨과 다음 라벨 사이 구간에서 마지막 숫자를 채택
+  // (취소선으로 정정된 금액이 나란히 적힌 경우, 정정된 값이 뒤에 오는 경우가 많음)
+  // "합계"는 인지대/송달료/보관금이 전혀 없을 때(=순수 착수금만 있는 청구서)만 보수로 대체 —
+  // 안 그러면 "인지대/송달료만 추가 청구"하는 문서에서 합계(=그 항목 자체)가 보수로 잘못 들어가
+  // 보수와 인지대/송달료가 같은 금액으로 중복 집계되는 문제가 있었음
+  {
+    const hasItemized = !!(r.stamp || r.delivery || r.deposit);
+    const amt = lastAmountAfterLabel(/착\s*수\s*금/, STOP_LABELS)
+             || (hasItemized ? null : lastAmountAfterLabel(/합\s*계/, STOP_LABELS));
+    if (amt) r.amount = amt;
   }
 
   // 입금 계좌번호
