@@ -184,21 +184,35 @@ function parseDoc(text) {
     return valid.length ? valid[valid.length-1] : null;
   }
 
+  // 2단 표(왼쪽 인지대/송달료/보관금 | 오른쪽 착수금/보수)에서 OCR이 행 단위로
+  // 읽으면, 오른쪽 칸 금액(예: 착수금 600,000)이 왼쪽 항목(송달료) 줄 뒤에 붙어
+  // "마지막 숫자" 방식이 옆 칸 값을 잘못 물어온다. 라벨 뒤 첫 '열 간격'(탭 2개+ 또는
+  // 공백 3개+)에서 잘라 같은 칸 숫자만 보게 한다. (같은 칸 내 정정값 처리는 그대로 유지)
+  function colAmountAfterLabel(labelPattern, stopPattern) {
+    const re = new RegExp(labelPattern.source + '([\\s\\S]{0,60}?)(?=' + stopPattern.source + '|$)');
+    const m = text.match(re);
+    if (!m) return null;
+    const chunk = m[1].split(/\t{2,}| {3,}/)[0];   // 첫 열 간격 앞까지만
+    const nums = [...chunk.matchAll(/(\d{1,3}(?:,\d{3})+|\d{3,})/g)].map(x => x[1].replace(/,/g,''));
+    const valid = nums.filter(n => parseInt(n,10) > 0);
+    return valid.length ? valid[valid.length-1] : null;
+  }
+
   const STOP_LABELS = /착\s*수\s*금|보\s*관\s*금|인\s*지\s*대|송\s*달\s*료|합\s*계|입\s*금\s*계좌|기지급금/;
 
   // 인지대 / 송달료 / 보관금 — 착수금(보수)보다 먼저 뽑아서, 합계를 보수로 잘못 대체하지 않도록 함
   // 양식: "( O ) 인지대   221,000" / "(0)인지대 221,000" / "(추납) 송달료 100,000원" 등
   // 정정선(취소선)으로 두 금액이 나란히 있거나, 표 셀 특성상 라벨과 금액이 줄바꿈으로 분리된 경우도 처리
   {
-    const v = lastAmountAfterLabel(/인\s*지\s*대/, STOP_LABELS);
+    const v = colAmountAfterLabel(/인\s*지\s*대/, STOP_LABELS);
     if (v) r.stamp = v;
   }
   {
-    const v = lastAmountAfterLabel(/송\s*달\s*료/, STOP_LABELS);
+    const v = colAmountAfterLabel(/송\s*달\s*료/, STOP_LABELS);
     if (v) r.delivery = v;
   }
   {
-    const v = lastAmountAfterLabel(/보\s*관\s*금/, STOP_LABELS);
+    const v = colAmountAfterLabel(/보\s*관\s*금/, STOP_LABELS);
     if (v) r.deposit = v;
   }
 
