@@ -5764,7 +5764,14 @@ async function ocrWithGoogleDrive(file, base64Data, itemId, mimeType) {
     }
 
     const data = await res.json();
-    
+
+    // ── 납부확인서(증빙) 페이지는 건너뜀 ──
+    // 청구서에 이미 송달료 총액이 있으므로 별도 행으로 등록하지 않는다.
+    if (data.parsed && data.parsed.skip) {
+      setStatus('증빙·생략', '#E5E7EB', '#374151');
+      return; // finally 블록이 로딩 표시를 정리함
+    }
+
     if (data.parsed) {
       // OCR 텍스트 저장 (디버깅용)
       window._lastOcrText = data.text || '';
