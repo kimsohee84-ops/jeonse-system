@@ -5006,9 +5006,12 @@ function renderResolPanel() {
 
   tableEl.innerHTML = `
     <p style="font-size:11px;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span><i class="ti ti-info-circle"></i> 헤더 클릭 → 정렬 &nbsp;|&nbsp; 셀 클릭 → 수정 &nbsp;|&nbsp; 체크박스로 여러 건 선택 후 합치기/삭제 가능</span>
+      <span><i class="ti ti-info-circle"></i> 헤더 클릭 → 정렬 &nbsp;|&nbsp; 셀 클릭 → 수정 &nbsp;|&nbsp; 맨 왼쪽 체크박스로 전체 선택 → 여러 건 합치기/삭제 가능</span>
       <button onclick="toggleResolManualMode()" class="btn btn-sm" style="${resolManualMode?'background:#1D4ED8;color:#fff;border-color:#1D4ED8':'border-color:var(--navy);color:var(--navy)'};padding:3px 10px;font-size:11px">
         <i class="ti ti-arrows-sort" aria-hidden="true"></i> ${resolManualMode ? '수동정렬 켜짐 — 끄기' : '수동정렬로 순서 직접 바꾸기'}
+      </button>
+      <button onclick="deleteAllRows()" class="btn btn-sm" style="border-color:#FCA5A5;color:#DC2626;padding:3px 10px;font-size:11px" title="이 사업의 지출목록 전체 삭제">
+        <i class="ti ti-trash" aria-hidden="true"></i> 전체 삭제
       </button>
     </p>
     <div id="resol-bulk-bar" style="display:none;align-items:center;gap:8px;margin-bottom:8px;padding:8px 10px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;font-size:12px">
@@ -5024,7 +5027,7 @@ function renderResolPanel() {
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
         <tr style="background:var(--light)">
-          <th style="padding:8px;border-bottom:2px solid var(--border);width:28px"></th>
+          <th style="padding:8px;border-bottom:2px solid var(--border);width:28px;text-align:center">${resolManualMode ? '' : `<input type="checkbox" id="resol-select-all" onclick="toggleSelectAllRows(this)" title="전체 선택" style="cursor:pointer">`}</th>
           ${th('num',    '접수번호')}
           ${th('lawyer', '변호사')}
           ${th('client', '의뢰인')}
@@ -5125,7 +5128,29 @@ document.addEventListener('change', function(e) {
   if (e.target.checked) resolSelected.add(idx);
   else resolSelected.delete(idx);
   updateBulkBar();
+  syncSelectAllCheckbox();
 });
+
+// ── 전체 선택 ──
+// 헤더 체크박스로 현재 목록에 보이는 모든 행을 한 번에 선택/해제 → "선택 삭제"로 일괄 삭제
+function toggleSelectAllRows(cb) {
+  const boxes = document.querySelectorAll('.resol-row-check');
+  boxes.forEach(b => {
+    b.checked = cb.checked;
+    const idx = parseInt(b.dataset.idx);
+    if (cb.checked) resolSelected.add(idx);
+    else resolSelected.delete(idx);
+  });
+  updateBulkBar();
+}
+
+// 개별 체크박스 상태에 맞춰 헤더 '전체 선택' 체크 표시를 동기화
+function syncSelectAllCheckbox() {
+  const all = document.getElementById('resol-select-all');
+  if (!all) return;
+  const boxes = document.querySelectorAll('.resol-row-check');
+  all.checked = boxes.length > 0 && [...boxes].every(b => b.checked);
+}
 
 // ── 선택 항목 합치기 ──
 // 선택된 행들의 보수/인지대/송달료를 모두 합산해 첫 번째(접수번호 있는 것 우선) 행에 몰아주고
@@ -5169,13 +5194,61 @@ function mergeSelectedRows() {
 // ── 선택 항목 삭제 ──
 function deleteSelectedRows() {
   if (resolSelected.size === 0) return;
-  if (!confirm(`선택한 ${resolSelected.size}건을 삭제할까요?`)) return;
-  const idxs = [...resolSelected].sort((a,b)=>b-a); // 큰 인덱스부터 삭제
-  idxs.forEach(i => BIZ[curBiz].cases.splice(i,1));
+  const n = resolSelected.size;
+  if (!confirm(`선택한 ${n}건을 삭제할까요?`)) return;
+
+  // 결합 인덱스를 원본 배열별로 나눔 (앞쪽=작업중 cases, 뒤쪽=저장된 resolList)
+  const casesLen  = BIZ[curBiz].cases.length;
+  const caseIdxs  = [];
+  const resolIdxs = [];
+  resolSelected.forEach(idx => {
+    if (idx < casesLen) caseIdxs.push(idx);
+    else               resolIdxs.push(idx - casesLen);
+  });
+
+  // 각 배열에서 큰 인덱스부터 삭제해야 인덱스가 안 밀림
+  caseIdxs.sort((a,b)=>b-a).forEach(i => BIZ[curBiz].cases.splice(i,1));
+  if (resolList[curBiz]) {
+    resolIdxs.sort((a,b)=>b-a).forEach(i => {
+      const r = resolList[curBiz][i];
+      // 저장된 결의서 건이면 집행액(executed)에서도 빼서 대시보드 합계를 맞춤
+      if (r && typeof r.total === 'number') {
+        BIZ[curBiz].executed = Math.max(0, (BIZ[curBiz].executed || 0) - r.total);
+      }
+      resolList[curBiz].splice(i, 1);
+    });
+  }
+
   resolSelected.clear();
+  if (typeof savePersistedData === 'function') savePersistedData(); // 새로고침해도 유지되도록 저장
   renderResolPanel();
   renderDashboard();
-  showToast(`${idxs.length}건 삭제됐습니다`);
+  showToast(`${n}건 삭제됐습니다`);
+}
+
+// ── 전체 삭제 ──
+// 이 사업(curBiz)의 지출목록(작업중 cases + 저장된 resolList)을 한 번에 모두 삭제
+function deleteAllRows() {
+  const cases = BIZ[curBiz].cases || [];
+  const rlist = resolList[curBiz] || [];
+  const total = cases.length + rlist.length;
+  if (total === 0) { showToast('삭제할 항목이 없습니다'); return; }
+  if (!confirm(`이 사업의 지출목록 ${total}건을 모두 삭제할까요?\n되돌릴 수 없습니다.`)) return;
+
+  // 저장된 결의서 건들의 집행액을 원상복구
+  rlist.forEach(r => {
+    if (r && typeof r.total === 'number') {
+      BIZ[curBiz].executed = Math.max(0, (BIZ[curBiz].executed || 0) - r.total);
+    }
+  });
+
+  BIZ[curBiz].cases = [];
+  resolList[curBiz] = [];
+  resolSelected.clear();
+  if (typeof savePersistedData === 'function') savePersistedData();
+  renderResolPanel();
+  renderDashboard();
+  showToast(`${total}건 전체 삭제됐습니다`);
 }
 
 // 컬럼 정렬
