@@ -53,6 +53,14 @@ function parseDoc(text) {
   // 원본 줄 (탭 보존)
   const rawLines = text.split('\n').filter(l => l.trim());
 
+  // ── 납부확인서(법원 전자납부 영수증) 판별 ──
+  // 청구서의 증빙일 뿐이므로 별도 건으로 등록하지 않고 프론트에서 건너뛰게 함.
+  // (가상계좌번호를 계좌로 오인식하거나 "미인식" 유령 행이 생기는 문제 방지)
+  if (/납\s*부\s*확\s*인\s*서/.test(text) ||
+      (/결\s*제\s*확\s*인\s*정\s*보/.test(text) && /가\s*상\s*계\s*좌/.test(text))) {
+    return { docType: '납부확인서', skip: true };
+  }
+
   // 재단 접수번호
   // OCR이 "국토부 26:110", "국부 26-110", "(국)26262", "국토부 26.215"(마침표) 등 다양하게 읽음
   // "접수번호" 바로 뒤(최대 20자) 숫자만 추출 → 같은 줄의 계좌번호 등 오인식 방지
@@ -164,7 +172,10 @@ function parseDoc(text) {
   // 금액 (착수금/보수) — 라벨과 다음 라벨 사이 구간에서 마지막 숫자를 채택
   // (취소선으로 정정된 금액이 나란히 적힌 경우, 정정된 값이 뒤에 오는 경우가 많음)
   function lastAmountAfterLabel(labelPattern, stopPattern) {
-    const re = new RegExp(labelPattern.source + '([\\s\\S]{0,60}?)(?=' + stopPattern.source + '|$)', 'm');
+    // 주의: 멀티라인(m) 플래그를 쓰면 $ 가 줄 끝에 걸려, 라벨과 금액이
+    // 서로 다른 줄(표 셀)에 있을 때 다음 줄 금액을 놓친다. 문서 전체 끝($)만
+    // 종료로 보도록 m 플래그를 제거한다.
+    const re = new RegExp(labelPattern.source + '([\\s\\S]{0,60}?)(?=' + stopPattern.source + '|$)');
     const m = text.match(re);
     if (!m) return null;
     const chunk = m[1];
