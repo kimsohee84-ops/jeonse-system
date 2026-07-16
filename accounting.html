@@ -5267,7 +5267,8 @@ document.addEventListener('click', function(e) {
 
   const idx   = parseInt(td.dataset.idx);
   const field = td.dataset.field;
-  const c     = BIZ[curBiz].cases[idx];
+  const ref   = _resolveResolIndex(idx);       // 작업중(cases) / 저장된(resolList) 건 모두 대응
+  const c     = ref && ref.arr ? ref.arr[ref.i] : null;
   if(!c) return;
 
   let currentVal = '';
@@ -5312,6 +5313,7 @@ document.addEventListener('click', function(e) {
   if(input.select) input.select();
 
   const save = () => {
+    const prevTotal = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
     const val = typeof input.value === 'string' ? input.value.trim() : input.value;
     if      (field==='num')  { c.num = val ? makeNum(val) : ''; }
     else if (field==='fee' || field==='stamp' || field==='delivery') {
@@ -5324,6 +5326,14 @@ document.addEventListener('click', function(e) {
       if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비'].includes(c.note)) c.note = val;
     }
     else                     { c[field]=val; }
+
+    // 저장된 결의서 건(resolList)이면 total 재계산 + 집행액(executed) 델타 반영
+    if (ref.arr === resolList[curBiz]) {
+      const newTotal = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+      c.total = newTotal;
+      BIZ[curBiz].executed = Math.max(0, (BIZ[curBiz].executed||0) + (newTotal - prevTotal));
+    }
+    if (typeof savePersistedData === 'function') savePersistedData(); // 수정 내용 저장(새로고침해도 유지)
     renderResolPanel();
     renderDashboard();
   };
