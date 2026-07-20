@@ -216,15 +216,70 @@ function parseDoc(text) {
     if (v) r.deposit = v;
   }
 
-  // 금액 (착수금/보수) — 라벨과 다음 라벨 사이 구간에서 마지막 숫자를 채택
-  // (취소선으로 정정된 금액이 나란히 적힌 경우, 정정된 값이 뒤에 오는 경우가 많음)
-  // "합계"는 인지대/송달료/보관금이 전혀 없을 때(=순수 착수금만 있는 청구서)만 보수로 대체 —
-  // 안 그러면 "인지대/송달료만 추가 청구"하는 문서에서 합계(=그 항목 자체)가 보수로 잘못 들어가
-  // 보수와 인지대/송달료가 같은 금액으로 중복 집계되는 문제가 있었음
+  // ── 열 단위로 읽힌 표 보정 ──
+  // 어떤 OCR은 표를 "라벨 뭉치 → 값 뭉치"로 읽어, 라벨 바로 뒤에 숫자가 없다.
+  //   예)  인지대 / 송달료 / 보관금  (줄줄이)  →  900 / 33,840  (줄줄이)
+  // 위 1차 추출로 인지대·송달료가 비었을 때만 동작한다(정상 인식 문서는 건드리지 않음).
+  // 라벨이 값 없이 연달아 나온 '라벨 블록' 직후의 숫자들을 순서대로 매핑한다.
+  if (!r.stamp || !r.delivery) {
+    const isCostLabel = s => /인\s*지\s*대|송\s*달\s*료|보\s*관\s*금/.test(s);
+    const keyOf = s => /인\s*지\s*대/.test(s) ? 'stamp' : /송\s*달\s*료/.test(s) ? 'delivery' : 'deposit';
+    const numsIn = s => [...s.matchAll(/(\d{1,3}(?:,\d{3})+|\d{3,})/g)].map(x => parseInt(x[1].replace(/,/g,''),10)).filter(n => n > 0);
+
+    const pending = [];        // 값 대기 중인 라벨 큐 (등장 순서)
+    const found   = {};        // key -> 금액
+    const posAssigned = new Set(); // '값 블록'에서 위치로 배정된 key (= 열 단위 표 신호)
+    for (const ln of rawLines) {
+      // 보수/착수금/합계/기지급 줄은 소송비용 항목이 아니므로 제외
+      if (/착\s*수\s*금|변\s*호\s*사\s*보\s*수|합\s*계|기지급/.test(ln)) continue;
+      const label = isCostLabel(ln);
+      const nums  = numsIn(ln);
+      if (label && nums.length === 0) {
+        pending.push(keyOf(ln));                 // 라벨만 → 대기
+      } else if (label && nums.length > 0) {
+        found[keyOf(ln)] = nums[0];              // 같은 줄에 값 → 바로 배정
+      } else if (!label && nums.length > 0 && pending.length > 0) {
+        for (const n of nums) { if (pending.length) { const k = pending.shift(); found[k] = n; posAssigned.add(k); } }
+      }
+    }
+
+    if (posAssigned.size > 0) {
+      // 열 단위 표 확정: 마지막 라벨이 값 블록 전체를 빨아들이는 등 1차 추출이 어긋나므로
+      // 위치 매핑(found)을 항목 값의 기준으로 삼는다. found에 없는 항목은 오인식으로 보고 제거.
+      for (const k of ['stamp','delivery','deposit']) {
+        if (found[k] != null) r[k] = String(found[k]);
+        else delete r[k];
+      }
+    } else {
+      // 행 단위 등 일반 배치: 비어 있는 항목만 채운다.
+      if (!r.stamp    && found.stamp    != null) r.stamp    = String(found.stamp);
+      if (!r.delivery && found.delivery != null) r.delivery = String(found.delivery);
+      if (!r.deposit  && found.deposit  != null) r.deposit  = String(found.deposit);
+    }
+  }
+
+  // 금액 (착수금/보수)
+  // 1) 착수금이 직접 읽히면 그대로 사용
+  // 2) 안 읽히면(예: "보수기준표에 따름" + 손글씨) 합계로 역산:
+  //    - 인지대/송달료/보관금이 있으면  보수 = 합계 − (인지대+송달료+보관금)
+  //      · 양육비 청구서처럼 합계가 곧 송달료면 결과가 0 → 건너뜀(중복 방지)
+  //      · 이 문서처럼 합계에 보수가 포함돼 있으면 손글씨 보수를 역산으로 복구
+  //    - 항목이 아예 없으면(순수 착수금 청구서) 합계 자체를 보수로 사용
   {
     const hasItemized = !!(r.stamp || r.delivery || r.deposit);
-    const amt = lastAmountAfterLabel(/착\s*수\s*금/, STOP_LABELS)
-             || (hasItemized ? null : lastAmountAfterLabel(/합\s*계/, STOP_LABELS));
+    let amt = lastAmountAfterLabel(/착\s*수\s*금/, STOP_LABELS);
+    if (!amt) {
+      const total = lastAmountAfterLabel(/합\s*계/, STOP_LABELS);
+      if (total) {
+        if (hasItemized) {
+          const items = (parseInt(r.stamp)||0) + (parseInt(r.delivery)||0) + (parseInt(r.deposit)||0);
+          const fee = parseInt(total) - items;
+          if (fee > 0) amt = String(fee);   // 합계 > 소송비용일 때만(보수가 합계에 포함된 경우)
+        } else {
+          amt = total;
+        }
+      }
+    }
     if (amt) r.amount = amt;
   }
 
