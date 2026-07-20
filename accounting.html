@@ -348,6 +348,9 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
         <div id="ocr-status-bar" style="display:flex;align-items:center;gap:8px;background:var(--green-bg);border-radius:var(--radius);padding:9px 14px;margin-bottom:1rem;font-size:12px;color:var(--green-txt)">
           <i class="ti ti-circle-check" aria-hidden="true"></i>
           <span id="ocr-status-text">구글 드라이브 OCR 연결됨 — PDF 업로드 시 자동으로 내용이 채워집니다</span>
+          <button onclick="showLastOcrText()" class="btn btn-sm" style="margin-left:auto;padding:2px 10px;font-size:11px;border-color:var(--green-txt);color:var(--green-txt)" title="마지막으로 스캔한 문서의 OCR 원문 보기">
+            <i class="ti ti-file-search" aria-hidden="true"></i> OCR 원문 보기
+          </button>
         </div>
 
         <!-- ── 탭1: 업로드 ── -->
@@ -5913,6 +5916,58 @@ async function ocrWithGoogleDrive(file, base64Data, itemId, mimeType) {
   }
 }
 
+// ── 마지막 스캔의 OCR 원문 + 파싱 결과 보기 ──
+// "미인식"이 뜰 때, OCR이 실제로 뭘 읽었는지 확인/복사해서 파서를 정확히 맞추는 용도
+function showLastOcrText() {
+  const raw    = window._lastOcrText || '';
+  const parsed = window._lastParsed || {};
+  if (!raw) {
+    showToast('아직 스캔한 문서가 없습니다. 먼저 청구서를 업로드해주세요.');
+    return;
+  }
+  const combined =
+    '===== OCR 원문 =====\n' + raw +
+    '\n\n===== 파싱 결과 =====\n' + JSON.stringify(parsed, null, 2);
+
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:10px;max-width:720px;width:100%;max-height:85vh;display:flex;flex-direction:column;padding:16px;gap:10px';
+  box.innerHTML = '<div style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px"><i class="ti ti-file-search"></i> OCR 원문 (마지막 스캔)</div>' +
+    '<div style="font-size:12px;color:var(--muted)">이 내용을 복사해서 전달해주시면 파서를 이 양식에 맞게 정확히 고칠 수 있습니다.</div>';
+
+  const ta = document.createElement('textarea');
+  ta.readOnly = true;
+  ta.value = combined;
+  ta.style.cssText = 'width:100%;flex:1;min-height:320px;font-family:monospace;font-size:12px;padding:10px;border:1px solid var(--border);border-radius:8px;white-space:pre;overflow:auto;box-sizing:border-box';
+
+  const btns = document.createElement('div');
+  btns.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'btn btn-sm btn-success';
+  copyBtn.innerHTML = '<i class="ti ti-copy"></i> 복사';
+  copyBtn.onclick = () => {
+    ta.select();
+    navigator.clipboard.writeText(combined).then(
+      () => showToast('OCR 원문이 복사됐습니다'),
+      () => { document.execCommand('copy'); showToast('OCR 원문이 복사됐습니다'); }
+    );
+  };
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'btn btn-sm';
+  closeBtn.textContent = '닫기';
+  closeBtn.onclick = () => ov.remove();
+
+  btns.appendChild(copyBtn);
+  btns.appendChild(closeBtn);
+  box.appendChild(ta);
+  box.appendChild(btns);
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+}
+
 // ── OCR 결과 자동 등록 ──
 // 규칙:
 // 1. 접수번호 있으면 정확 매칭 후 금액 누적
@@ -5931,11 +5986,17 @@ function autoSaveScanEntry(parsed, fileName) {
   const acct     = (parsed.account  || '').trim();
   const doctype  = parsed.doctype   || '소송비용청구서';
 
-  // 비용 분리
+  // 비용 분리 — 파서가 뽑은 인지대(stamp)/송달료(delivery)를 직접 사용
+  // (그동안 청구서는 amt=보수만 저장하고 parsed.stamp/parsed.delivery를 버려서
+  //  인지대·송달료 칸이 항상 비어 있었음)
   let fee=0, stamp=0, delivery=0;
   if      (doctype==='인지대 영수증') stamp    = amt;
   else if (doctype==='송달료 영수증') delivery = amt;
-  else                                fee      = amt;
+  else {
+    fee      = amt;
+    stamp    = parseInt(String(parsed.stamp    ?? '').replace(/,/g,'')) || 0;
+    delivery = parseInt(String(parsed.delivery ?? '').replace(/,/g,'')) || 0;
+  }
 
   // 사건 유형 결정: ① 화면에서 사용자가 선택/수정한 값(sc-casetype) 최우선
   //              ② 사건번호 부호 자동인식
