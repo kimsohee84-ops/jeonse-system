@@ -1020,9 +1020,41 @@ function loadUsers() {
 
 function saveUsers(users) {
   localStorage.setItem('jeonse_users', JSON.stringify(users));
+  // 계정도 서버(Upstash)에 저장 → 어느 브라우저/컴퓨터서든 같은 아이디·비번
+  fetch('/api/data?user=users', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(users)
+  }).catch(() => {});
+}
+
+// 서버에서 계정을 받아와 반영 (있으면 서버가 정본)
+async function syncUsersFromServer() {
+  try {
+    const r = await fetch('/api/data?user=users');
+    if (r.ok) {
+      const j = await r.json();
+      if (j && j.data && typeof j.data === 'object' && j.data.admin) {
+        USERS = j.data;
+        try { localStorage.setItem('jeonse_users', JSON.stringify(USERS)); } catch {}
+        return true;
+      }
+    }
+  } catch {}
+  return false;
 }
 
 let USERS = loadUsers();
+
+// 페이지 열리면 즉시 계정을 서버와 동기화 (없으면 현재 계정을 서버로 올림)
+(async () => {
+  const ok = await syncUsersFromServer();
+  if (!ok) {
+    fetch('/api/data?user=users', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(USERS)
+    }).catch(() => {});
+  }
+})();
 
 // ── 사업별 데이터 ──
 const BIZ = {
@@ -1419,11 +1451,16 @@ const STAFF_ALLOWANCE = [
   {name:"김해나", amt:100000},
 ];
 
-function doLogin() {
+async function doLogin() {
   const id = document.getElementById("lid").value.trim();
   const pw = document.getElementById("lpw").value;
-  if (USERS[id] && USERS[id].pw === pw) {
-    curUser = {id, ...USERS[id]};
+  let u = USERS[id];
+  if (!u || u.pw !== pw) {
+    await syncUsersFromServer();   // 다른 브라우저서 바뀐 비번일 수 있으니 서버에서 최신 계정 확인
+    u = USERS[id];
+  }
+  if (u && u.pw === pw) {
+    curUser = {id, ...u};
     document.getElementById("login-screen").style.display = "none";
     document.getElementById("app").classList.add("visible");
     document.getElementById("ubadge").textContent = curUser.name;
@@ -1615,9 +1652,11 @@ function buildPersistPayload() {
 }
 
 let _serverSaveTimer = null;
+let _serverReady = false;   // 최초 서버 동기화가 끝나기 전에는 서버 저장 금지 (옛 데이터가 서버를 덮는 사고 방지)
 // 저장 요청을 모아서 서버에 1회 전송 (연속 편집 시 과도한 호출 방지)
 function queueServerSave() {
   if (!curUser || !curUser.id) return;   // 로그인 상태에서만
+  if (!_serverReady) return;             // 서버에서 최신 데이터를 받아오기 전엔 절대 저장하지 않음
   clearTimeout(_serverSaveTimer);
   _serverSaveTimer = setTimeout(() => {
     const payload = buildPersistPayload();
@@ -1629,29 +1668,32 @@ function queueServerSave() {
   }, 800);
 }
 
-// 로그인 직후: 서버 데이터를 불러와 로컬과 비교, 최신 것으로 맞춤
+// 로그인 직후: 서버 데이터를 불러와 화면·로컬에 반영 (서버가 항상 정본).
+// 이 동기화가 끝나기 전에는 어떤 저장도 서버로 나가지 않는다.
 async function syncFromServer() {
-  if (!curUser || !curUser.id) return;
+  _serverReady = false;
+  if (!curUser || !curUser.id) { _serverReady = true; return; }
   let serverData = null;
   try {
     const r = await fetch(`/api/data?user=${encodeURIComponent(curUser.id)}`);
     if (r.ok) { const j = await r.json(); serverData = j && j.data; }
-  } catch (e) { console.warn('서버 불러오기 실패(로컬 사용):', e); return; }
+  } catch (e) {
+    console.warn('서버 불러오기 실패(로컬 사용):', e);
+    _serverReady = true;   // 서버를 못 읽었으면 로컬로 계속 (단, 이 세션에서 저장 시 서버 덮어쓸 수 있으니 주의)
+    return;
+  }
 
-  let localData = null;
-  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) localData = JSON.parse(raw); } catch {}
-
-  const st = serverData && serverData.savedAt ? Date.parse(serverData.savedAt) : 0;
-  const lt = localData  && localData.savedAt  ? Date.parse(localData.savedAt)  : 0;
-
-  if (serverData) {
-    // 서버에 데이터가 있으면 항상 서버 기준(서버가 정본). 다른 기기/브라우저와 항상 일치.
+  if (serverData && serverData.cases) {
+    // 서버에 데이터가 있으면 무조건 서버 기준. 옛 로컬은 버리고 서버로 덮어씀.
     applyPersistedData(serverData);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(serverData)); } catch {}
+    _serverReady = true;           // 이제부터 저장 허용 (사용자가 편집하면 서버에 반영)
+    if (typeof setBiz === 'function') setBiz(curBiz || 'kt');
     renderDashboard();
     if (typeof renderResolPanel === 'function') renderResolPanel();
-  } else if (localData) {
-    // 서버가 비어 있을 때(최초)만 로컬 데이터를 서버로 올림
+  } else {
+    // 서버가 비어 있음(최초 사용) → 로컬 데이터를 서버로 올려 시작점 만듦
+    _serverReady = true;
     queueServerSave();
   }
 }
