@@ -1429,6 +1429,7 @@ function doLogin() {
     document.getElementById("ubadge").textContent = curUser.name;
     applyBizAccess();  // 사업 접근 권한 적용
     init();
+    if (typeof syncFromServer === 'function') syncFromServer();  // 서버(Upstash)에서 이 사용자 데이터 동기화
   } else {
     const e = document.getElementById("lerr");
     e.style.display = "block";
@@ -1545,13 +1546,24 @@ function savePersistedData() {
   } catch (e) {
     console.error('데이터 저장 오류:', e);
   }
+  // 서버(Upstash)에도 저장 → 다른 컴퓨터/브라우저에서도 같은 데이터
+  if (typeof queueServerSave === 'function') queueServerSave();
 }
 
 function loadPersistedData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
-    const data = JSON.parse(raw);
+    applyPersistedData(JSON.parse(raw));
+  } catch (e) {
+    console.error('데이터 복원 오류:', e);
+  }
+}
+
+// 저장된 data 객체를 실제 상태(BIZ/resolList/...)에 반영
+function applyPersistedData(data) {
+  try {
+    if (!data) return;
     const ALL_KEYS = Object.keys(BIZ);
 
     if (data.cases) {
@@ -1592,6 +1604,60 @@ function loadPersistedData() {
   }
 }
 
+
+// ── 서버 저장/불러오기 (Upstash, 사용자별) ──
+// 현재 상태를 저장 data 객체로 직렬화 (localStorage 저장과 동일 형식)
+function buildPersistPayload() {
+  const ALL_KEYS = Object.keys(BIZ);
+  const cases = {}, executed = {}, lawyers = {};
+  ALL_KEYS.forEach(k => { cases[k]=BIZ[k].cases; executed[k]=BIZ[k].executed; lawyers[k]=BIZ[k].lawyers; });
+  return { cases, executed, lawyers, resolList, EXEC_DATA, PAID_CASES, CUSTOM_COLUMN_PROFILES, savedAt: new Date().toISOString() };
+}
+
+let _serverSaveTimer = null;
+// 저장 요청을 모아서 서버에 1회 전송 (연속 편집 시 과도한 호출 방지)
+function queueServerSave() {
+  if (!curUser || !curUser.id) return;   // 로그인 상태에서만
+  clearTimeout(_serverSaveTimer);
+  _serverSaveTimer = setTimeout(() => {
+    const payload = buildPersistPayload();
+    fetch(`/api/data?user=${encodeURIComponent(curUser.id)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(e => console.warn('서버 저장 실패(로컬은 저장됨):', e));
+  }, 800);
+}
+
+// 로그인 직후: 서버 데이터를 불러와 로컬과 비교, 최신 것으로 맞춤
+async function syncFromServer() {
+  if (!curUser || !curUser.id) return;
+  let serverData = null;
+  try {
+    const r = await fetch(`/api/data?user=${encodeURIComponent(curUser.id)}`);
+    if (r.ok) { const j = await r.json(); serverData = j && j.data; }
+  } catch (e) { console.warn('서버 불러오기 실패(로컬 사용):', e); return; }
+
+  let localData = null;
+  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) localData = JSON.parse(raw); } catch {}
+
+  const st = serverData && serverData.savedAt ? Date.parse(serverData.savedAt) : 0;
+  const lt = localData  && localData.savedAt  ? Date.parse(localData.savedAt)  : 0;
+
+  if (serverData && st >= lt) {
+    // 서버가 더 최신(또는 로컬 없음) → 서버 데이터로 반영
+    applyPersistedData(serverData);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(serverData)); } catch {}
+    renderDashboard();
+    if (typeof renderResolPanel === 'function') renderResolPanel();
+  } else if (localData && lt > st) {
+    // 로컬이 더 최신(예: 오프라인 편집분) → 서버로 밀어올림
+    queueServerSave();
+  } else if (!serverData && localData) {
+    // 서버 최초 → 로컬 데이터를 서버로 이관
+    queueServerSave();
+  }
+}
 
 function setBiz(biz) {
   curBiz = biz;
@@ -4961,6 +5027,45 @@ function toggleResolManualMode() {
   renderResolPanel();
 }
 
+// ── 변호사별로 정리 → 그 순서를 수동 순서로 확정하고 수동정렬 모드 진입 ──
+// (변호사별로 묶어 놓은 뒤, 세부 순서는 화살표로 직접 조정)
+function arrangeByLawyer() {
+  const raw = [...BIZ[curBiz].cases, ...resolList[curBiz]].filter(Boolean);
+  const sorted = raw.slice().sort((a, b) => {
+    const la = (a.lawyer||'').trim(), lb = (b.lawyer||'').trim();
+    if (!la && lb) return 1;          // 변호사 없는 건(수당 등)은 맨 뒤로
+    if (la && !lb) return -1;
+    if (la !== lb) return la.localeCompare(lb, 'ko');
+    // 같은 변호사 내에서는 접수번호 숫자 오름차순
+    const na = parseInt((a.num||'').replace(/\D/g,'').slice(-6)) || 0;
+    const nb = parseInt((b.num||'').replace(/\D/g,'').slice(-6)) || 0;
+    return na - nb;
+  });
+  sorted.forEach((c, i) => { c._order = i; });   // 그룹 순서를 수동 순서로 확정
+  resolManualMode = true;                          // 수동정렬 모드 ON → 이후 화살표로 조정
+  if (typeof savePersistedData === 'function') savePersistedData();
+  renderResolPanel();
+  showToast('변호사별로 정리했습니다. 이제 위/아래 화살표로 순서를 직접 조정하세요');
+}
+
+// ── 드래그 앤 드롭으로 순서 옮기기 (수동정렬 모드) ──
+// 행을 끌어서 원하는 자리에 놓으면 그 순서로 _order 재배치
+let _resolDragFrom = -1;
+function resolDragStart(pos) { _resolDragFrom = pos; }
+function resolDrop(toPos) {
+  const from = _resolDragFrom;
+  _resolDragFrom = -1;
+  if (from < 0 || from === toPos) return;
+  const raw = [...BIZ[curBiz].cases, ...resolList[curBiz]].filter(Boolean);
+  raw.forEach((c, i) => { if (c._order === undefined) c._order = i; });
+  const ordered = raw.slice().sort((a, b) => (a._order??0) - (b._order??0));
+  const [moved] = ordered.splice(from, 1);   // 끌던 행을 빼서
+  ordered.splice(toPos, 0, moved);            // 놓은 자리에 삽입
+  ordered.forEach((c, i) => { c._order = i; }); // 순서 다시 매김
+  if (typeof savePersistedData === 'function') savePersistedData();
+  renderResolPanel();
+}
+
 // 수동정렬 모드에서 현재 화면에 보이는 순서 기준으로 한 칸 위/아래로 이동
 function moveResolRowManual(pos, dir) {
   const raw = [...BIZ[curBiz].cases, ...resolList[curBiz]];
@@ -5041,6 +5146,9 @@ function renderResolPanel() {
       <button onclick="toggleResolManualMode()" class="btn btn-sm" style="${resolManualMode?'background:#1D4ED8;color:#fff;border-color:#1D4ED8':'border-color:var(--navy);color:var(--navy)'};padding:3px 10px;font-size:11px">
         <i class="ti ti-arrows-sort" aria-hidden="true"></i> ${resolManualMode ? '수동정렬 켜짐 — 끄기' : '수동정렬로 순서 직접 바꾸기'}
       </button>
+      <button onclick="arrangeByLawyer()" class="btn btn-sm" style="border-color:var(--navy);color:var(--navy);padding:3px 10px;font-size:11px" title="변호사 가나다순으로 다시 정리(ㄱ→ㅎ). 정리 후 드래그·화살표로 직접 순서 조정">
+        <i class="ti ti-user-check" aria-hidden="true"></i> 변호사 가나다 정렬
+      </button>
       <button onclick="deleteAllRows()" class="btn btn-sm" style="border-color:#FCA5A5;color:#DC2626;padding:3px 10px;font-size:11px" title="이 사업의 지출목록 전체 삭제">
         <i class="ti ti-trash" aria-hidden="true"></i> 전체 삭제
       </button>
@@ -5086,7 +5194,11 @@ function renderResolPanel() {
             : '<span style="color:#DC2626;font-size:11px">미인식</span>';
           const typeColor = c.type==='형사' ? '#7C3AED' : c.type==='신청' ? '#B45309' : '#1D4ED8';
           const checked = resolSelected.has(i) ? 'checked' : '';
-          return `<tr style="border-bottom:1px solid var(--border);${bg}">
+          const dragAttrs = resolManualMode
+            ? `draggable="true" ondragstart="resolDragStart(${pos})" ondragover="event.preventDefault()" ondrop="resolDrop(${pos})"`
+            : '';
+          const rowCursor = resolManualMode ? 'cursor:move;' : '';
+          return `<tr ${dragAttrs} style="${rowCursor}border-bottom:1px solid var(--border);${bg}">
             <td style="${cs};text-align:center;white-space:nowrap">
               ${resolManualMode ? `
               <button onclick="moveResolRowManual(${pos},-1)" ${pos===0?'disabled':''} style="background:none;border:none;cursor:${pos===0?'default':'pointer'};color:${pos===0?'#D1D5DB':'var(--navy)'};font-size:11px;padding:1px 2px" title="위로"><i class="ti ti-arrow-up" aria-hidden="true"></i></button>
@@ -5335,6 +5447,18 @@ document.addEventListener('click', function(e) {
       input.appendChild(o);
     });
     input.style.cssText='width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:11px;padding:2px 4px';
+  } else if (field === 'lawyer') {
+    // 변호사: 등록된 변호사 목록을 datalist로 제공 → 골라서(정확히 일치=계좌 자동연결) 또는 직접 입력
+    input = document.createElement('input');
+    input.type  = 'text';
+    input.value = currentVal;
+    input.setAttribute('list', 'lawyer-datalist-inline');
+    input.style.cssText='width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:12px;font-family:inherit;padding:2px 4px;box-sizing:border-box;min-width:80px';
+    let dl = document.getElementById('lawyer-datalist-inline');
+    if (!dl) { dl = document.createElement('datalist'); dl.id = 'lawyer-datalist-inline'; document.body.appendChild(dl); }
+    dl.innerHTML = ((BIZ[curBiz].lawyers)||[])
+      .filter(l => l && l.name)
+      .map(l => `<option value="${(l.name||'').replace(/"/g,'')}">`).join('');
   } else {
     input = document.createElement('input');
     input.type  = (field==='fee'||field==='stamp'||field==='delivery') ? 'number' : 'text';
