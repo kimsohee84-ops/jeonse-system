@@ -25,6 +25,15 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
+      // 이력 조회: /api/data?user=x&history=1 → 최근 백업 목록(최신순)
+      if (req.query.history) {
+        const r = await fetch(`${BASE}/lrange/${key}:hist/0/9`, {
+          headers: { Authorization: `Bearer ${TOKEN}` }
+        });
+        const j = await r.json();
+        res.status(200).json({ history: (j && j.result) || [] });
+        return;
+      }
       const r = await fetch(`${BASE}/get/${key}`, {
         headers: { Authorization: `Bearer ${TOKEN}` }
       });
@@ -43,6 +52,22 @@ export default async function handler(req, res) {
         try { body = JSON.parse(body); } catch { /* keep string */ }
       }
       const value = typeof body === 'string' ? body : JSON.stringify(body || {});
+
+      // ── 자동 백업: 덮어쓰기 전에 현재 값을 이력에 보관(최근 10개) ──
+      // 실수로 덮어써도 되돌릴 수 있게 함.
+      try {
+        const cur = await fetch(`${BASE}/get/${key}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+        const cj = await cur.json();
+        if (cj && cj.result) {
+          await fetch(`${BASE}/lpush/${key}:hist`, {
+            method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: cj.result
+          });
+          await fetch(`${BASE}/ltrim/${key}:hist/0/9`, {
+            method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }
+          });
+        }
+      } catch (e) { /* 백업 실패해도 저장은 진행 */ }
+
       const r = await fetch(`${BASE}/set/${key}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${TOKEN}` },
