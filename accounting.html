@@ -1644,17 +1644,14 @@ async function syncFromServer() {
   const st = serverData && serverData.savedAt ? Date.parse(serverData.savedAt) : 0;
   const lt = localData  && localData.savedAt  ? Date.parse(localData.savedAt)  : 0;
 
-  if (serverData && st >= lt) {
-    // 서버가 더 최신(또는 로컬 없음) → 서버 데이터로 반영
+  if (serverData) {
+    // 서버에 데이터가 있으면 항상 서버 기준(서버가 정본). 다른 기기/브라우저와 항상 일치.
     applyPersistedData(serverData);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(serverData)); } catch {}
     renderDashboard();
     if (typeof renderResolPanel === 'function') renderResolPanel();
-  } else if (localData && lt > st) {
-    // 로컬이 더 최신(예: 오프라인 편집분) → 서버로 밀어올림
-    queueServerSave();
-  } else if (!serverData && localData) {
-    // 서버 최초 → 로컬 데이터를 서버로 이관
+  } else if (localData) {
+    // 서버가 비어 있을 때(최초)만 로컬 데이터를 서버로 올림
     queueServerSave();
   }
 }
