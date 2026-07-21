@@ -498,6 +498,12 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
               <button class="btn btn-sm" onclick="addStaffAllowance()" style="border-color:var(--navy);color:var(--navy)">
                 <i class="ti ti-users" aria-hidden="true"></i> 직원 수당 추가
               </button>
+              <button class="btn btn-sm" onclick="addAllowanceRow()" style="border-color:var(--navy);color:var(--navy)">
+                <i class="ti ti-user-plus" aria-hidden="true"></i> 수당 직접 입력
+              </button>
+              <button class="btn btn-sm" onclick="addLaborRow()" style="border-color:var(--navy);color:var(--navy)">
+                <i class="ti ti-briefcase" aria-hidden="true"></i> 인건비 직접 입력
+              </button>
               <button class="btn btn-sm" onclick="openAddResolModal()" style="border-color:var(--navy);color:var(--navy)">
                 <i class="ti ti-plus" aria-hidden="true"></i> 수동 추가
               </button>
@@ -521,6 +527,12 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
               </button>
               <button class="btn btn-sm" onclick="addStaffAllowance()" style="border-color:var(--navy);color:var(--navy)">
                 <i class="ti ti-users" aria-hidden="true"></i> 직원 수당 추가
+              </button>
+              <button class="btn btn-sm" onclick="addAllowanceRow()" style="border-color:var(--navy);color:var(--navy)">
+                <i class="ti ti-user-plus" aria-hidden="true"></i> 수당 직접 입력
+              </button>
+              <button class="btn btn-sm" onclick="addLaborRow()" style="border-color:var(--navy);color:var(--navy)">
+                <i class="ti ti-briefcase" aria-hidden="true"></i> 인건비 직접 입력
               </button>
               <button class="btn btn-sm" onclick="openAddResolModal()" style="border-color:var(--navy);color:var(--navy)">
                 <i class="ti ti-plus" aria-hidden="true"></i> 수동 추가
@@ -1645,7 +1657,7 @@ function renderDashboard() {
   const allCases = [...b.cases, ...resolList[curBiz]];
   const recv = allCases.filter(c=>c.tax==="수령").length;
   const noRecv = allCases.filter(c=>c.tax==="미수령").length;
-  const total = allCases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0);
+  const total = allCases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0),0);
 
   document.getElementById("dash-title").textContent = "대시보드 — " + b.short;
   document.getElementById("dash-sub").textContent = "2026년 · " + b.name;
@@ -2173,8 +2185,13 @@ function detectCaseTypeFromCaseName(text) {
   // "이행의무위반(감치)"/"이행명령위반(과태료)" 처럼 위반+감치 성격이면 감치
   if (text.includes('감치')) return '감치';
   if (text.includes('이행명령') && text.includes('위반')) return '감치';
-  // "이행명령" 단독이면 본안(민사)
-  if (text.includes('이행명령')) return '민사';
+  // 가사 사건(가사소송·가사비송): 양육·친권·이혼·상속·후견 등. 사건번호 부호가 없을 때의 보조값.
+  const GASA_KEYWORDS = [
+    '이행명령','재산명시','양육비','양육권','양육자','친권','면접교섭','사전처분',
+    '심판청구','변경심판','이혼','위자료','재산분할','혼인','인지청구','친생자','친생부인',
+    '입양','파양','상속','후견','부양','혼인무효','혼인취소'
+  ];
+  if (GASA_KEYWORDS.some(k => text.includes(k))) return '가사';
   return null;
 }
 
@@ -2193,9 +2210,10 @@ function autoDetectCaseType(prefix) {
   const sel   = document.getElementById(prefix === 'sc' ? 'sc-casetype' : 'f-type');
   const hint  = document.getElementById(prefix + '-casetype-hint');
   if (!sel) return;
-  // 1순위: 사건명 문구 (예: "이행명령", "감치"), 2순위: 법원 사건번호 부호
-  const detected = (caseInput && detectCaseTypeFromCaseName(caseInput.value))
-                 || (numInput && detectCaseTypeFromCourtNum(numInput.value))
+  // 1순위: 법원 사건번호 부호(즈기=가사, 정드=감치 등 — 가장 정확)
+  // 2순위: 사건명 문구(사건번호 부호가 없을 때 보조)
+  const detected = (numInput && detectCaseTypeFromCourtNum(numInput.value))
+                 || (caseInput && detectCaseTypeFromCaseName(caseInput.value))
                  || null;
   if (detected) {
     sel.value = detected;
@@ -2456,7 +2474,7 @@ function renderResolList() {
   const all = [...b.cases.filter(c=>c.resol==="완료"), ...resolList[curBiz]];
   document.getElementById("resol-tbody").innerHTML = all.map(r=>{
     const st = r.resol==="완료" ? '<span class="badge bg">결재완료</span>' : '<span class="badge ba">대기</span>';
-    const total = ((r.fee||0)+(r.stamp||0)+(r.delivery||0)).toLocaleString();
+    const total = ((r.fee||0)+(r.stamp||0)+(r.delivery||0)+(r.deposit||0)).toLocaleString();
     return `<tr>
       <td class="mono" style="font-size:11px">${r.num}</td>
       <td>${r.lawyer}</td>
@@ -2527,8 +2545,8 @@ function renderCaseList() {
 
     let va, vb;
     if (caseListSortField === 'total') {
-      va = (a.c.fee||0)+(a.c.stamp||0)+(a.c.delivery||0);
-      vb = (b2.c.fee||0)+(b2.c.stamp||0)+(b2.c.delivery||0);
+      va = (a.c.fee||0)+(a.c.stamp||0)+(a.c.delivery||0)+(a.c.deposit||0);
+      vb = (b2.c.fee||0)+(b2.c.stamp||0)+(b2.c.delivery||0)+(b2.c.deposit||0);
     } else if (['fee','stamp','delivery'].includes(caseListSortField)) {
       va = a.c[caseListSortField]||0; vb = b2.c[caseListSortField]||0;
     } else if (caseListSortField === 'case') {
@@ -4439,7 +4457,7 @@ function printCheckList() {
   <button class="no-print" onclick="window.print()" style="margin-bottom:15px;padding:8px 20px;background:#1F4E79;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px">인쇄하기</button>
   ${items.map((r,idx)=>{
     const b = BIZ[r.biz];
-    const total = ((r.fee||0)+(r.stamp||0)+(r.delivery||0));
+    const total = ((r.fee||0)+(r.stamp||0)+(r.delivery||0)+(r.deposit||0));
     return `<section class="chk-page">
   <h1>담 당 자 확 인 표${items.length>1?` (${idx+1}/${items.length})`:""}</h1>
 
@@ -4475,6 +4493,7 @@ function printCheckList() {
       <tr><td>변호사 보수</td><td>${(r.fee||0).toLocaleString()} 원</td><td><span class="check-box"></span></td><td colspan="2"></td></tr>
       <tr><td>인지대</td><td>${(r.stamp||0).toLocaleString()} 원</td><td><span class="check-box"></span></td><td colspan="2"></td></tr>
       <tr><td>송달료</td><td>${(r.delivery||0).toLocaleString()} 원</td><td><span class="check-box"></span></td><td colspan="2"></td></tr>
+      ${(r.deposit||0) ? `<tr><td>보관금</td><td>${(r.deposit||0).toLocaleString()} 원</td><td><span class="check-box"></span></td><td colspan="2"></td></tr>` : ''}
     </tbody>
   </table>
   <div class="total-row"><span>합계</span><span>${total.toLocaleString()} 원</span></div>
@@ -4531,7 +4550,7 @@ function printBatchCheckList() {
     </tr></thead>
     <tbody>
       ${cases.map((c,i)=>{
-        const total = ((c.fee||0)+(c.stamp||0)+(c.delivery||0)).toLocaleString();
+        const total = ((c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0)).toLocaleString();
         const isOk = c.tax==="수령"||c.tax==="전자세금계산서";
         return `<tr>
           <td style="text-align:center">${i+1}</td>
@@ -4549,7 +4568,7 @@ function printBatchCheckList() {
       }).join("")}
       <tr class="total">
         <td colspan="5" style="text-align:right">합계 (${cases.length}건)</td>
-        <td style="text-align:right">${cases.reduce((s,c)=>s+((c.fee||0)+(c.stamp||0)+(c.delivery||0)),0).toLocaleString()}</td>
+        <td style="text-align:right">${cases.reduce((s,c)=>s+((c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0)),0).toLocaleString()}</td>
         <td colspan="5"></td>
       </tr>
     </tbody>
@@ -4611,7 +4630,7 @@ function renderReport() {
   // 계정과목별 분류
   const byType = {};
   periodCases.forEach(c => {
-    const t = c._allowance ? '수당(일반관리비)' : (c.type === '운영비' ? '운영비(일반관리비)' : '소송구조비(법률구조사업비)');
+    const t = c._allowance ? '수당(일반관리비)' : (c.type === '인건비' || c._overhead ? '인건비(일반관리비)' : c.type === '운영비' ? '운영비(일반관리비)' : '소송구조비(법률구조사업비)');
     if (!byType[t]) byType[t] = { count:0, total:0 };
     byType[t].count++;
     byType[t].total += (c.amt||0);
@@ -4982,8 +5001,8 @@ function renderResolPanel() {
       va = parseInt((a.c.num||'').replace(/\D/g,'').slice(-6)) || 0;
       vb = parseInt((b.c.num||'').replace(/\D/g,'').slice(-6)) || 0;
     } else if (resolSortField === 'amt') {
-      va = (a.c.fee||0)+(a.c.stamp||0)+(a.c.delivery||0);
-      vb = (b.c.fee||0)+(b.c.stamp||0)+(b.c.delivery||0);
+      va = (a.c.fee||0)+(a.c.stamp||0)+(a.c.delivery||0)+(a.c.deposit||0);
+      vb = (b.c.fee||0)+(b.c.stamp||0)+(b.c.delivery||0)+(b.c.deposit||0);
     } else {
       va = (a.c[resolSortField]||'').toString().toLowerCase();
       vb = (b.c[resolSortField]||'').toString().toLowerCase();
@@ -4994,7 +5013,7 @@ function renderResolPanel() {
   });
   }
 
-  const total = raw.reduce((s,c) => s+(c.fee||0)+(c.stamp||0)+(c.delivery||0), 0);
+  const total = raw.reduce((s,c) => s+(c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0), 0);
   const nav   = document.getElementById("resol-nav-text");
   if(nav) nav.textContent = `총 ${raw.length}건 / ${total.toLocaleString()}원`;
 
@@ -5038,6 +5057,7 @@ function renderResolPanel() {
           ${th('fee',    '보수', 'right')}
           ${th('stamp',  '인지대', 'right')}
           ${th('delivery','송달료', 'right')}
+          ${th('deposit', '보관금', 'right')}
           ${th('amt',    '합계', 'right')}
           ${th('type',   '유형')}
           <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center;white-space:nowrap">세금</th>
@@ -5047,7 +5067,7 @@ function renderResolPanel() {
       </thead>
       <tbody>
         ${indexed.map(({ c, i }, pos) => {
-          const amt     = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+          const amt     = (c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0)+(c.deposit||0);
           const num     = (c.num||'').replace(/^(국부|서금)\s*/,'');
           const missing = !c.lawyer || !c.client || !amt;
           const bg      = missing ? 'background:#FFF7F7' : '';
@@ -5070,6 +5090,7 @@ function renderResolPanel() {
             <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="fee" data-idx="${i}">${c.fee ? c.fee.toLocaleString() : '<span style="color:#9CA3AF;font-size:11px">클릭입력</span>'}</td>
             <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="stamp" data-idx="${i}">${c.stamp ? c.stamp.toLocaleString() : '<span style="color:#9CA3AF;font-size:11px">클릭입력</span>'}</td>
             <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="delivery" data-idx="${i}">${c.delivery ? c.delivery.toLocaleString() : '<span style="color:#9CA3AF;font-size:11px">클릭입력</span>'}</td>
+            <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="deposit" data-idx="${i}">${c.deposit ? c.deposit.toLocaleString() : '<span style="color:#9CA3AF;font-size:11px">클릭입력</span>'}</td>
             <td style="${cs};text-align:right;font-family:monospace;font-weight:600">${amt ? amt.toLocaleString() : '<span style="color:#DC2626;font-size:11px">0</span>'}</td>
             <td style="${cs};cursor:pointer;text-align:center" data-field="type" data-idx="${i}">
               <span style="font-size:10px;padding:2px 7px;border-radius:99px;background:#EEF2FF;color:${typeColor}">${c.type||'민사'}</span>
@@ -5098,7 +5119,7 @@ function renderResolPanel() {
           <td></td>
           <td colspan="4" style="padding:8px;text-align:right;color:var(--muted);font-size:11px">합 계</td>
           <td style="padding:8px;text-align:right;font-family:monospace">${total.toLocaleString()}</td>
-          <td colspan="2"></td>
+          <td colspan="3"></td>
         </tr>
       </tbody>
     </table>`;
@@ -5316,10 +5337,10 @@ document.addEventListener('click', function(e) {
   if(input.select) input.select();
 
   const save = () => {
-    const prevTotal = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+    const prevTotal = (c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0);
     const val = typeof input.value === 'string' ? input.value.trim() : input.value;
     if      (field==='num')  { c.num = val ? makeNum(val) : ''; }
-    else if (field==='fee' || field==='stamp' || field==='delivery') {
+    else if (field==='fee' || field==='stamp' || field==='delivery' || field==='deposit') {
       c[field] = parseInt(String(val).replace(/,/g,''))||0;
     }
     else if (field==='case') { c.case=val; c.caseName=val; }
@@ -5332,7 +5353,7 @@ document.addEventListener('click', function(e) {
 
     // 저장된 결의서 건(resolList)이면 total 재계산 + 집행액(executed) 델타 반영
     if (ref.arr === resolList[curBiz]) {
-      const newTotal = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+      const newTotal = (c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0);
       c.total = newTotal;
       BIZ[curBiz].executed = Math.max(0, (BIZ[curBiz].executed||0) + (newTotal - prevTotal));
     }
@@ -5380,7 +5401,45 @@ function addStaffAllowance() {
 
   renderResolPanel();
   renderDashboard();
+  if (typeof savePersistedData === 'function') savePersistedData(); // 새로고침해도 등록 유지
   showToast(`직원 수당 ${added}건 추가됐습니다`);
+}
+
+// ── 수당 직접 입력 (빈 수당 행 1건 추가 → 의뢰인/금액 칸 클릭해서 입력) ──
+function addAllowanceRow() {
+  const today = new Date().toISOString().slice(0,10);
+  BIZ[curBiz].cases.push({
+    num: '', lawyer: '', firm: '', client: '', opponent: '',
+    case: '직원 수당', caseName: '직원 수당', type: '수당',
+    fee: 0, stamp: 0, delivery: 0, deposit: 0,
+    tax: '비과세', resol: '대기', date: today,
+    account: '', note: '직원 수당', doctype: '직원수당',
+    accountType: '법률구조사업비',
+    _allowance: true
+  });
+  renderResolPanel();
+  renderDashboard();
+  if (typeof savePersistedData === 'function') savePersistedData();
+  showToast('수당 행이 추가됐습니다. 의뢰인(이름)·보수(금액) 칸을 클릭해 입력하세요');
+}
+
+// ── 인건비 직접 입력 (빈 인건비 행 1건 추가) ──
+// 인건비는 소송구조비가 아니라 일반관리비(운영비) 성격이라 type='인건비'로 넣는다.
+function addLaborRow() {
+  const today = new Date().toISOString().slice(0,10);
+  BIZ[curBiz].cases.push({
+    num: '', lawyer: '', firm: '', client: '', opponent: '',
+    case: '인건비', caseName: '인건비', type: '인건비',
+    fee: 0, stamp: 0, delivery: 0, deposit: 0,
+    tax: '비과세', resol: '대기', date: today,
+    account: '', note: '인건비', doctype: '인건비',
+    accountType: '일반관리비',
+    _overhead: true
+  });
+  renderResolPanel();
+  renderDashboard();
+  if (typeof savePersistedData === 'function') savePersistedData();
+  showToast('인건비 행이 추가됐습니다. 의뢰인(이름)·보수(금액) 칸을 클릭해 입력하세요');
 }
 
 // ── 수동 추가 모달 ──
@@ -5468,7 +5527,7 @@ function fillResolForm(c) {
   set("rv-num",num); set("rv-date",c.date||""); set("rv-lawyer",c.lawyer||"");
   set("rv-firm",c.firm||""); set("rv-client",c.client||""); set("rv-opponent",c.opponent||"");
   set("rv-case",c.case||c.caseName||"");
-  set("rv-amt",((c.fee||0)+(c.stamp||0)+(c.delivery||0)).toLocaleString());
+  set("rv-amt",((c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0)).toLocaleString());
   set("rv-tax",c.tax||""); set("rv-acct",c.account||""); set("rv-note",c.note||c.type||"");
 }
 
@@ -5579,7 +5638,7 @@ function renderScanListPanel() {
   if(content) content.style.display="";
   const tbody = document.getElementById("scan-list-tbody");
   if(tbody) tbody.innerHTML = scanListItems.map((c,i) => {
-    const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+    const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0);
     const num = (c.num||"").replace(/^(국부|서금)\s*/,"");
     const taxBadge = c.tax==="미수령"
       ? '<span style="font-size:10px;background:#FEF9C3;color:#854D0E;padding:1px 6px;border-radius:99px">미수령</span>'
@@ -5594,7 +5653,7 @@ function renderScanListPanel() {
       +`<td style="padding:8px 10px;text-align:center"><button onclick="removeScanListItem(${i})" style="background:none;border:none;cursor:pointer;color:var(--muted)"><i class="ti ti-x"></i></button></td>`
       +`</tr>`;
   }).join("");
-  const total = scanListItems.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0);
+  const total = scanListItems.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0),0);
   const tot = document.getElementById("scan-list-total");
   if(tot) tot.textContent = total.toLocaleString()+"원";
 }
@@ -5989,13 +6048,14 @@ function autoSaveScanEntry(parsed, fileName) {
   // 비용 분리 — 파서가 뽑은 인지대(stamp)/송달료(delivery)를 직접 사용
   // (그동안 청구서는 amt=보수만 저장하고 parsed.stamp/parsed.delivery를 버려서
   //  인지대·송달료 칸이 항상 비어 있었음)
-  let fee=0, stamp=0, delivery=0;
+  let fee=0, stamp=0, delivery=0, deposit=0;
   if      (doctype==='인지대 영수증') stamp    = amt;
   else if (doctype==='송달료 영수증') delivery = amt;
   else {
     fee      = amt;
     stamp    = parseInt(String(parsed.stamp    ?? '').replace(/,/g,'')) || 0;
     delivery = parseInt(String(parsed.delivery ?? '').replace(/,/g,'')) || 0;
+    deposit  = parseInt(String(parsed.deposit  ?? '').replace(/,/g,'')) || 0;
   }
 
   // 사건 유형 결정: ① 화면에서 사용자가 선택/수정한 값(sc-casetype) 최우선
@@ -6048,6 +6108,7 @@ function autoSaveScanEntry(parsed, fileName) {
     const prev = BIZ[curBiz].cases[lastCaseIdx];
     prev.stamp    += stamp;
     prev.delivery += delivery;
+    prev.deposit   = (prev.deposit||0) + deposit;
     if (fee > 0) prev.fee = fee;
     if (acct && !prev.account) prev.account = acct;
 
@@ -6066,7 +6127,7 @@ function autoSaveScanEntry(parsed, fileName) {
   const newCase = {
     num: fullNum, lawyer, firm, client, opponent,
     case: caseName, caseName, type: caseType,
-    fee, stamp, delivery,
+    fee, stamp, delivery, deposit,
     tax: '전자세금계산서', resol: '대기', date: today,
     account: acct, note: caseType, doctype, _fromOcr: true
   };
@@ -6083,6 +6144,7 @@ function autoSaveScanEntry(parsed, fileName) {
       // 동일 번호 → 금액 누적
       BIZ[curBiz].cases[idx].stamp    += stamp;
       BIZ[curBiz].cases[idx].delivery += delivery;
+      BIZ[curBiz].cases[idx].deposit   = (BIZ[curBiz].cases[idx].deposit||0) + deposit;
       if (fee>0)     BIZ[curBiz].cases[idx].fee     = fee;
       if (acct)      BIZ[curBiz].cases[idx].account  = acct;
       if (caseName)  BIZ[curBiz].cases[idx].case     = caseName;
@@ -6376,8 +6438,8 @@ function sortCasesForExport(list) {
       va = parseInt((a.c.num||'').replace(/\D/g,'').slice(-6))||0;
       vb = parseInt((b.c.num||'').replace(/\D/g,'').slice(-6))||0;
     } else if (field === 'amt' || field === 'total') {
-      va = (a.c.fee||0)+(a.c.stamp||0)+(a.c.delivery||0);
-      vb = (b.c.fee||0)+(b.c.stamp||0)+(b.c.delivery||0);
+      va = (a.c.fee||0)+(a.c.stamp||0)+(a.c.delivery||0)+(a.c.deposit||0);
+      vb = (b.c.fee||0)+(b.c.stamp||0)+(b.c.delivery||0)+(b.c.deposit||0);
     } else if (field === 'case') {
       va = (a.c.case||a.c.caseName||'').toString().toLowerCase();
       vb = (b.c.case||b.c.caseName||'').toString().toLowerCase();
@@ -6412,7 +6474,7 @@ function openSheetSelectModal(cases) {
   const biz = BIZ[curBiz];
   document.getElementById('sheet-select-modal').style.display = 'flex';
   document.getElementById('sheet-modal-info').textContent =
-    `${biz.short} · 총 ${cases.length}건 · ${cases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0),0).toLocaleString()}원`;
+    `${biz.short} · 총 ${cases.length}건 · ${cases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0),0).toLocaleString()}원`;
 }
 
 function closeSheetSelectModal() {
@@ -6487,7 +6549,7 @@ async function downloadExcelByMode(mode) {
 
     // 집행내역 등록 확인 팝업 — 지출결의서가 포함된 다운로드일 때만 의미가 있음
     if (mode === 'resol' || mode === 'all') {
-      const monthTotal = cases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0), 0);
+      const monthTotal = cases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0), 0);
       setTimeout(() => {
         openExecConfirmModal(cases, b, yy, mm, dd, monthTotal);
       }, 500);
@@ -6506,7 +6568,7 @@ function openExecConfirmModal(cases, b, yy, mm, dd, monthTotal) {
   _execConfirmArgs = { cases, b, yy, mm, dd };
   const el = document.getElementById('exec-confirm-content');
   const dateStr = `${yy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
-  const lawCases = cases.filter(c => !c._allowance);
+  const lawCases = cases.filter(c => !c._allowance && !c._overhead && c.type !== '인건비');
   el.innerHTML = `
     <div style="background:var(--light);border-radius:8px;padding:12px;margin-bottom:12px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
@@ -6554,8 +6616,8 @@ function recordExecution(cases, b, yy, mm, dd) {
   const dateStr    = `${yy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
 
   // 수당 제외 건수, 전체 합계 계산
-  const lawCases   = cases.filter(c => !c._allowance);
-  const monthTotal = cases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0), 0);
+  const lawCases   = cases.filter(c => !c._allowance && !c._overhead && c.type !== '인건비');
+  const monthTotal = cases.reduce((s,c)=>s+(c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0), 0);
 
   if (!EXEC_DATA[curBiz]) {
     EXEC_DATA[curBiz] = { income:[], monthly:[], budget:b.budget, executed:0 };
@@ -6585,7 +6647,7 @@ function recordExecution(cases, b, yy, mm, dd) {
   if (!PAID_CASES[curBiz]) PAID_CASES[curBiz] = [];
   PAID_CASES[curBiz] = PAID_CASES[curBiz].filter(p => !(p.date||'').startsWith(monthKey));
   cases.forEach(c => {
-    const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0);
+    const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0);
     const num = (c.num||'').replace(/^(국부|서금|양이원|대법원|법무부|성평등|이태원|서울시|초록우산|여객기)\s*/,'');
     PAID_CASES[curBiz].push({
       date: dateStr, num, client: c.client||'', lawyer: c.lawyer||'',
