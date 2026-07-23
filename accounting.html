@@ -3726,7 +3726,7 @@ function handleBankUpload(event) {
         const iIdx = row.findIndex(v=>v.includes('입금')||v.includes('수입'));
         const mIdx = row.findIndex(v=>v.includes('적요')||v.includes('내용')||v.includes('memo'));
         const bIdx = row.findIndex(v=>v.includes('잔액')||v.includes('balance'));
-        if (dIdx >= 0) {
+        if (dIdx >= 0 && (oIdx >= 0 || iIdx >= 0 || row.some(v=>v.includes('금액')))) {
           headerRow=i; dateCol=dIdx;
           outCol = oIdx>=0 ? oIdx : row.findIndex(v=>v.includes('금액'));
           inCol  = iIdx>=0 ? iIdx : -1;
@@ -3757,9 +3757,11 @@ function handleBankUpload(event) {
 
       const txList = [];
       let runBal = 0;
+      let lastDate = '';   // 날짜가 비어 있는 행(병합셀 등)은 직전 날짜를 이어서 사용
       for (let i=headerRow+1; i<rows.length; i++) {
         const row  = rows[i];
-        const date = row[dateCol]?.toString().trim();
+        let   date = row[dateCol]?.toString().trim();
+        if (date) lastDate = date; else date = lastDate;   // ← 빈 날짜 행이 통째로 스킵되던 문제 해결
         const memo = memoCol>=0 ? (row[memoCol]||'').toString().trim() : '';
         const bal  = balCol>=0 ? parseFloat((row[balCol]||'').toString().replace(/[,\s]/g,'')) : null;
 
