@@ -255,7 +255,12 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
 
       <!-- 전체 사업 현황 뷰 (별도) -->
       <div class="view" id="view-allbiz">
-        <p class="page-title">전체 사업 현황</p>
+        <p class="page-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          전체 사업 현황
+          <button onclick="refreshAllBiz()" class="btn btn-sm" style="border-color:var(--navy);color:var(--navy);padding:3px 12px;font-size:12px" title="모든 사업의 집행액을 월별 내역 합계로 다시 계산합니다">
+            <i class="ti ti-refresh" aria-hidden="true"></i> 전체 갱신
+          </button>
+        </p>
         <p class="page-sub">대한변협법률구조재단 · 2026년 기준</p>
 
         <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:1rem">
@@ -1907,6 +1912,30 @@ function renderBizInfo(biz) {
         <i class="ti ti-tools"></i> 이 사업의 회계 기능은 준비 중입니다
       </div>
     </div>`;
+}
+
+// ── 수동 전체 갱신 ──
+// 모든 사업의 집행액을 월별 내역 합계로 다시 계산하고 화면을 새로 그린다.
+function refreshAllBiz() {
+  const before = {};
+  Object.keys(BIZ).forEach(k => { before[k] = BIZ[k].executed || 0; });
+
+  normalizeAllExecuted();
+
+  const changes = Object.keys(BIZ)
+    .filter(k => (BIZ[k].executed||0) !== before[k])
+    .map(k => `· ${BIZ[k].short||k}: ${before[k].toLocaleString()} → ${(BIZ[k].executed||0).toLocaleString()}`);
+
+  renderAllBizTable();
+  renderDashboard();
+  if (typeof renderExecView === 'function') { try { renderExecView(); } catch(e){} }
+
+  if (changes.length) {
+    showToast(`${changes.length}개 사업 갱신됨`);
+    console.log('[전체 갱신]\n' + changes.join('\n'));
+  } else {
+    showToast('이미 최신 상태입니다');
+  }
 }
 
 // ── 모든 사업의 집행액을 월별 합계로 재계산 ──
