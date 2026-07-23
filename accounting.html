@@ -951,7 +951,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
         </div>
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-            <div class="card-title" style="margin-bottom:0"><i class="ti ti-list-details" aria-hidden="true"></i> 전체 지급 내역 (123건)</div>
+            <div class="card-title" style="margin-bottom:0"><i class="ti ti-list-details" aria-hidden="true"></i> 전체 지급 내역 <span id="paid-count">(0건)</span></div>
           </div>
           <div id="exec-detail" style="max-height:400px;overflow-y:auto"></div>
         </div>
@@ -3718,7 +3718,7 @@ function handleBankUpload(event) {
       const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
 
       // 헤더 찾기
-      let headerRow=-1, dateCol=-1, outCol=-1, inCol=-1, memoCol=-1, balCol=-1;
+      let headerRow=-1, dateCol=-1, outCol=-1, inCol=-1, memoCol=-1, balCol=-1, payeeCol=-1;
       for (let i=0; i<Math.min(10,rows.length); i++) {
         const row = rows[i].map(v=>v.toString().toLowerCase());
         const dIdx = row.findIndex(v=>v.includes('날짜')||v.includes('거래일')||v.includes('date'));
@@ -3726,8 +3726,10 @@ function handleBankUpload(event) {
         const iIdx = row.findIndex(v=>v.includes('입금')||v.includes('수입'));
         const mIdx = row.findIndex(v=>v.includes('적요')||v.includes('내용')||v.includes('memo'));
         const bIdx = row.findIndex(v=>v.includes('잔액')||v.includes('balance'));
+        const pIdx = row.findIndex(v=>v.includes('수취인')||v.includes('예금주')||v.includes('지급처'));
         if (dIdx >= 0 && (oIdx >= 0 || iIdx >= 0 || row.some(v=>v.includes('금액')))) {
           headerRow=i; dateCol=dIdx;
+          payeeCol = pIdx;
           outCol = oIdx>=0 ? oIdx : row.findIndex(v=>v.includes('금액'));
           inCol  = iIdx>=0 ? iIdx : -1;
           memoCol= mIdx>=0 ? mIdx : -1;
@@ -3779,7 +3781,8 @@ function handleBankUpload(event) {
 
         if (bal !== null) runBal = bal;
         const category = classifyMemo(memo);
-        txList.push({ date, outAmt, inAmt, memo, category, balance: bal });
+        const payee = payeeCol>=0 ? (row[payeeCol]||'').toString().trim() : '';
+        txList.push({ date, outAmt, inAmt, memo, category, balance: bal, payee });
       }
 
       // 계정과목별 집계
@@ -3883,19 +3886,72 @@ function importBankToExec() {
   const data = window._parsedBankData;
   if (!data) return;
   if (!EXEC_DATA[curBiz]) EXEC_DATA[curBiz] = { income:[], monthly:[], budget:BIZ[curBiz].budget, executed:0 };
+  const ex = EXEC_DATA[curBiz];
+  if (!ex.income)  ex.income  = [];
+  if (!ex.monthly) ex.monthly = [];
+  if (!PAID_CASES[curBiz]) PAID_CASES[curBiz] = [];
+
+  const toYmd = s => {
+    const m = (s||'').toString().match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
+    return m ? `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}` : '';
+  };
 
   let addedIn=0, addedOut=0;
+  const touchedMonths = new Set();
+
   data.txList.forEach(t => {
+    const ymd = toYmd(t.date);
+    if (!ymd) return;
+
+    // ── 수입(입금) ──
     if (t.inAmt > 0) {
-      const exists = EXEC_DATA[curBiz].income.some(r => r.date===t.date && r.amt===t.inAmt && r.note===t.memo);
-      if (!exists) { EXEC_DATA[curBiz].income.push({ date:t.date, amt:t.inAmt, note:t.memo }); addedIn++; }
+      const exists = ex.income.some(r => r.date===ymd && r.amt===t.inAmt && r.note===t.memo);
+      if (!exists) { ex.income.push({ date:ymd, amt:t.inAmt, note:t.memo }); addedIn++; }
+      return;
+    }
+
+    // ── 지출(출금) ── 예전에는 통째로 무시되어 월별·지급내역에 안 들어갔음
+    if (t.outAmt > 0) {
+      const mm = ymd.slice(0,7);
+      const mo = t.memo.match(/^(\d{2}-\d+)\s*(.*)$/);   // "26-5강윤호" → 접수번호+의뢰인
+      const prefix = BIZ[curBiz]?.prefix || '';
+      const entry = {
+        date: ymd,
+        num: mo ? `${prefix} ${mo[1]}`.trim() : '',
+        client: mo ? (mo[2]||'').trim() : t.memo,
+        lawyer: t.payee || '',
+        firm: t.payee || '',
+        amt: t.outAmt,
+        type: /이자|수수료/.test(t.memo) ? '기타' : '민사',
+        note: t.category || ''
+      };
+      const dup = PAID_CASES[curBiz].some(p => p.date===ymd && p.amt===t.outAmt && (p.client||'')===entry.client);
+      if (!dup) { PAID_CASES[curBiz].push(entry); addedOut++; touchedMonths.add(mm); }
     }
   });
 
+  // 지출이 생긴 달은 월별 내역을 지급내역 기준으로 다시 만든다 (월별 파일을 나눠 올려도 누적됨)
+  touchedMonths.forEach(mm => {
+    const list = PAID_CASES[curBiz].filter(p => (p.date||'').startsWith(mm));
+    const total = list.reduce((s,p)=>s+(p.amt||0), 0);
+    const entry = {
+      month: mm, label: `${parseInt(mm.slice(5,7),10)}월`,
+      count: list.length, total,
+      date: list.map(p=>p.date).sort().pop() || (mm+'-01'), status: '완료'
+    };
+    const idx = ex.monthly.findIndex(m => m.month === mm);
+    if (idx >= 0) ex.monthly[idx] = entry; else ex.monthly.push(entry);
+  });
+  ex.monthly.sort((a,b)=> a.month.localeCompare(b.month));
+  ex.executed = ex.monthly.reduce((s,m)=>s+(m.total||0), 0);
+  BIZ[curBiz].executed = ex.executed;
+
   savePersistedData();
   renderBudget();
+  renderDashboard();
+  if (typeof renderExecView === 'function') { try { renderExecView(); } catch(e){} }
   if (document.getElementById('view-exec')?.classList.contains('active')) renderExecHistory();
-  showToast(`수입 ${addedIn}건 집행내역에 등록됐습니다`);
+  showToast(`수입 ${addedIn}건 · 지출 ${addedOut}건 등록됐습니다`);
 }
 
 
@@ -4402,6 +4458,8 @@ function renderExecHistory() {
 
   // ── 전체 지급 내역 상세 ──
   const paid = PAID_CASES[curBiz] || [];
+  const paidCountEl = document.getElementById('paid-count');
+  if (paidCountEl) paidCountEl.textContent = `(${paid.length}건)`;   // 하드코딩된 건수 대신 실제 건수
   document.getElementById("exec-detail").innerHTML = `
     <table class="tbl">
       <thead><tr>
