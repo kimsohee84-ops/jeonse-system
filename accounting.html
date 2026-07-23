@@ -255,7 +255,12 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
 
       <!-- 전체 사업 현황 뷰 (별도) -->
       <div class="view" id="view-allbiz">
-        <p class="page-title">전체 사업 현황</p>
+        <p class="page-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          전체 사업 현황
+          <button onclick="refreshAllBiz()" class="btn btn-sm" style="border-color:var(--navy);color:var(--navy);padding:3px 12px;font-size:12px" title="모든 사업의 집행액을 월별 내역 합계로 다시 계산합니다">
+            <i class="ti ti-refresh" aria-hidden="true"></i> 전체 갱신
+          </button>
+        </p>
         <p class="page-sub">대한변협법률구조재단 · 2026년 기준</p>
 
         <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:1rem">
@@ -274,7 +279,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
 
         <div class="card" style="overflow-x:auto">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <div class="card-title" style="margin-bottom:0"><i class="ti ti-building-bank" aria-hidden="true"></i> 사업별 현황 <span style="font-size:11px;color:var(--muted);font-weight:400">기준일: 2026.06.08.</span></div>
+            <div class="card-title" style="margin-bottom:0"><i class="ti ti-building-bank" aria-hidden="true"></i> 사업별 현황 <span style="font-size:11px;color:var(--muted);font-weight:400" id="allbiz-asof">기준일: -</span></div>
             <button onclick="openAddBizModal()" class="btn btn-sm btn-primary" style="font-size:11px"><i class="ti ti-plus"></i> 신규 사업 추가</button>
             <button onclick="openBizEditModal()" class="btn btn-sm" style="font-size:11px"><i class="ti ti-edit"></i> 현황 업데이트</button>
           </div>
@@ -1761,6 +1766,7 @@ function showView(name) {
 }
 
 function renderDashboard() {
+  if (typeof normalizeAllExecuted === 'function') normalizeAllExecuted();
   savePersistedData();
   const b = BIZ[curBiz];
   const allCases = [...b.cases, ...resolList[curBiz]];
@@ -1908,10 +1914,58 @@ function renderBizInfo(biz) {
     </div>`;
 }
 
+// ── 수동 전체 갱신 ──
+// 모든 사업의 집행액을 월별 내역 합계로 다시 계산하고 화면을 새로 그린다.
+function refreshAllBiz() {
+  const before = {};
+  Object.keys(BIZ).forEach(k => { before[k] = BIZ[k].executed || 0; });
+
+  normalizeAllExecuted();
+
+  const changes = Object.keys(BIZ)
+    .filter(k => (BIZ[k].executed||0) !== before[k])
+    .map(k => `· ${BIZ[k].short||k}: ${before[k].toLocaleString()} → ${(BIZ[k].executed||0).toLocaleString()}`);
+
+  renderAllBizTable();
+  renderDashboard();
+  if (typeof renderExecView === 'function') { try { renderExecView(); } catch(e){} }
+
+  if (changes.length) {
+    showToast(`${changes.length}개 사업 갱신됨`);
+    console.log('[전체 갱신]\n' + changes.join('\n'));
+  } else {
+    showToast('이미 최신 상태입니다');
+  }
+}
+
+// ── 모든 사업의 집행액을 월별 합계로 재계산 ──
+// 월별 내역이 있는 사업은 그 합계가 정답. (과거 시드 값이 남아 이중 집계되던 문제 교정)
+function normalizeAllExecuted() {
+  let changed = false;
+  Object.keys(BIZ).forEach(k => {
+    const ex = EXEC_DATA[k];
+    if (!ex || !(ex.monthly||[]).length) return;
+    const sum = ex.monthly.reduce((s,m)=>s+(m.total||0), 0);
+    if (ex.executed !== sum) { ex.executed = sum; changed = true; }
+    if (BIZ[k].executed !== sum) { BIZ[k].executed = sum; changed = true; }
+  });
+  if (changed && typeof savePersistedData === 'function') savePersistedData();
+  return changed;
+}
+
 // ── 전체 사업 현황 테이블 렌더링 ──
 function renderAllBizTable() {
   const el = document.getElementById('all-biz-table');
   if (!el) return;
+
+  normalizeAllExecuted();   // 표시 전에 모든 사업 집행액을 월별 합계로 맞춤
+
+  // 기준일 = 오늘 (하드코딩된 날짜 대신 실제 갱신 시점 표시)
+  const asOfEl = document.getElementById('allbiz-asof');
+  if (asOfEl) {
+    const d = new Date();
+    asOfEl.textContent = `기준일: ${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}.`;
+  }
 
   // ALL_BIZ_DATA에서 연결된 사업의 실제 집행액 반영
   const data = ALL_BIZ_DATA.map((b, origIdx) => {
@@ -4056,7 +4110,7 @@ const ALL_BIZ_DATA = [
     budget:500000000, exec:118790970, target:250, done:25,
     paid:400000000, pending:100000000,
     detail:'소송구조 287,800,000 / 법률상담 30,000,000 / 법률교육 20,000,000 / 홍보영상 4,500,000 / 임차료 27,600,000 / 인건비 126,000,000 / 경상비 4,100,000',
-    status:'진행중', note:'1분기,2분기 교부신청 제출. 27년도 산출내역(5억원 동결) 제출',
+    status:'진행중', linked:'moj', note:'1분기,2분기 교부신청 제출. 27년도 산출내역(5억원 동결) 제출',
     items:[
       { name:'법률구조사업비', budget:342300000, exec:40192100, children:[
         { name:'소송구조', budget:287800000, exec:40192100, children:[
@@ -4081,7 +4135,7 @@ const ALL_BIZ_DATA = [
     budget:118000000, exec:17342900, target:126, done:20,
     paid:59000000, pending:59000000,
     detail:'소송구조 117,100,000 / 검증비 574,000 / 사무용품비 326,000',
-    status:'진행중', note:'연장평가 완료. 상반기 교부신청 제출',
+    status:'진행중', linked:'court', note:'연장평가 완료. 상반기 교부신청 제출',
     items:[
       { name:'소송구조', budget:117100000, children:[
         { name:'변호사보수', budget:0 },
@@ -4096,7 +4150,7 @@ const ALL_BIZ_DATA = [
     budget:605000000, exec:184018092, target:330, done:95,
     paid:302500000, pending:302500000,
     detail:'소송구조 512,700,000 / 사무용품비 2,300,000 / 인건비 90,000,000',
-    status:'진행중', note:'상반기 교부신청 제출. 25년도 실적 및 정산보고 제출',
+    status:'진행중', linked:'gender', note:'상반기 교부신청 제출. 25년도 실적 및 정산보고 제출',
     items:[
       { name:'법률구조사업비', budget:512700000, children:[
         { name:'소송구조', budget:512700000, children:[
@@ -4115,7 +4169,7 @@ const ALL_BIZ_DATA = [
     budget:80000000, exec:9200000, target:37, done:2,
     paid:64000000, pending:16000000,
     detail:'법률지원 50,527,600 / 인건비 25,472,400 / 일반관리비 4,000,000',
-    status:'신규', note:'신규사업. e나라도움 등록완료. 예산 80% 교부완료',
+    status:'신규', linked:'mois', note:'신규사업. e나라도움 등록완료. 예산 80% 교부완료',
     items:[
       { name:'법률구조사업비', budget:50527600, children:[
         { name:'법률지원(소송구조)', budget:50527600, children:[] },
@@ -4130,7 +4184,7 @@ const ALL_BIZ_DATA = [
     budget:200000000, exec:63289870, target:210, done:47,
     paid:200000000, pending:0,
     detail:'소송구조 173,000,000 / 교통비 250,000 / 통신비 350,000 / 인건비 26,400,000',
-    status:'진행중', note:'26년도 사업계획 및 교부신청 제출',
+    status:'진행중', linked:'yangik', note:'26년도 사업계획 및 교부신청 제출',
     items:[
       { name:'법률구조사업비', budget:173000000, children:[
         { name:'소송구조', budget:173000000, children:[
@@ -4180,7 +4234,7 @@ const ALL_BIZ_DATA = [
     budget:40000000, exec:17151500, target:10, done:4,
     paid:40000000, pending:0,
     detail:'소송구조 36,000,000 / 운영비 800,000 / 일반관리비 3,200,000',
-    status:'진행중', note:'2월 협약완료. 전체 예산 지급받음',
+    status:'진행중', linked:'seoul', note:'2월 협약완료. 전체 예산 지급받음',
     items:[
       { name:'법률구조사업비', budget:36000000, children:[
         { name:'소송구조', budget:36000000, children:[] },
@@ -4194,7 +4248,7 @@ const ALL_BIZ_DATA = [
     budget:40000000, exec:0, target:12, done:0,
     paid:0, pending:40000000,
     detail:'법률지원 23,000,000 (12/9)',
-    status:'신규', note:'신규사업. 예산 80% 교부완료',
+    status:'신규', linked:'air', note:'신규사업. 예산 80% 교부완료',
     items:[
       { name:'법률구조사업비', budget:23000000, children:[
         { name:'법률지원', budget:23000000, children:[] },
@@ -4204,7 +4258,7 @@ const ALL_BIZ_DATA = [
     budget:30000000, exec:0, target:10, done:0,
     paid:0, pending:30000000,
     detail:'소송구조 23,000,000 / 홍보영상 7,000,000',
-    status:'진행중', note:'26년도 사업계획 및 교부신청 제출',
+    status:'진행중', linked:'green', note:'26년도 사업계획 및 교부신청 제출',
     items:[
       { name:'법률구조사업비', budget:23000000, children:[
         { name:'소송구조', budget:23000000, children:[] },
