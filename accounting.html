@@ -3064,17 +3064,64 @@ function parseExecSheet(wb, sheetName) {
       let headerRowIdx = -1;
       const dateWords = ['이체일자','날짜','지급일','비용지급일자','소송 비용 지급일','비용집행일자'];
       const amtWords  = ['집행액','금액','집행금액'];
-      for (let i = 0; i < Math.min(6, rows.length); i++) {
-        const rowTxt = rows[i].map(v=>(v||'').toString());
-        const hasDate = rowTxt.some(v=>dateWords.some(w=>v.includes(w)));
-        const hasAmt  = rowTxt.some(v=>amtWords.some(w=>v.includes(w)));
-        if (hasDate && hasAmt) { headerRowIdx = i; break; }
+
+      // ── "1. 수입" / "2. 지출" 섹션 위치 먼저 파악 ──
+      // 이 구분이 없으면 수입 행까지 지출로 집계되어 총지출이 부풀려진다.
+      let secIncomeIdx = -1, secOutIdx = -1;
+      for (let i = 0; i < Math.min(60, rows.length); i++) {
+        const t = (rows[i]||[]).map(v=>(v||'').toString()).join(' ');
+        if (secIncomeIdx < 0 && /1\s*\.?\s*수\s*입/.test(t)) secIncomeIdx = i;
+        if (secOutIdx    < 0 && /2\s*\.?\s*지\s*출/.test(t)) secOutIdx    = i;
+      }
+
+      const isHeaderRow = (i) => {
+        const rowTxt = (rows[i]||[]).map(v=>(v||'').toString());
+        return rowTxt.some(v=>dateWords.some(w=>v.includes(w)))
+            && rowTxt.some(v=>amtWords.some(w=>v.includes(w)));
+      };
+
+      if (secOutIdx >= 0) {
+        // 지출 섹션 바로 아래의 헤더를 지출 헤더로 사용 (수입 헤더를 잘못 잡는 문제 방지)
+        for (let i = secOutIdx+1; i < Math.min(secOutIdx+8, rows.length); i++) {
+          if (isHeaderRow(i)) { headerRowIdx = i; break; }
+        }
+      }
+      if (headerRowIdx < 0) {
+        for (let i = 0; i < Math.min(30, rows.length); i++) {
+          if (isHeaderRow(i)) { headerRowIdx = i; break; }
+        }
       }
 
       let incomeRows = [];
       let outRows    = [];
 
       if (headerRowIdx >= 0 && profile) {
+        // ── 수입 섹션 파싱 (지출로 잘못 잡히지 않도록 별도 처리) ──
+        if (secIncomeIdx >= 0) {
+          let incHdr = -1;
+          for (let i = secIncomeIdx+1; i < Math.min(secIncomeIdx+8, rows.length); i++) {
+            if (isHeaderRow(i)) { incHdr = i; break; }
+          }
+          if (incHdr >= 0) {
+            const ih = rows[incHdr].map(v=>(v||'').toString().trim());
+            const ic = {
+              date: ih.findIndex(h=>dateWords.some(w=>h.includes(w))),
+              amt:  ih.findIndex(h=>amtWords.some(w=>h.includes(w))),
+              note: ih.findIndex(h=>h.includes('적요')||h.includes('내용')||h.includes('비고')),
+            };
+            const end = secOutIdx >= 0 ? secOutIdx : rows.length;
+            for (let i = incHdr+1; i < end; i++) {
+              const row = rows[i]; if (!row) continue;
+              const t = row.map(v=>(v||'').toString()).join(' ');
+              if (/합\s*계|소\s*계/.test(t)) continue;
+              const dateStr = parseDate(ic.date>=0 ? row[ic.date] : '');
+              const amt = ic.amt>=0 ? num(row[ic.amt]) : 0;
+              if (!dateStr || !amt) continue;
+              incomeRows.push({ date: dateStr, amt, note: ic.note>=0 ? (row[ic.note]||'').toString().trim() : '' });
+            }
+          }
+        }
+
         // ══ 프로파일 매핑 기반 파싱 (사업별 컬럼 구조가 다름) ══
         const header = rows[headerRowIdx].map(v=>(v||'').toString().trim());
         const findCol = (candidates) => {
@@ -3095,6 +3142,11 @@ function parseExecSheet(wb, sheetName) {
           const dateStr = parseDate(colMap.date>=0 ? row[colMap.date] : '');
           const amt     = colMap.amt>=0 ? num(row[colMap.amt]) : 0;
           if (!dateStr || !amt) continue; // 합계행/빈행 스킵
+          if (amt < 0) {   // 반납/환입은 지출이 아니라 수입(마이너스)으로 처리
+            const memoTxt = colMap.caseTxt>=0 ? (row[colMap.caseTxt]||'').toString().trim() : '';
+            incomeRows.push({ date: dateStr, amt, note: (memoTxt || '') + ' (반납)' });
+            continue;
+          }
 
           // 운영비 컬럼 중 값이 들어있는 게 있으면 운영비로 분류
           const opsAmt = opsCol.reduce((s,c) => s + num(row[c]), 0);
