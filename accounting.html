@@ -3522,9 +3522,12 @@ function importExecMonth(mm, mData) {
     date: (mData.cases[0]?.date || mm+'-01'), status: '완료'
   };
   const idx = ex.monthly.findIndex(m => m.month === mm);
-  if (idx >= 0) { ex.executed -= (ex.monthly[idx].total||0); ex.monthly[idx] = entry; }
-  else            ex.monthly.push(entry);
-  ex.executed += mData.total;
+  if (idx >= 0) ex.monthly[idx] = entry;
+  else          ex.monthly.push(entry);
+  // 집행액은 월별 합계로 항상 다시 계산한다.
+  // (예전에는 기존 executed 값에 더하기만 해서, 시드로 들어있던 옛 집행액이
+  //  월별 합계와 이중으로 잡히는 문제가 있었음)
+  ex.executed = ex.monthly.reduce((s,m)=>s+(m.total||0), 0);
   BIZ[curBiz].executed = ex.executed;
 
   // PAID_CASES 저장 (접수번호로 유형 매칭)
@@ -4228,6 +4231,16 @@ function renderExecHistory() {
   const incomeNet     = unsettledIncome + settledNet;
   const incomePlus    = income.filter(r=>(r.amt||0)>0).reduce((s,r)=>s+r.amt, 0);
   const incomeMinus   = income.filter(r=>(r.amt||0)<0).reduce((s,r)=>s+r.amt, 0);
+  // 월별 내역이 있으면 집행액은 항상 그 합계로 맞춘다.
+  // (과거 시드 값이 남아 월별 합계와 이중으로 잡히던 문제를 자동 교정)
+  if ((ex.monthly||[]).length) {
+    const mSum = ex.monthly.reduce((s,m)=>s+(m.total||0), 0);
+    if (ex.executed !== mSum) {
+      ex.executed = mSum;
+      BIZ[curBiz].executed = mSum;
+      if (typeof savePersistedData === 'function') savePersistedData();
+    }
+  }
   const totalOut      = ex.executed || 0;
   const budget        = BIZ[curBiz].budget;
   const balance       = incomeNet - totalOut;
@@ -6946,12 +6959,12 @@ function recordExecution(cases, b, yy, mm, dd) {
     total: monthTotal, date: dateStr, status: '완료'
   };
   if (existingIdx >= 0) {
-    ex.executed -= (ex.monthly[existingIdx].total || 0);
     ex.monthly[existingIdx] = monthEntry;
   } else {
     ex.monthly.push(monthEntry);
   }
-  ex.executed += monthTotal;
+  // 집행액 = 월별 합계 (누적 더하기로 인한 이중 집계 방지)
+  ex.executed = ex.monthly.reduce((s,m)=>s+(m.total||0), 0);
   ex.budget    = b.budget;
 
   // BIZ 집행액 동기화
