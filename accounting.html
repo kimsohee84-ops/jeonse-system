@@ -2059,6 +2059,7 @@ function renderAllBizTable() {
 function openBudgetCatModal(bizKey) {
   _bcBiz = bizKey || curBiz;
   _bcRows = JSON.parse(JSON.stringify(BUDGET_CATS[_bcBiz] || []));
+  if (!_bcRows.length && typeof catsFromBizItems === 'function') _bcRows = catsFromBizItems(_bcBiz);
   if (!_bcRows.length) _bcRows = [{cat:'',sub:'',budget:0,group:''}];
   const lbl = document.getElementById('bc-biz-label');
   if (lbl) lbl.textContent = '— ' + (BIZ[_bcBiz]?.short || _bcBiz);
@@ -2137,8 +2138,28 @@ function saveBudgetCats() {
 // ── 비목/세목별 집행 현황 표 ──
 // 집행액은 지급내역(PAID_CASES)의 note/유형이 세목과 일치하면 집계.
 // 매칭이 없으면 0으로 두고, 변호사보수성 지출은 '소송구조' 세목에 합산.
+// 기존 사업 항목(items 트리)을 비목/세목 행으로 변환
+// → 사업마다 이미 등록된 예산 구조를 그대로 쓰고, 필요하면 '항목 설정'에서 수정
+function catsFromBizItems(bizKey) {
+  const bd = ALL_BIZ_DATA.find(d => d.linked === bizKey);
+  if (!bd || !bd.items || !bd.items.length) return [];
+  const out = [];
+  bd.items.forEach(top => {
+    const kids = top.children || [];
+    if (!kids.length) {
+      out.push({ cat: top.name, sub: top.name, budget: top.budget||0, group:'' });
+      return;
+    }
+    kids.forEach(k => {
+      out.push({ cat: top.name, sub: k.name, budget: k.budget||0, group:'' });
+    });
+  });
+  return out;
+}
+
 function renderBudgetCatTable(bizKey) {
-  const rows = BUDGET_CATS[bizKey] || [];
+  let rows = BUDGET_CATS[bizKey] || [];
+  if (!rows.length) rows = catsFromBizItems(bizKey);   // 저장된 항목이 없으면 기존 예산 구조 사용
   const el = document.getElementById('budget-cat-table');
   if (!el) return;
   if (!rows.length) {
