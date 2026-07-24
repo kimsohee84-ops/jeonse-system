@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>대한변협법률구조 사업 회계시스템</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -22,7 +22,7 @@
   --shadow:0 1px 3px rgba(0,0,0,.08);
   --shadow-md:0 4px 6px rgba(0,0,0,.07);
 }
-body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+body{font-family:"IBM Plex Sans KR",sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
 .mono{font-family:"IBM Plex Mono",monospace}
 
 /* 로그인 */
@@ -34,11 +34,11 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
 .login-logo p{font-size:12px;color:var(--muted);margin-top:3px}
 .form-group{margin-bottom:1rem}
 .form-label{display:block;font-size:13px;font-weight:500;margin-bottom:5px}
-.form-input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:"Noto Sans KR",sans-serif;outline:none;transition:border-color .15s;background:var(--surface);color:var(--text)}
+.form-input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:"IBM Plex Sans KR",sans-serif;outline:none;transition:border-color .15s;background:var(--surface);color:var(--text)}
 .form-input:focus{border-color:var(--blue)}
-.form-select{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:"Noto Sans KR",sans-serif;outline:none;background:var(--surface);color:var(--text);cursor:pointer}
+.form-select{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:"IBM Plex Sans KR",sans-serif;outline:none;background:var(--surface);color:var(--text);cursor:pointer}
 .form-select:focus{border-color:var(--blue)}
-.btn-login{width:100%;padding:10px;background:var(--navy);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;font-family:"Noto Sans KR",sans-serif;cursor:pointer;margin-top:.5rem}
+.btn-login{width:100%;padding:10px;background:var(--navy);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;font-family:"IBM Plex Sans KR",sans-serif;cursor:pointer;margin-top:.5rem}
 .btn-login:hover{background:var(--blue)}
 .login-error{font-size:12px;color:#DC2626;margin-top:.5rem;text-align:center;display:none}
 .login-hint{font-size:11px;color:var(--muted);text-align:center;margin-top:1rem;line-height:1.6}
@@ -50,7 +50,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
 .topnav-logo{font-size:15px;font-weight:600}
 .topnav-right{display:flex;align-items:center;gap:10px}
 .user-badge{background:rgba(255,255,255,.15);padding:3px 10px;border-radius:20px;font-size:12px}
-.btn-out{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;padding:3px 10px;border-radius:var(--radius);font-size:12px;cursor:pointer;font-family:"Noto Sans KR",sans-serif}
+.btn-out{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;padding:3px 10px;border-radius:var(--radius);font-size:12px;cursor:pointer;font-family:"IBM Plex Sans KR",sans-serif}
 
 /* 사업 탭 */
 .biz-tabs{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;gap:0;flex-shrink:0}
@@ -89,7 +89,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
 .bn{background:#EBF3FC;color:var(--navy)}
 
 /* 버튼 */
-.btn{padding:7px 14px;border-radius:var(--radius);font-size:13px;font-weight:500;font-family:"Noto Sans KR",sans-serif;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.btn{padding:7px 14px;border-radius:var(--radius);font-size:13px;font-weight:500;font-family:"IBM Plex Sans KR",sans-serif;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
 .btn:hover{background:var(--light)}
 .btn-primary{background:var(--navy);color:#fff;border-color:var(--navy)}
 .btn-primary:hover{background:var(--blue)}
@@ -268,7 +268,7 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
           <div style="font-size:13px;color:var(--muted)">사업별</div>
           <div style="display:flex;gap:8px;align-items:center">
-            <span style="font-size:11px;color:var(--muted)">추이 = 월별 누적 집행</span>
+            
             <button onclick="openAddBizModal()" class="btn btn-sm" style="font-size:11px;border-color:#0f6e56;color:#0f6e56"><i class="ti ti-plus"></i> 신규 사업</button>
             <button onclick="openBizEditModal()" class="btn btn-sm" style="font-size:11px"><i class="ti ti-edit"></i> 현황 수정</button>
           </div>
@@ -1988,7 +1988,7 @@ function renderAllBizTable() {
   });
 
   const won = n => (n||0).toLocaleString();
-  const GREEN = '#0f6e56', LINE = '#1d9e75', WARN = '#a3540b', WARNL = '#c98500';
+  const GREEN = '#0a5a45', LINE = '#0f6e56', WARN = '#8a4508', WARNL = '#b06f0a';
 
   // ── 상단 지표 ──
   const T = data.reduce((a,b)=>({
@@ -1999,9 +1999,9 @@ function renderAllBizTable() {
   if (kpi) {
     const cell = (label, val, sub, color) => `
       <div style="background:var(--surface);padding:22px 24px">
-        <div style="font-size:13px;color:var(--muted);margin-bottom:8px">${label}</div>
-        <div style="font-size:30px;line-height:1.05;font-weight:600;letter-spacing:-0.5px${color?`;color:${color}`:''}">${val}</div>
-        ${sub?`<div style="font-size:13px;color:${color||'var(--muted)'};margin-top:7px">${sub}</div>`:''}
+        <div style="font-size:13px;color:#475569;font-weight:500;margin-bottom:8px">${label}</div>
+        <div style="font-size:30px;line-height:1.05;font-weight:600;letter-spacing:-0.3px;color:${color||'#0f172a'}">${val}</div>
+        ${sub?`<div style="font-size:13px;font-weight:500;color:${color||'#475569'};margin-top:7px">${sub}</div>`:''}
       </div>`;
     kpi.innerHTML =
       cell('총 예산', won(T.budget)) +
@@ -2010,51 +2010,47 @@ function renderAllBizTable() {
       cell('잔액', won(T.budget - T.exec));
   }
 
-  // 월별 누적 집행 추이선 (없으면 빈 칸)
-  const spark = (ex, over) => {
-    const ms = (ex && ex.monthly || []).slice().sort((a,b)=>String(a.month).localeCompare(String(b.month)));
-    if (ms.length < 2) return '';
-    let run = 0; const cum = ms.map(m => (run += (m.total||0)));
-    const max = cum[cum.length-1] || 1;
-    const pts = cum.map((v,i)=>{
-      const x = 3 + i*(100/(cum.length-1));
-      const y = 31 - (v/max)*27;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-    const last = pts.split(' ').pop().split(',');
-    return `<svg width="106" height="34" viewBox="0 0 106 34" role="img" aria-label="월별 누적 집행 추이">
-      <polyline points="${pts}" fill="none" stroke="${over?WARNL:LINE}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="${last[0]}" cy="${last[1]}" r="3.5" fill="${over?WARN:GREEN}"/></svg>`;
+  // 집행률 원형 게이지 (예산 대비 집행)
+  const ring = (exec, budget, over) => {
+    const r = 15, C = 2*Math.PI*r;                 // 둘레
+    const p = budget ? Math.min(exec/budget, 1) : 0;
+    const on = (C*p).toFixed(1), off = (C - C*p).toFixed(1);
+    const pctNum = budget ? Math.round(exec/budget*100) : 0;
+    return `<svg width="46" height="46" viewBox="0 0 46 46" role="img" aria-label="집행률 ${pctNum}퍼센트">
+      <circle cx="23" cy="23" r="${r}" fill="none" stroke="#e6eae8" stroke-width="6"/>
+      <circle cx="23" cy="23" r="${r}" fill="none" stroke="${over?WARN:GREEN}" stroke-width="6"
+              stroke-linecap="round" stroke-dasharray="${on} ${off}" transform="rotate(-90 23 23)"/>
+    </svg>`;
   };
 
-  const COLS = '1.6fr 1fr 1fr 1fr 110px 0.7fr';
-  let html = `<div style="display:grid;grid-template-columns:${COLS};gap:12px;padding:12px 20px;background:var(--light);font-size:13px;color:var(--muted)">
+  const COLS = '1.6fr 1fr 1fr 1fr 70px 0.7fr';
+  let html = `<div style="display:grid;grid-template-columns:${COLS};gap:12px;padding:12px 20px;background:var(--light);font-size:13px;color:#334155;font-weight:500">
     <div>사업</div><div style="text-align:right">예산</div><div style="text-align:right">교부액</div>
-    <div style="text-align:right">집행액</div><div style="text-align:center">추이</div><div style="text-align:right">집행률</div>
+    <div style="text-align:right">집행액</div><div style="text-align:center">집행</div><div style="text-align:right">집행률</div>
   </div>`;
 
   data.forEach(b => {
     const paid = b.paid||0, exec = b.exec||0;
     const over = paid > 0 && exec > paid;      // 교부액 초과
     const sub  = over ? `<div style="font-size:12px;color:${WARN};margin-top:3px">교부액 초과</div>`
-                      : `<div style="font-size:12px;color:var(--muted);margin-top:3px">${b.type||''}${b.manager?' · '+b.manager:''}</div>`;
+                      : `<div style="font-size:12px;color:#64748b;margin-top:3px">${b.type||''}${b.manager?' · '+b.manager:''}</div>`;
     html += `<div style="display:grid;grid-template-columns:${COLS};gap:12px;padding:18px 20px;background:var(--surface);border-top:1px solid var(--border);align-items:center;cursor:pointer" onclick="editBizRow(${b._origIdx})">
-      <div><div style="font-size:17px;font-weight:500">${b.agency||''}</div>${sub}</div>
-      <div style="text-align:right;font-family:monospace;font-size:15px">${won(b.budget)}</div>
-      <div style="text-align:right;font-family:monospace;font-size:15px;color:var(--muted)">${won(paid)}</div>
-      <div style="text-align:right;font-family:monospace;font-size:15px;color:${over?WARN:GREEN}">${won(exec)}</div>
-      <div style="text-align:center">${spark(b._ex, over)}</div>
-      <div style="text-align:right;font-size:24px;font-weight:600;color:${over?WARN:'inherit'}">${b.budget?Math.round(exec/b.budget*100):0}%</div>
+      <div><div style="font-size:17px;font-weight:600;color:#0f172a">${b.agency||''}</div>${sub}</div>
+      <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:#0f172a">${won(b.budget)}</div>
+      <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:#475569">${won(paid)}</div>
+      <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:${over?WARN:GREEN}">${won(exec)}</div>
+      <div style="text-align:center">${ring(exec, b.budget, over)}</div>
+      <div style="text-align:right;font-size:24px;font-weight:700;color:${over?WARN:'#0f172a'}">${b.budget?Math.round(exec/b.budget*100):0}%</div>
     </div>`;
   });
 
   html += `<div style="display:grid;grid-template-columns:${COLS};gap:12px;padding:18px 20px;background:var(--light);border-top:2px solid var(--border);align-items:center">
-    <div style="font-size:17px;font-weight:600">합계</div>
-    <div style="text-align:right;font-family:monospace;font-size:15px">${won(T.budget)}</div>
-    <div style="text-align:right;font-family:monospace;font-size:15px">${won(T.paid)}</div>
-    <div style="text-align:right;font-family:monospace;font-size:15px;color:${GREEN}">${won(T.exec)}</div>
+    <div style="font-size:17px;font-weight:700;color:#0f172a">합계</div>
+    <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:#0f172a">${won(T.budget)}</div>
+    <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:#0f172a">${won(T.paid)}</div>
+    <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;color:${GREEN}">${won(T.exec)}</div>
     <div></div>
-    <div style="text-align:right;font-size:24px;font-weight:600">${T.budget?Math.round(T.exec/T.budget*100):0}%</div>
+    <div style="text-align:right;font-size:24px;font-weight:700;color:#0f172a">${T.budget?Math.round(T.exec/T.budget*100):0}%</div>
   </div>`;
 
   el.innerHTML = html;
@@ -4953,7 +4949,7 @@ function printCheckList() {
   <title>담당자 확인표</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:"Noto Sans KR","맑은 고딕",sans-serif;padding:30px;font-size:12px;color:#000}
+    body{font-family:"IBM Plex Sans KR","맑은 고딕",sans-serif;padding:30px;font-size:12px;color:#000}
     h1{font-size:18px;font-weight:700;text-align:center;border:2px solid #000;padding:10px;margin-bottom:20px;letter-spacing:.1em}
     h2{font-size:14px;font-weight:700;border-bottom:2px solid #000;padding-bottom:6px;margin:16px 0 8px}
     .meta-table{width:100%;border-collapse:collapse;margin-bottom:12px}
@@ -5050,7 +5046,7 @@ function printBatchCheckList() {
   <meta charset="UTF-8"><title>담당자 확인표 (전체)</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:"Noto Sans KR","맑은 고딕",sans-serif;padding:20px;font-size:11px}
+    body{font-family:"IBM Plex Sans KR","맑은 고딕",sans-serif;padding:20px;font-size:11px}
     h1{font-size:16px;font-weight:700;text-align:center;border:2px solid #000;padding:8px;margin-bottom:15px;letter-spacing:.1em}
     .meta{margin-bottom:10px;font-size:12px}
     table{width:100%;border-collapse:collapse;margin-bottom:20px}
@@ -5348,7 +5344,7 @@ function printReport() {
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:"Noto Sans KR",sans-serif;padding:20px;font-size:12px;color:#000;background:#fff}
+    body{font-family:"IBM Plex Sans KR",sans-serif;padding:20px;font-size:12px;color:#000;background:#fff}
     .no-print{margin-bottom:12px}
     h2{font-size:20px;font-weight:700;text-align:center;margin-bottom:4px;color:#1F4E79;letter-spacing:.05em}
     .sub{text-align:center;font-size:12px;color:#555;margin-bottom:20px}
