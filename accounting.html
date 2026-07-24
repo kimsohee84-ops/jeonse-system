@@ -5650,6 +5650,7 @@ function renderResolPanel() {
           ${th('etc',     '기타', 'right')}
           ${th('amt',    '합계', 'right')}
           ${th('type',   '유형')}
+          ${th('subItem','세목')}
           <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center;white-space:nowrap">세금</th>
           <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center;white-space:nowrap">계산서</th>
           <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center">삭제</th>
@@ -5687,6 +5688,7 @@ function renderResolPanel() {
             <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="deposit" data-idx="${i}">${c.deposit ? c.deposit.toLocaleString() : '<span style="color:#9CA3AF;font-size:11px">클릭입력</span>'}</td>
             <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="etc" data-idx="${i}">${c.etc ? c.etc.toLocaleString() : '<span style="color:#9CA3AF;font-size:11px">클릭입력</span>'}</td>
             <td style="${cs};text-align:right;font-family:monospace;font-weight:600">${amt ? amt.toLocaleString() : '<span style="color:#DC2626;font-size:11px">0</span>'}</td>
+            <td style="${cs};cursor:pointer;font-size:11px;color:#475569" data-field="subItem" data-idx="${i}">${c.subItem || '<span style="color:#9CA3AF;font-size:11px">클릭선택</span>'}</td>
             <td style="${cs};cursor:pointer;text-align:center" data-field="type" data-idx="${i}">
               <span style="font-size:10px;padding:2px 7px;border-radius:99px;background:#EEF2FF;color:${typeColor}">${c.type||'민사'}</span>
             </td>
