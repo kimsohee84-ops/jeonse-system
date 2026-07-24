@@ -934,7 +934,7 @@ body{font-family:"IBM Plex Sans KR",sans-serif;background:var(--bg);color:var(--
       <div class="view" id="view-exec">
         <p class="page-title">집행내역 (2026년 전체)</p>
         <p class="page-sub" id="exec-sub"></p>
-        <div class="stat-grid" id="exec-summary"></div>
+        <div id="exec-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:1.5rem"></div>
         <div class="card">
           <div class="card-title"><i class="ti ti-calendar-stats" aria-hidden="true"></i> 월별 집행 현황</div>
           <div id="exec-monthly"></div>
@@ -2142,84 +2142,112 @@ function renderBudgetCatTable(bizKey) {
   const el = document.getElementById('budget-cat-table');
   if (!el) return;
   if (!rows.length) {
-    el.innerHTML = `<p style="font-size:12px;color:var(--muted);padding:.6rem 0">
+    el.innerHTML = `<p style="font-size:13px;color:#64748b;padding:.6rem 0">
       예산 항목(비목/세목)이 아직 없습니다.
       <button class="btn btn-sm" style="margin-left:6px" onclick="openBudgetCatModal('${bizKey}')"><i class="ti ti-plus"></i> 항목 설정</button></p>`;
     return;
   }
   const paid = PAID_CASES[bizKey] || [];
+  // 세목별 집행액: 지출에 지정된 세목(subItem)이 우선, 없으면 비고/유형 이름으로 추정
   const spentOf = (sub) => {
-    const s = (sub||'').trim();
-    if (!s) return 0;
+    const t = (sub||'').trim();
+    if (!t) return 0;
     return paid.filter(p => {
+      if (p.subItem) return p.subItem === t;
       const tags = `${p.note||''} ${p.type||''} ${p.accountType||''}`;
-      if (tags.includes(s)) return true;
-      if (s === '소송구조') return !p.note && !['수당','원천세','기타'].includes(p.type);
+      if (tags.includes(t)) return true;
+      if (t === '소송구조') return !p.note && !['수당','원천세','기타'].includes(p.type);
       return false;
-    }).reduce((sum,p)=>sum+(p.amt||0), 0);
+    }).reduce((s,p)=>s+(p.amt||0), 0);
   };
 
-  const money = n => (n||0).toLocaleString();
-  const rate  = (a,b) => b ? ((a/b)*100).toFixed(1)+'%' : '0%';
+  const won  = n => (n||0).toLocaleString();
+  const rate = (a,b) => b ? ((a/b)*100).toFixed(1)+'%' : '0%';
+  const G='#0a5a45', LG='#1d9e75', D='#0f172a', L='#475569', MUTE='#94a3b8';
+  const MONO = "font-family:'IBM Plex Mono',monospace";
+  const COLS = '1.7fr 1fr 1fr 1fr 60px 74px';
 
-  let html = `<table class="tbl" style="font-size:12px">
-    <thead><tr>
-      <th>보조비목</th><th>보조세목</th><th style="text-align:right">예산(원)</th>
-      <th style="text-align:right">집행액(원)</th><th style="text-align:right">잔액(원)</th><th style="text-align:right">집행률</th>
-    </tr></thead><tbody>`;
+  // 작은 원형 게이지
+  const ring = (a,b,strong) => {
+    const r=9, C=2*Math.PI*r, p=b?Math.min(a/b,1):0;
+    if (!p) return `<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="${r}" fill="none" stroke="#eef2f1" stroke-width="4"/></svg>`;
+    return `<svg width="26" height="26" viewBox="0 0 26 26" role="img" aria-label="집행률 ${Math.round(p*100)}퍼센트">
+      <circle cx="13" cy="13" r="${r}" fill="none" stroke="${strong?'#dfe7e3':'#eef2f1'}" stroke-width="4"/>
+      <circle cx="13" cy="13" r="${r}" fill="none" stroke="${strong?G:LG}" stroke-width="4" stroke-linecap="round"
+              stroke-dasharray="${(C*p).toFixed(1)} ${(C-C*p).toFixed(1)}" transform="rotate(-90 13 13)"/></svg>`;
+  };
+
+  let html = `<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden">
+    <div style="display:grid;grid-template-columns:${COLS};gap:10px;padding:10px 16px;background:var(--light);font-size:12px;color:#334155;font-weight:500">
+      <div>비목 · 세목</div><div style="text-align:right">예산</div><div style="text-align:right">집행액</div>
+      <div style="text-align:right">잔액</div><div style="text-align:center">집행</div><div style="text-align:right">집행률</div>
+    </div>`;
 
   const cats = [...new Set(rows.map(r=>r.cat).filter(Boolean))];
-  let gTotB=0, gTotS=0;
+  let gB=0, gS=0;
 
   cats.forEach(cat => {
     const list = rows.filter(r=>r.cat===cat);
-    let cTotB=0, cTotS=0;
-    const groupsDone = new Set();
+    const cB = list.reduce((s,r)=>s+(r.budget||0),0);
+    const cS = list.reduce((s,r)=>s+spentOf(r.sub),0);
+    gB+=cB; gS+=cS;
+
+    // 비목 줄
+    html += `<div style="display:grid;grid-template-columns:${COLS};gap:10px;padding:9px 16px;background:#f4f8f6;border-top:1px solid var(--border);align-items:center">
+      <div style="font-size:13px;font-weight:600;color:${G}">${cat}</div>
+      <div style="text-align:right;${MONO};font-size:13px;font-weight:600;color:${G}">${won(cB)}</div>
+      <div style="text-align:right;${MONO};font-size:13px;font-weight:600;color:${G}">${won(cS)}</div>
+      <div style="text-align:right;${MONO};font-size:13px;color:${G}">${won(cB-cS)}</div>
+      <div style="text-align:center">${ring(cS,cB,true)}</div>
+      <div style="text-align:right;font-size:14px;font-weight:700;color:${G}">${rate(cS,cB)}</div>
+    </div>`;
+
+    // 세목 줄
+    const done = new Set();
     list.forEach(r => {
       const b = r.budget||0, sp = spentOf(r.sub);
-      cTotB+=b; cTotS+=sp;
-      html += `<tr>
-        <td style="color:var(--muted)">${r===list[0]?cat:''}</td>
-        <td>${r.sub||''}</td>
-        <td style="text-align:right;font-family:monospace">${money(b)}</td>
-        <td style="text-align:right;font-family:monospace">${money(sp)}</td>
-        <td style="text-align:right;font-family:monospace">${money(b-sp)}</td>
-        <td style="text-align:right">${rate(sp,b)}</td></tr>`;
-      // 묶음 소계 (그 묶음의 마지막 행 뒤에 표시)
+      html += `<div style="display:grid;grid-template-columns:${COLS};gap:10px;padding:9px 16px;background:var(--surface);border-top:1px solid var(--border);align-items:center">
+        <div style="font-size:13px;color:${D};padding-left:14px">${r.sub||''}</div>
+        <div style="text-align:right;${MONO};font-size:13px;color:${D}">${won(b)}</div>
+        <div style="text-align:right;${MONO};font-size:13px;font-weight:500;color:${sp?G:MUTE}">${won(sp)}</div>
+        <div style="text-align:right;${MONO};font-size:13px;color:${L}">${won(b-sp)}</div>
+        <div style="text-align:center">${ring(sp,b,false)}</div>
+        <div style="text-align:right;font-size:13px;font-weight:600;color:${sp?D:MUTE}">${rate(sp,b)}</div>
+      </div>`;
+
+      // 묶음 소계
       const g = (r.group||'').trim();
-      if (g && !groupsDone.has(g)) {
+      if (g && !done.has(g)) {
         const gl = list.filter(x=>(x.group||'').trim()===g);
         if (gl[gl.length-1] === r) {
-          groupsDone.add(g);
-          const gb = gl.reduce((s,x)=>s+(x.budget||0),0);
-          const gs = gl.reduce((s,x)=>s+spentOf(x.sub),0);
-          html += `<tr style="background:#F8FAFC;color:var(--muted)">
-            <td></td><td>└ ${g} 소계</td>
-            <td style="text-align:right;font-family:monospace">${money(gb)}</td>
-            <td style="text-align:right;font-family:monospace">${money(gs)}</td>
-            <td style="text-align:right;font-family:monospace">${money(gb-gs)}</td>
-            <td style="text-align:right">${rate(gs,gb)}</td></tr>`;
+          done.add(g);
+          const b2 = gl.reduce((s,x)=>s+(x.budget||0),0);
+          const s2 = gl.reduce((s,x)=>s+spentOf(x.sub),0);
+          html += `<div style="display:grid;grid-template-columns:${COLS};gap:10px;padding:7px 16px;background:#fafbfa;border-top:1px solid var(--border);align-items:center;color:${L}">
+            <div style="font-size:12px;padding-left:28px">└ ${g} 소계</div>
+            <div style="text-align:right;${MONO};font-size:12px">${won(b2)}</div>
+            <div style="text-align:right;${MONO};font-size:12px">${won(s2)}</div>
+            <div style="text-align:right;${MONO};font-size:12px">${won(b2-s2)}</div>
+            <div></div>
+            <div style="text-align:right;font-size:12px">${rate(s2,b2)}</div>
+          </div>`;
         }
       }
     });
-    gTotB+=cTotB; gTotS+=cTotS;
-    html += `<tr style="background:#EFF6FF;font-weight:600">
-      <td colspan="2">[${cat} 합계]</td>
-      <td style="text-align:right;font-family:monospace">${money(cTotB)}</td>
-      <td style="text-align:right;font-family:monospace">${money(cTotS)}</td>
-      <td style="text-align:right;font-family:monospace">${money(cTotB-cTotS)}</td>
-      <td style="text-align:right">${rate(cTotS,cTotB)}</td></tr>`;
   });
 
-  html += `<tr style="background:var(--navy);color:#fff;font-weight:700">
-    <td colspan="2">총합계</td>
-    <td style="text-align:right;font-family:monospace">${money(gTotB)}</td>
-    <td style="text-align:right;font-family:monospace">${money(gTotS)}</td>
-    <td style="text-align:right;font-family:monospace">${money(gTotB-gTotS)}</td>
-    <td style="text-align:right">${rate(gTotS,gTotB)}</td></tr>`;
-  html += `</tbody></table>`;
+  html += `<div style="display:grid;grid-template-columns:${COLS};gap:10px;padding:12px 16px;background:${G};color:#fff;border-top:1px solid var(--border);align-items:center">
+    <div style="font-size:14px;font-weight:700">총합계</div>
+    <div style="text-align:right;${MONO};font-size:14px;font-weight:600">${won(gB)}</div>
+    <div style="text-align:right;${MONO};font-size:14px;font-weight:700">${won(gS)}</div>
+    <div style="text-align:right;${MONO};font-size:14px">${won(gB-gS)}</div>
+    <div></div>
+    <div style="text-align:right;font-size:15px;font-weight:700">${rate(gS,gB)}</div>
+  </div></div>`;
+
   el.innerHTML = html;
 }
+
 
 function openAddBizModal() {
   document.getElementById('add-biz-agency').value   = '';
@@ -4494,20 +4522,22 @@ function renderExecHistory() {
   const prefix        = BIZ[curBiz].prefix;
 
   // ── 요약 카드 ──
-  document.getElementById("exec-summary").innerHTML = `
-    <div class="stat-card">
-      <div class="stat-val">${incomeNet.toLocaleString()}</div>
-      <div class="stat-label">총 수입 (원)</div>
-      ${incomeMinus < 0 ? `<div style="font-size:11px;color:#DC2626;margin-top:2px">반납 ${incomeMinus.toLocaleString()}원</div>` : ''}
-    </div>
-    <div class="stat-card"><div class="stat-val" style="color:#B45309">${totalOut.toLocaleString()}</div><div class="stat-label">총 지출 (원)</div></div>
-    <div class="stat-card">
-      <div class="stat-val" style="color:${balance>=0?'var(--teal)':'#DC2626'}">${balance.toLocaleString()}</div>
-      <div class="stat-label">현재 잔액 (원)</div>
-      ${incomeMinus < 0 ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">반납 ${incomeMinus.toLocaleString()}원 포함</div>` : ''}
-    </div>
-    <div class="stat-card"><div class="stat-val">${budget?Math.round(totalOut/budget*100):0}%</div><div class="stat-label">예산 집행률</div></div>
-  `;
+  {
+    const G='#0a5a45', D='#0f172a', L='#475569', R='#8a4508';
+    const pctExec = budget ? Math.round(totalOut/budget*100) : 0;
+    const card = (label, val, sub, color) => `
+      <div style="background:var(--surface);padding:22px 24px">
+        <div style="font-size:13px;color:${L};font-weight:500;margin-bottom:8px">${label}</div>
+        <div style="font-size:30px;line-height:1.05;font-weight:600;letter-spacing:-0.3px;color:${color||D}">${val}</div>
+        ${sub?`<div style="font-size:13px;font-weight:500;color:${color||L};margin-top:7px">${sub}</div>`:''}
+      </div>`;
+    document.getElementById("exec-summary").innerHTML =
+      card('총 수입', incomeNet.toLocaleString(), incomeMinus<0?`반납 ${incomeMinus.toLocaleString()}`:'') +
+      card('총 지출', totalOut.toLocaleString(), pctExec+'%', G) +
+      card('현재 잔액', balance.toLocaleString(), '', balance>=0?D:R) +
+      card('예산 집행률', pctExec+'%', '');
+  }
+
 
   // ── 수입 등록 ──
   document.getElementById("exec-monthly").innerHTML = `
@@ -5684,7 +5714,7 @@ function renderResolPanel() {
           <td></td>
           <td colspan="4" style="padding:8px;text-align:right;color:var(--muted);font-size:11px">합 계</td>
           <td style="padding:8px;text-align:right;font-family:monospace">${total.toLocaleString()}</td>
-          <td colspan="4"></td>
+          <td colspan="5"></td>
         </tr>
       </tbody>
     </table>`;
@@ -5889,6 +5919,16 @@ document.addEventListener('click', function(e) {
       input.appendChild(o);
     });
     input.style.cssText='width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:11px;padding:2px 4px';
+  } else if (field === 'subItem') {
+    // 세목: 이 사업에 등록된 비목/세목 중에서 선택 (직접 입력도 가능)
+    input = document.createElement('input');
+    input.type='text'; input.value=currentVal;
+    input.setAttribute('list','subitem-datalist-inline');
+    input.style.cssText='width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:12px;font-family:inherit;padding:2px 4px;box-sizing:border-box;min-width:90px';
+    let dl = document.getElementById('subitem-datalist-inline');
+    if (!dl) { dl=document.createElement('datalist'); dl.id='subitem-datalist-inline'; document.body.appendChild(dl); }
+    dl.innerHTML = ((BUDGET_CATS[curBiz])||[]).filter(r=>r.sub)
+      .map(r=>`<option value="${(r.sub||'').replace(/"/g,'')}">${r.cat||''}</option>`).join('');
   } else if (field === 'lawyer') {
     // 변호사: 등록된 변호사 목록을 datalist로 제공 → 골라서(정확히 일치=계좌 자동연결) 또는 직접 입력
     input = document.createElement('input');
@@ -7229,6 +7269,7 @@ function recordExecution(cases, b, yy, mm, dd) {
     PAID_CASES[curBiz].push({
       date: dateStr, num, client: c.client||'', lawyer: c.lawyer||'',
       firm: c.firm||'', amt, type: c.type||'민사',
+      subItem: c.subItem||'',
       note: c.case||c.caseName||c.note||'',
       _allowance: c._allowance||false
     });
