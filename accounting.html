@@ -2206,9 +2206,14 @@ function renderBudgetCatTable(bizKey) {
     if (!t) return 0;
     return paid.filter(p => {
       if (p.subItem) return p.subItem === t;
-      const tags = `${p.note||''} ${p.type||''} ${p.accountType||''}`;
+      const tags = `${p.note||''} ${p.type||''} ${p.accountType||''} ${p.client||''}`;
       if (tags.includes(t)) return true;
-      if (t === '소송구조') return !p.note && !['수당','원천세','기타'].includes(p.type);
+      if (t === '소송구조') {
+        // 세목 미지정 소송건만 소송구조로 집계. 운영성(인건비/우편/통신/교통/소모품/일반관리/경상)·수당·원천세·기타는 제외해 이중집계 방지
+        const opBlob = `${p.type||''} ${p.note||''} ${p.client||''} ${p.subItem||''}`;
+        const ops = ['인건비','우편','통신','교통','소모품','일반관리','경상','수당','원천세','기타'];
+        return !ops.some(k => opBlob.includes(k));
+      }
       return false;
     }).reduce((s,p)=>s+(p.amt||0), 0);
   };
