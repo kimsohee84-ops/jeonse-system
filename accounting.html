@@ -4697,7 +4697,7 @@ function renderExecHistory() {
             <td class="mono" style="font-size:11px">${c.num||''}</td>
             <td>${c.client||''}</td>
             <td style="font-size:12px">${c.lawyer||''}</td>
-            <td>${c.type ? `<span class="badge ${c.type==='민사'?'bn':c.type==='형사'?'br':c.type==='수당'?'bg':'badge'}">${c.type}</span>` : (c.subItem ? `<span class="badge" style="background:#eef2f1;color:#0a5a45;border-color:#dfe7e3">${c.subItem}</span>` : '')}</td>
+            <td>${c.type ? `<span class="badge ${c.type==='민사'?'bn':c.type==='형사'?'br':c.type==='수당'?'bg':'badge'}">${c.type}</span>` : (c.subItem ? `<span class="badge" style="background:#eef2f1;color:#0a5a45;border-color:#dfe7e3">${c.subItem}</span>` : '')}${/(^|\s)(24|25)-\d/.test(c.num||'') ? ` <span class="badge" style="background:#f1f5f9;color:#64748b;border-color:#e2e8f0" title="전년도(2025) 이월 사건">이월</span>` : ''}</td>
             <td class="mono">${(c.amt||0).toLocaleString()}</td>
             <td style="font-size:11px;color:var(--muted)">${c.note||''}</td>
             <td style="text-align:center;white-space:nowrap">
