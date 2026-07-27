@@ -1024,48 +1024,54 @@ function loadUsers() {
     const raw = localStorage.getItem('jeonse_users');
     if (raw) return JSON.parse(raw);
   } catch(e) {}
-  // 최초 실행 시 기본 admin 계정만 생성
-  saveUsers(DEFAULT_USERS);
-  return DEFAULT_USERS;
+  // 최초 실행 시 기본 admin 계정만 로컬에 생성 (서버로 덮어쓰지 않음 - 다른 브라우저 계정 보호)
+  const def = { ...DEFAULT_USERS };
+  try { localStorage.setItem('jeonse_users', JSON.stringify(def)); } catch {}
+  return def;
 }
 
-function saveUsers(users) {
-  localStorage.setItem('jeonse_users', JSON.stringify(users));
-  // 계정도 서버(Upstash)에 저장 → 어느 브라우저/컴퓨터서든 같은 아이디·비번
-  fetch('/api/data?user=users', {
+// 계정을 서버(Upstash)에 올림 (명시적 변경 시에만)
+function pushUsersToServer(users) {
+  return fetch('/api/data?user=users', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(users)
   }).catch(() => {});
 }
 
-// 서버에서 계정을 받아와 반영 (있으면 서버가 정본)
+function saveUsers(users) {
+  localStorage.setItem('jeonse_users', JSON.stringify(users));
+  pushUsersToServer(users);   // 어느 브라우저/컴퓨터서든 같은 아이디·비번
+}
+
+// 서버 계정과 로컬 계정을 "병합"해서 반영.
+// 어느 쪽에 있든 계정을 잃지 않도록 union. 같은 아이디는 서버 우선.
+// 반환: 서버에 계정이 있었으면 true.
 async function syncUsersFromServer() {
   try {
     const r = await fetch('/api/data?user=users');
-    if (r.ok) {
-      const j = await r.json();
-      if (j && j.data && typeof j.data === 'object' && j.data.admin) {
-        USERS = j.data;
-        try { localStorage.setItem('jeonse_users', JSON.stringify(USERS)); } catch {}
-        return true;
-      }
+    if (!r.ok) return false;
+    const j = await r.json();
+    const serverUsers = j && j.data;
+    if (serverUsers && typeof serverUsers === 'object' && serverUsers.admin) {
+      let local = {};
+      try { local = JSON.parse(localStorage.getItem('jeonse_users') || '{}'); } catch {}
+      const merged = { ...local, ...serverUsers };   // union (서버 우선)
+      USERS = merged;
+      try { localStorage.setItem('jeonse_users', JSON.stringify(merged)); } catch {}
+      // 로컬에만 있던 계정이 있으면 서버에도 반영(union 유지) → 클로버된 서버 자동 복구
+      if (JSON.stringify(merged) !== JSON.stringify(serverUsers)) pushUsersToServer(merged);
+      return true;
     }
-  } catch {}
-  return false;
+    // 서버가 정상 응답했는데 계정이 비어있음 → 이 기기의 계정을 서버 시작점으로
+    pushUsersToServer(USERS);
+    return false;
+  } catch { return false; }   // 네트워크 오류: 아무것도 서버에 쓰지 않음(클로버 방지)
 }
 
 let USERS = loadUsers();
 
-// 페이지 열리면 즉시 계정을 서버와 동기화 (없으면 현재 계정을 서버로 올림)
-(async () => {
-  const ok = await syncUsersFromServer();
-  if (!ok) {
-    fetch('/api/data?user=users', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(USERS)
-    }).catch(() => {});
-  }
-})();
+// 페이지 열리면 즉시 계정을 서버와 동기화 (병합). 오류 시 서버를 건드리지 않음.
+(async () => { await syncUsersFromServer(); })();
 
 // ── 사업별 데이터 ──
 const BIZ = {
