@@ -147,6 +147,28 @@ body{font-family:"IBM Plex Sans KR",sans-serif;background:var(--bg);color:var(--
 /* 구분선 */
 .divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
 </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gamja+Flower&display=swap">
+<style id="organic-restyle">
+/* Organic design-system restyle — overrides tokens only; no structural/JS changes below this line. */
+:root{
+  --navy:#c67139; --blue:#b2622d; --teal:#7a8a5e;
+  --bg:#f5ead8; --surface:#f9f4ed; --border:color-mix(in srgb,#201e1d 14%,transparent);
+  --text:#201e1d; --muted:color-mix(in srgb,#201e1d 55%,transparent); --light:#eee7db;
+  --green-bg:#f0fae1; --green-txt:#3d472b;
+  --amber-bg:#ffe1d0; --amber-txt:#8c491a;
+  --red-bg:#fbe3df; --red-txt:#8c3a2c;
+  --blue-bg:#f0fae1; --blue-txt:#56633f;
+  --radius:16px; --radius-lg:28px;
+  --shadow:0 1px 2px color-mix(in srgb,#2e2b25 14%,transparent);
+  --shadow-md:0 3px 10px color-mix(in srgb,#2e2b25 16%,transparent);
+}
+body,.form-select,.btn,.btn-out{font-family:'Pretendard',"IBM Plex Sans KR",sans-serif}
+h1,h2,h3,.login-logo h1,.topnav-logo,.card-title,.nav-section,.stat-val{font-family:'Gamja Flower',cursive}
+.btn,.btn-login,.btn-out,.tag,.user-badge,.badge,.form-select,.input{border-radius:999px}
+.card,.stat-card,.login-card{border:none}
+.nav-item.active{background:var(--amber-bg);border-left-color:var(--navy)}
+</style>
 </head>
 <body>
 
