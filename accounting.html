@@ -1840,6 +1840,8 @@ function renderDashboard() {
     d.agency === b.short ||
     d.name === b.name
   );
+  if (bizData && bizData.items)
+    annotateItemExec(bizData.items, (typeof PAID_CASES !== 'undefined' ? PAID_CASES[curBiz] : []) || []);
   const itemsHTML = bizData && bizData.items && bizData.items.length
     ? `<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
         <div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:8px">
@@ -1879,12 +1881,46 @@ function renderDashboard() {
   `;
 }
 
+// ── 지출내역 기준 항목별 집행액 주입 ──
+// 각 지출 건의 비목(subItem) 또는 적요(note)가 항목명과 일치하면 그 항목의 직접 집행으로 합산하고,
+// 자식 항목 집행을 부모로 롤업한다. 매칭되는 지출이 전혀 없는 항목은 기존 값(item.exec)으로 폴백한다.
+// (법무부처럼 항목별 집행이 미리 입력된 사업은 그대로, 국토부/서민처럼 비목 태그가 있는 사업은 실집행 반영)
+function annotateItemExec(items, records) {
+  if (!items) return;
+  const recs = Array.isArray(records) ? records : [];
+  // 1) 이름 → 가장 깊은 노드 (상·하위에 같은 이름이 있으면 더 깊은 쪽에 귀속해 이중집계 방지)
+  const nodeByName = {};
+  const index = (node, depth) => {
+    const prev = nodeByName[node.name];
+    if (!prev || depth > prev.depth) nodeByName[node.name] = { node, depth };
+    (node.children || []).forEach(c => index(c, depth + 1));
+  };
+  items.forEach(n => index(n, 0));
+  // 2) 직접집행 초기화 → 지출 건을 비목/적요가 일치하는 노드에 1회만 귀속
+  const clear = (node) => { node._direct = 0; (node.children || []).forEach(clear); };
+  items.forEach(clear);
+  recs.forEach(r => {
+    const tag = (r.subItem || r.note || '').toString().trim();
+    const hit = tag && nodeByName[tag];
+    if (hit) hit.node._direct += (r.amt || 0);
+  });
+  // 3) 롤업: 본인 직접집행 + 자식 집행. 매칭되는 지출이 전혀 없으면 기존 item.exec 폴백
+  const walk = (node) => {
+    let childSum = 0;
+    (node.children || []).forEach(c => { childSum += walk(c); });
+    const computed = (node._direct || 0) + childSum;
+    node._exec = computed > 0 ? computed : (node.exec || 0);
+    return node._exec;
+  };
+  items.forEach(walk);
+}
+
 // ── 대시보드 예산 항목 트리 ──
 function renderDashBizItems(items, depth=0) {
   if (!items || !items.length) return '';
   return items.map(item => {
     const budget = item.budget || 0;
-    const exec   = item.exec   || 0;
+    const exec   = (item._exec != null ? item._exec : (item.exec || 0));
     const bal    = budget > 0 ? budget - exec : null;
     const pct    = budget > 0 ? Math.round(exec / budget * 100) : null;
     const indent = depth * 14;
