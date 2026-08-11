@@ -6567,6 +6567,8 @@ async function compressAndOcr(file, itemId) {
 
         const pageBase64 = canvas.toDataURL('image/jpeg', 0.7);
         await ocrWithGoogleDrive(file, pageBase64, itemId, 'image/jpeg');
+        // 페이지 사이에 텀을 둬서 OCR 서버 과부하(429/500) 방지 — 마지막 페이지 뒤에는 생략
+        if (p < numPages) await new Promise(r => setTimeout(r, 700));
       }
 
       setStatus(`완료 (${numPages}건)`, '#DCFCE7', '#166534');
@@ -6627,19 +6629,31 @@ async function ocrWithGoogleDrive(file, base64Data, itemId, mimeType) {
     document.getElementById('scan-loading').style.display = 'block';
     document.getElementById('scan-form').style.display    = 'none';
 
-    // Vercel 서버 API 호출
-    const res = await fetch('/api/ocr', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fileData: base64Data,
-        mimeType: mimeType || file.type || 'image/jpeg',
-        fileName: file.name
-      })
-    });
+    // Vercel 서버 API 호출 (429/500 시 자동 재시도)
+    let res;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      res = await fetch('/api/ocr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileData: base64Data,
+          mimeType: mimeType || file.type || 'image/jpeg',
+          fileName: file.name
+        })
+      });
+
+      // 429(요청 과다) 또는 500(서버 과부하)면 점점 더 오래 기다렸다 재시도
+      if (res.status === 429 || res.status === 500) {
+        const wait = 2000 * (attempt + 1);   // 2초 → 4초 → 6초 → 8초 → 10초
+        setStatus(`대기 중... (${attempt + 1}회째)`, '#FEF3C7', '#92400E');
+        await new Promise(r => setTimeout(r, wait));
+        continue;   // 다시 시도
+      }
+      break;   // 성공(또는 다른 에러)이면 루프 종료
+    }
 
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'OCR 서버 오류');
     }
 
