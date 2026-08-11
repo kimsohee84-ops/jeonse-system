@@ -1711,12 +1711,22 @@ function buildPersistPayload() {
 
 let _serverSaveTimer = null;
 let _serverReady = false;   // 최초 서버 동기화가 끝나기 전에는 서버 저장 금지 (옛 데이터가 서버를 덮는 사고 방지)
+// 관리자 모드에서 "사업키 → 원래 담당자 아이디" 매핑. 관리자가 통합 화면에서 수정하면
+// 그 사업 데이터를 원주인 서랍에 되돌려 저장하기 위해 사용한다.
+let _bizOwner = {};
+
 // 저장 요청을 모아서 서버에 1회 전송 (연속 편집 시 과도한 호출 방지)
 function queueServerSave() {
   if (!curUser || !curUser.id) return;   // 로그인 상태에서만
   if (!_serverReady) return;             // 서버에서 최신 데이터를 받아오기 전엔 절대 저장하지 않음
   clearTimeout(_serverSaveTimer);
   _serverSaveTimer = setTimeout(() => {
+    // ── 관리자 통합 모드: 사업별로 원주인 서랍에 각각 되돌려 저장 ──
+    if (curUser.role === 'admin' && Object.keys(_bizOwner).length) {
+      saveAdminAggregate();
+      return;
+    }
+    // ── 일반 담당자: 자기 서랍에 저장 ──
     const payload = buildPersistPayload();
     fetch(`/api/data?user=${encodeURIComponent(curUser.id)}`, {
       method: 'POST',
@@ -1726,11 +1736,63 @@ function queueServerSave() {
   }, 800);
 }
 
+// 관리자가 통합 화면에서 편집한 결과를, 담당자별로 나눠서 각자 서랍에 되돌려 저장.
+// 담당자 서랍에서 먼저 최신본을 읽어와(다른 필드 보존) 자기 사업 칸만 갈아끼운다.
+async function saveAdminAggregate() {
+  // 담당자 아이디 → 그 담당자가 맡은 사업키 목록
+  const ownerBizMap = {};
+  Object.keys(_bizOwner).forEach(bizKey => {
+    const owner = _bizOwner[bizKey];
+    if (!owner) return;
+    (ownerBizMap[owner] = ownerBizMap[owner] || []).push(bizKey);
+  });
+
+  // 현재 관리자 화면의 전체 상태 (여기서 사업 칸만 뽑아 쓴다)
+  const full = buildPersistPayload();
+  const perBizField = ['cases', 'executed', 'lawyers', 'resolList', 'EXEC_DATA', 'PAID_CASES'];
+
+  for (const ownerId of Object.keys(ownerBizMap)) {
+    try {
+      // 담당자 서랍의 최신본을 읽어온다 (관리자가 안 건드린 다른 필드는 그대로 보존)
+      let base = {};
+      try {
+        const r = await fetch(`/api/data?user=${encodeURIComponent(ownerId)}`);
+        if (r.ok) { const j = await r.json(); base = (j && j.data) || {}; }
+      } catch {}
+
+      // 이 담당자가 맡은 사업 칸만 관리자 화면 값으로 갈아끼운다
+      perBizField.forEach(f => {
+        if (!full[f]) return;
+        base[f] = base[f] || {};
+        ownerBizMap[ownerId].forEach(bizKey => {
+          if (full[f][bizKey] !== undefined) base[f][bizKey] = full[f][bizKey];
+        });
+      });
+      base.savedAt = new Date().toISOString();
+
+      await fetch(`/api/data?user=${encodeURIComponent(ownerId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(base)
+      });
+    } catch (e) {
+      console.warn(`담당자(${ownerId}) 서랍 저장 실패:`, e);
+    }
+  }
+}
+
 // 로그인 직후: 서버 데이터를 불러와 화면·로컬에 반영 (서버가 항상 정본).
 // 이 동기화가 끝나기 전에는 어떤 저장도 서버로 나가지 않는다.
 async function syncFromServer() {
   _serverReady = false;
   if (!curUser || !curUser.id) { _serverReady = true; return; }
+
+  // ── 관리자: 모든 담당자 서랍을 불러와 사업별로 통합 ──
+  if (curUser.role === 'admin') {
+    await syncAdminAggregate();
+    return;
+  }
+
   let serverData = null;
   try {
     const r = await fetch(`/api/data?user=${encodeURIComponent(curUser.id)}`);
@@ -1754,6 +1816,73 @@ async function syncFromServer() {
     _serverReady = true;
     queueServerSave();
   }
+}
+
+// ── 관리자 통합 로드 ──
+// 모든 담당자 서랍을 읽어, 각 담당자가 맡은 사업 칸만 뽑아 한 화면에 합친다.
+// 한 사업 = 한 담당자 원칙이므로 사업 칸이 겹치지 않아 병합 충돌이 없다.
+async function syncAdminAggregate() {
+  _bizOwner = {};
+  const ALL_KEYS = Object.keys(BIZ);
+
+  // 최신 사용자 목록 확보 (다른 브라우저서 추가된 담당자까지 포함)
+  try { await syncUsersFromServer(); } catch {}
+
+  // 담당자 목록 (관리자 제외)
+  const staffIds = Object.keys(USERS).filter(id => {
+    const u = USERS[id];
+    return u && u.role !== 'admin';
+  });
+
+  // 통합 결과를 담을 빈 payload
+  const merged = {
+    cases: {}, executed: {}, lawyers: {}, resolList: {},
+    EXEC_DATA: {}, PAID_CASES: {}, CUSTOM_COLUMN_PROFILES: null, BUDGET_CATS: {}
+  };
+
+  // 각 담당자 서랍을 병렬로 읽어온다
+  const results = await Promise.all(staffIds.map(async id => {
+    try {
+      const r = await fetch(`/api/data?user=${encodeURIComponent(id)}`);
+      if (!r.ok) return null;
+      const j = await r.json();
+      return { id, data: (j && j.data) || null };
+    } catch { return null; }
+  }));
+
+  results.forEach(entry => {
+    if (!entry || !entry.data) return;
+    const { id, data } = entry;
+    const access = (USERS[id] && USERS[id].bizAccess) || [];
+    // 이 담당자가 맡은 사업키 (all 이면 데이터가 실제로 들어있는 사업만 취함)
+    const ownedBiz = access.includes('all')
+      ? ALL_KEYS.filter(k => data.cases && Array.isArray(data.cases[k]) && data.cases[k].length)
+      : access.filter(k => ALL_KEYS.includes(k));
+
+    ownedBiz.forEach(bizKey => {
+      // 사업이 이미 다른 담당자에게 잡혀 있지 않은 경우에만 (한 사업=한 담당자)
+      if (_bizOwner[bizKey]) return;
+      _bizOwner[bizKey] = id;
+
+      if (data.cases && data.cases[bizKey]) merged.cases[bizKey] = data.cases[bizKey];
+      if (data.executed && typeof data.executed[bizKey] === 'number') merged.executed[bizKey] = data.executed[bizKey];
+      if (data.lawyers && data.lawyers[bizKey]) merged.lawyers[bizKey] = data.lawyers[bizKey];
+      if (data.resolList && data.resolList[bizKey]) merged.resolList[bizKey] = data.resolList[bizKey];
+      if (data.EXEC_DATA && data.EXEC_DATA[bizKey]) merged.EXEC_DATA[bizKey] = data.EXEC_DATA[bizKey];
+      if (data.PAID_CASES && data.PAID_CASES[bizKey]) merged.PAID_CASES[bizKey] = data.PAID_CASES[bizKey];
+    });
+
+    // 예산 카테고리·컬럼 프로필은 사업 단위가 아니면 첫 담당자 것 채택
+    if (data.BUDGET_CATS) Object.assign(merged.BUDGET_CATS, data.BUDGET_CATS);
+    if (!merged.CUSTOM_COLUMN_PROFILES && data.CUSTOM_COLUMN_PROFILES) merged.CUSTOM_COLUMN_PROFILES = data.CUSTOM_COLUMN_PROFILES;
+  });
+
+  applyPersistedData(merged);
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch {}
+  _serverReady = true;   // 이제부터 관리자 편집은 각 원주인 서랍에 되돌려 저장됨
+  if (typeof setBiz === 'function') setBiz(curBiz || 'kt');
+  renderDashboard();
+  if (typeof renderResolPanel === 'function') renderResolPanel();
 }
 
 function setBiz(biz) {
