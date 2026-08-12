@@ -1969,14 +1969,22 @@ function renderDashboard() {
     d.agency === b.short ||
     d.name === b.name
   );
-  if (bizData && bizData.items)
+  // 항목별 예산 현황: BUDGET_CATS(집행현황 표와 동일 소스)가 있으면 그것을 우선 사용.
+  // 없을 때만 기존 ALL_BIZ_DATA.items 방식으로 폴백해 다른 사업 호환 유지.
+  const catsHTML = renderDashBudgetCats(curBiz);
+  let innerItemsHTML = '';
+  if (catsHTML) {
+    innerItemsHTML = catsHTML;
+  } else if (bizData && bizData.items) {
     annotateItemExec(bizData.items, (typeof PAID_CASES !== 'undefined' ? PAID_CASES[curBiz] : []) || []);
-  const itemsHTML = bizData && bizData.items && bizData.items.length
+    if (bizData.items.length) innerItemsHTML = renderDashBizItems(bizData.items);
+  }
+  const itemsHTML = innerItemsHTML
     ? `<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
         <div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:8px">
           <i class="ti ti-list-tree"></i> 항목별 예산 현황
         </div>
-        ${renderDashBizItems(bizData.items)}
+        ${innerItemsHTML}
       </div>` : '';
 
   document.getElementById("dash-budget").innerHTML = `
@@ -2045,6 +2053,45 @@ function annotateItemExec(items, records) {
 }
 
 // ── 대시보드 예산 항목 트리 ──
+// ── 대시보드 '항목별 예산 현황'을 BUDGET_CATS 기준으로 렌더 (집행현황 표와 동일 소스) ──
+// BUDGET_CATS에 항목이 있으면 이걸 쓰고, 없으면 빈 문자열을 반환해 호출부에서 기존 방식으로 폴백한다.
+function renderDashBudgetCats(bizKey) {
+  const rows = BUDGET_CATS[bizKey] || [];
+  if (!rows.length) return '';   // 폴백 신호
+  const won = n => (n||0).toLocaleString();
+  const cats = [...new Set(rows.map(r=>r.cat).filter(Boolean))];
+  let html = '';
+  cats.forEach(cat => {
+    const list = rows.filter(r=>r.cat===cat);
+    const cB = list.reduce((s,r)=>s+(r.budget||0),0);
+    const cS = list.reduce((s,r)=>s+spentOfSub(bizKey, r.sub),0);
+    // 비목 줄
+    html += `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:3px 0;border-bottom:1px solid var(--light)">
+      <div style="display:flex;align-items:baseline;gap:4px">
+        <span style="color:var(--muted);font-size:10px">●</span>
+        <span style="font-size:12px;font-weight:600;color:var(--navy)">${cat}</span>
+      </div>
+      <div style="text-align:right;white-space:nowrap;font-size:10px;color:var(--muted)">
+        예산 ${won(cB)}원<br><b style="color:${cB-cS<0?'#DC2626':'var(--navy)'}">잔액 ${won(cB-cS)}원</b>
+      </div>
+    </div>`;
+    // 세목 줄
+    list.forEach(r => {
+      const b = r.budget||0, sp = spentOfSub(bizKey, r.sub);
+      html += `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:3px 0;margin-left:16px">
+        <div style="display:flex;align-items:baseline;gap:4px">
+          <span style="color:var(--muted);font-size:10px">○</span>
+          <span style="font-size:11px;color:var(--text)">${r.sub||''}</span>
+        </div>
+        <div style="text-align:right;white-space:nowrap;font-size:10px;color:var(--muted)">
+          예산 ${won(b)}원<br><b style="color:${b-sp<0?'#DC2626':'var(--text)'}">잔액 ${won(b-sp)}원</b>
+        </div>
+      </div>`;
+    });
+  });
+  return html;
+}
+
 function renderDashBizItems(items, depth=0) {
   if (!items || !items.length) return '';
   return items.map(item => {
@@ -2375,6 +2422,27 @@ function catsFromBizItems(bizKey) {
   return out;
 }
 
+// ── 세목별 집행액 계산 (공용) ──
+// 집행현황 표와 대시보드가 똑같은 기준으로 집행액을 계산하도록 한 곳에서 관리한다.
+// 지출에 지정된 세목(subItem)이 우선, 없으면 비고/유형 이름으로 추정.
+function spentOfSub(bizKey, sub) {
+  const t = (sub||'').trim();
+  if (!t) return 0;
+  const paid = PAID_CASES[bizKey] || [];
+  return paid.filter(p => {
+    if (p.subItem) return p.subItem === t;
+    const tags = `${p.note||''} ${p.type||''} ${p.accountType||''} ${p.client||''}`;
+    if (tags.includes(t)) return true;
+    if (t === '소송구조') {
+      // 세목 미지정 소송건만 소송구조로 집계. 운영성·수당·원천세·기타는 제외해 이중집계 방지
+      const opBlob = `${p.type||''} ${p.note||''} ${p.client||''} ${p.subItem||''}`;
+      const ops = ['인건비','우편','통신','교통','소모품','일반관리','경상','수당','원천세','기타'];
+      return !ops.some(k => opBlob.includes(k));
+    }
+    return false;
+  }).reduce((s,p)=>s+(p.amt||0), 0);
+}
+
 function renderBudgetCatTable(bizKey) {
   let rows = BUDGET_CATS[bizKey] || [];
   if (!rows.length) rows = catsFromBizItems(bizKey);   // 저장된 항목이 없으면 기존 예산 구조 사용
@@ -2386,24 +2454,8 @@ function renderBudgetCatTable(bizKey) {
       <button class="btn btn-sm" style="margin-left:6px" onclick="openBudgetCatModal('${bizKey}')"><i class="ti ti-plus"></i> 항목 설정</button></p>`;
     return;
   }
-  const paid = PAID_CASES[bizKey] || [];
-  // 세목별 집행액: 지출에 지정된 세목(subItem)이 우선, 없으면 비고/유형 이름으로 추정
-  const spentOf = (sub) => {
-    const t = (sub||'').trim();
-    if (!t) return 0;
-    return paid.filter(p => {
-      if (p.subItem) return p.subItem === t;
-      const tags = `${p.note||''} ${p.type||''} ${p.accountType||''} ${p.client||''}`;
-      if (tags.includes(t)) return true;
-      if (t === '소송구조') {
-        // 세목 미지정 소송건만 소송구조로 집계. 운영성(인건비/우편/통신/교통/소모품/일반관리/경상)·수당·원천세·기타는 제외해 이중집계 방지
-        const opBlob = `${p.type||''} ${p.note||''} ${p.client||''} ${p.subItem||''}`;
-        const ops = ['인건비','우편','통신','교통','소모품','일반관리','경상','수당','원천세','기타'];
-        return !ops.some(k => opBlob.includes(k));
-      }
-      return false;
-    }).reduce((s,p)=>s+(p.amt||0), 0);
-  };
+  // 세목별 집행액은 공용 함수 사용 (대시보드와 동일 기준)
+  const spentOf = (sub) => spentOfSub(bizKey, sub);
 
   const won  = n => (n||0).toLocaleString();
   const rate = (a,b) => b ? ((a/b)*100).toFixed(1)+'%' : '0%';
