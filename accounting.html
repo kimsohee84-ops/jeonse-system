@@ -5187,6 +5187,18 @@ function editPaidCase(idx) {
     if (dl) dl.innerHTML = ((BUDGET_CATS[curBiz])||[]).filter(r=>r.sub)
       .map(r=>`<option value="${(r.sub||'').replace(/"/g,'')}">${r.cat||''}</option>`).join('');
   }
+  // 구분(가정폭력/성폭력 등) 채우기 + 이 사업에서 쓴 구분을 후보로 제공
+  const grpEl = document.getElementById('pc-group');
+  if (grpEl) {
+    grpEl.value = c.group || '';
+    const gdl = document.getElementById('pc-group-datalist');
+    if (gdl) {
+      const set = new Set();
+      ((PAID_CASES[curBiz])||[]).forEach(p=>{ if(p.group) set.add(p.group); });
+      ((resolList[curBiz])||[]).forEach(r=>{ if(r.group) set.add(r.group); });
+      gdl.innerHTML = [...set].map(g=>`<option value="${g.replace(/"/g,'')}">`).join('');
+    }
+  }
   document.getElementById('paid-case-modal').style.display = 'flex';
 }
 
@@ -5211,6 +5223,12 @@ function savePaidCase() {
   if (subEl) {
     const sv = subEl.value.trim();
     if (sv) c.subItem = sv; else delete c.subItem;
+  }
+  // 구분(가정폭력/성폭력 등) 저장 — 비우면 구분 없음
+  const grpEl = document.getElementById('pc-group');
+  if (grpEl) {
+    const gv = grpEl.value.trim();
+    if (gv) c.group = gv; else delete c.group;
   }
   closePaidCaseModal();
   savePersistedData();
@@ -8067,6 +8085,11 @@ function recordExecution(cases, b, yy, mm, dd) {
         <label>세목 (예산 항목) <span style="font-size:11px;color:var(--muted)">— 어느 예산에서 나가는지 지정</span></label>
         <input class="form-input" id="pc-subitem" list="pc-subitem-datalist" placeholder="예: 소송구조 / 홍보영상 (예산 항목과 같은 이름)">
         <datalist id="pc-subitem-datalist"></datalist>
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>구분 <span style="font-size:11px;color:var(--muted)">— 가정폭력 / 성폭력 / 25년추납 등</span></label>
+        <input class="form-input" id="pc-group" list="pc-group-datalist" placeholder="예: 가정폭력 / 성폭력">
+        <datalist id="pc-group-datalist"></datalist>
       </div>
       <div class="field" style="grid-column:1/-1"><label>비고</label><input class="form-input" id="pc-note"></div>
     </div>
