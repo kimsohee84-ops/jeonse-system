@@ -750,8 +750,15 @@ h1,h2,h3,.login-logo h1,.topnav-logo,.card-title,.nav-section,.stat-val{font-fam
           </div>
         </div>
 
-        <div style="display:flex;gap:8px;justify-content:space-between;align-items:center">
-          <button class="btn" onclick="newResol()"><i class="ti ti-file-plus" aria-hidden="true"></i> 새 결의서</button>
+        <div style="display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn" onclick="newResol()"><i class="ti ti-file-plus" aria-hidden="true"></i> 새 결의서</button>
+            <div style="display:flex;align-items:center;gap:4px">
+              <label style="font-size:12px;color:var(--muted);white-space:nowrap">구분</label>
+              <input class="form-input" id="resol-group" list="resol-group-datalist" placeholder="예: 가정폭력 / 성폭력 / 25년추납" style="width:200px;font-size:12px" oninput="applyResolGroup(this.value)">
+              <datalist id="resol-group-datalist"></datalist>
+            </div>
+          </div>
           <div style="display:flex;gap:8px">
             <button class="btn" onclick="resetForm()"><i class="ti ti-eraser" aria-hidden="true"></i> 입력칸 비우기</button>
             <button class="btn btn-primary" onclick="addResolItem()"><i class="ti ti-plus" aria-hidden="true"></i> 이 결의서에 추가</button>
@@ -3005,6 +3012,8 @@ function renderResolDoc() {
 function addResolItem() {
   const item = readResolForm();
   if (!item) return;
+  // 현재 결의서의 구분(라벨)을 이 건에도 붙인다
+  item.group = window._resolGroup || '';
   // 같은 결의서 내 접수번호 중복 방지 — 단, 접수번호가 있는 경우에만.
   // 우편비·인건비·수당 등 접수번호 없는 건은 여러 개 추가할 수 있어야 하므로 막지 않는다.
   const num = (item.num || '').trim();
@@ -3030,11 +3039,37 @@ function clearCaseFields() {
   document.getElementById("f-num").focus();
 }
 
+// ── 지출결의서 구분(라벨) 기능 ──
+// 현재 편집 중인 결의서의 구분값. 새 결의서 시작 시 비우고, 사건 추가/저장 시 각 건에 붙는다.
+window._resolGroup = '';
+
+// 구분 입력칸에 값이 바뀌면 현재 결의서의 모든 건에 반영
+function applyResolGroup(val) {
+  window._resolGroup = (val || '').trim();
+  if (Array.isArray(window._resolItems)) {
+    window._resolItems.forEach(it => { it.group = window._resolGroup; });
+  }
+}
+
+// 이 사업에서 이미 쓴 구분들을 자동완성 후보로 채움 (resolList + PAID_CASES에서 수집)
+function refreshResolGroupOptions() {
+  const dl = document.getElementById('resol-group-datalist');
+  if (!dl) return;
+  const set = new Set();
+  ((resolList[curBiz])||[]).forEach(r => { if (r && r.group) set.add(r.group); });
+  ((PAID_CASES[curBiz])||[]).forEach(p => { if (p && p.group) set.add(p.group); });
+  dl.innerHTML = [...set].map(g => `<option value="${g.replace(/"/g,'')}">`).join('');
+}
+
 // 새 결의서 시작 (누적 비우기)
 function newResol() {
   window._resolItems = [];
   window._pendingResol = null;
   window._resolApprovalText = "";
+  window._resolGroup = '';
+  const gEl = document.getElementById('resol-group');
+  if (gEl) gEl.value = '';
+  refreshResolGroupOptions();
   renderResolDoc();
   resetForm();
   showToast("새 결의서를 시작합니다");
@@ -4801,6 +4836,53 @@ const ALL_BIZ_DATA = [
 
 
 // 집행내역 뷰 렌더링
+// ── 구분별 집행 현황 ──
+// PAID_CASES를 구분(group)별로 묶어 건수·금액을 보여준다.
+// 구분이 하나도 없으면 빈 문자열을 반환해 아무것도 표시하지 않는다(구분 안 쓰는 사업엔 영향 없음).
+function renderExecGroupSummary() {
+  const paid = PAID_CASES[curBiz] || [];
+  const groups = {};
+  let hasGroup = false;
+  paid.forEach(p => {
+    const g = (p.group || '').trim();
+    if (g) hasGroup = true;
+    const key = g || '(구분 없음)';
+    if (!groups[key]) groups[key] = { count: 0, sum: 0 };
+    groups[key].count++;
+    groups[key].sum += (p.amt || 0);
+  });
+  if (!hasGroup) return '';   // 구분을 쓰지 않는 사업이면 표시 안 함
+
+  const keys = Object.keys(groups).sort((a,b)=>{
+    if (a === '(구분 없음)') return 1;   // '구분 없음'은 맨 아래로
+    if (b === '(구분 없음)') return -1;
+    return a.localeCompare(b, 'ko');
+  });
+  const won = n => (n||0).toLocaleString();
+  const rows = keys.map(k => `
+    <tr>
+      <td style="font-weight:500">${k}</td>
+      <td>${groups[k].count}건</td>
+      <td class="mono">${won(groups[k].sum)}</td>
+    </tr>`).join('');
+  const total = keys.reduce((s,k)=>s+groups[k].sum, 0);
+  const totalCnt = keys.reduce((s,k)=>s+groups[k].count, 0);
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">
+      <strong style="font-size:13px"><i class="ti ti-category" aria-hidden="true"></i> 구분별 집행 현황</strong>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>구분</th><th>건수</th><th>금액</th></tr></thead>
+      <tbody>
+        ${rows}
+        <tr style="font-weight:600;background:var(--light)">
+          <td>합계</td><td>${totalCnt}건</td><td class="mono">${won(total)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+}
+
 function renderExecHistory() {
   const ex       = EXEC_DATA[curBiz] || { income:[], monthly:[], budget:0, executed:0 };
   const monthly  = ex.monthly;
@@ -4930,6 +5012,7 @@ function renderExecHistory() {
         </tr>
       </tbody>
     </table>
+    ${renderExecGroupSummary()}
   `;
 
   // ── 전체 지급 내역 상세 ──
@@ -4941,7 +5024,7 @@ function renderExecHistory() {
     <table class="tbl">
       <thead><tr>
         <th>지급일</th><th>접수번호</th><th>의뢰인</th><th>변호사</th>
-        <th>유형</th><th>금액</th><th>비고</th><th style="width:60px">관리</th>
+        <th>유형</th><th>구분</th><th>금액</th><th>비고</th><th style="width:60px">관리</th>
       </tr></thead>
       <tbody>
         ${paid.map((c,i)=>`
@@ -4951,6 +5034,7 @@ function renderExecHistory() {
             <td>${c.client||''}</td>
             <td style="font-size:12px">${c.lawyer||''}</td>
             <td>${c.type ? `<span class="badge ${c.type==='민사'?'bn':c.type==='형사'?'br':c.type==='수당'?'bg':'badge'}">${c.type}</span>` : (c.subItem ? `<span class="badge" style="background:#eef2f1;color:#0a5a45;border-color:#dfe7e3">${c.subItem}</span>` : '')}${/(^|\s)(24|25)-\d/.test(c.num||'') ? ` <span class="badge" style="background:#f1f5f9;color:#64748b;border-color:#e2e8f0" title="전년도(2025) 이월 사건">이월</span>` : ''}</td>
+            <td style="font-size:11px">${c.group ? `<span class="badge" style="background:#EEF2FF;color:#4338CA;border-color:#E0E7FF">${c.group}</span>` : ''}</td>
             <td class="mono">${(c.amt||0).toLocaleString()}</td>
             <td style="font-size:11px;color:var(--muted)">${c.note||''}</td>
             <td style="text-align:center;white-space:nowrap">
@@ -7616,6 +7700,7 @@ function recordExecution(cases, b, yy, mm, dd) {
       date: dateStr, num, client: c.client||'', lawyer: c.lawyer||'',
       firm: c.firm||'', amt, type: c.type||'민사',
       subItem: c.subItem||'',
+      group: c.group||'',
       note: c.case||c.caseName||c.note||'',
       _allowance: c._allowance||false
     };
