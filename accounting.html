@@ -461,6 +461,7 @@ h1,h2,h3,.login-logo h1,.topnav-logo,.card-title,.nav-section,.stat-val{font-fam
                   <option value="지급명령">지급명령</option>
                   <option value="인건비">인건비</option>
                   <option value="우편비">우편비</option>
+<option value="사무용품비">사무용품비</option>
                 </select>
               </div>
               <div class="field" style="grid-column:1/-1">
@@ -688,6 +689,7 @@ h1,h2,h3,.login-logo h1,.topnav-logo,.card-title,.nav-section,.stat-val{font-fam
                 <option>지급명령</option>
                 <option>인건비</option>
                 <option>우편비</option>
+<option>사무용품비</option>
               </select>
             </div>
             <div class="field">
@@ -3292,7 +3294,7 @@ document.addEventListener('click', function(e) {
   let input;
   if (field === 'type') {
     input = document.createElement('select');
-    ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비'].forEach(opt => {
+    ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비','사무용품비'].forEach(opt => {
       const o = document.createElement('option');
       o.value = opt; o.textContent = opt;
       if (opt === currentVal) o.selected = true;
@@ -3326,7 +3328,7 @@ document.addEventListener('click', function(e) {
       c[field] = parseInt(String(val).replace(/,/g,'')) || 0;
     } else if (field === 'type') {
       c.type = val;
-      if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비'].includes(c.note)) c.note = val;
+      if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비','사무용품비'].includes(c.note)) c.note = val;
     } else if (field === 'tax') {
       c.tax = val;
     }
@@ -6396,7 +6398,7 @@ document.addEventListener('click', function(e) {
     input.style.cssText='width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:11px;padding:2px 4px';
   } else if (field === 'type') {
     input = document.createElement('select');
-    ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비'].forEach(opt => {
+    ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비','사무용품비'].forEach(opt => {
       const o = document.createElement('option');
       o.value=opt; o.textContent=opt;
       if(opt===currentVal) o.selected=true;
@@ -6448,7 +6450,7 @@ document.addEventListener('click', function(e) {
     else if (field==='type') {
       c.type = val;
       // 엑셀 '비고' 칸은 note를 우선 참조하므로, OCR로 자동 채워졌던 옛 note 값도 함께 갱신
-      if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비'].includes(c.note)) c.note = val;
+      if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비','사무용품비'].includes(c.note)) c.note = val;
     }
     else                     { c[field]=val; }
 
@@ -6684,7 +6686,7 @@ function reDetectAllCaseTypes() {
     if (detected && detected !== c.type) {
       c.type = detected;
       // OCR로 채워졌던 옛 note 값도 유형이 정정되면 함께 갱신
-      if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비'].includes(c.note)) c.note = detected;
+      if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비','사무용품비'].includes(c.note)) c.note = detected;
       changed++;
     }
   });
@@ -8129,6 +8131,7 @@ function recordExecution(cases, b, yy, mm, dd) {
 <option value="수당">수당</option>
 <option value="인건비">인건비</option>
 <option value="우편비">우편비</option>
+<option value="사무용품비">사무용품비</option>
 <option value="운영비">운영비</option>
         </select>
       </div>
@@ -8257,6 +8260,7 @@ function recordExecution(cases, b, yy, mm, dd) {
 <option>수당</option>
 <option>인건비</option>
 <option>우편비</option>
+<option>사무용품비</option>
         </select>
       </div>
       <div class="field">
