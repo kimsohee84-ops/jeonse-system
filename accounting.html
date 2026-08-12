@@ -5983,6 +5983,35 @@ function moveResolRowManual(pos, dir) {
   renderResolPanel();
 }
 
+// ── 스캔 목록에서 구분(가정폭력/성폭력 등) 일괄 지정 ──
+// raw = [...BIZ[curBiz].cases, ...resolList[curBiz]] 순서이므로, 원본 배열을 직접 수정한다.
+function _resolRawRef(i) {
+  const casesLen = BIZ[curBiz].cases.length;
+  if (i < casesLen) return { arr: BIZ[curBiz].cases, idx: i };
+  return { arr: resolList[curBiz], idx: i - casesLen };
+}
+function applyGroupToAll() {
+  const val = (document.getElementById('resol-group-bulk')?.value || '').trim();
+  const raw = [...BIZ[curBiz].cases, ...resolList[curBiz]];
+  if (!raw.length) { showToast('목록이 비어 있습니다'); return; }
+  raw.forEach((c) => { if (c) c.group = val; });
+  if (typeof savePersistedData === 'function') savePersistedData();
+  renderResolPanel();
+  showToast(val ? `전체 ${raw.length}건을 '${val}'(으)로 지정했습니다` : '구분을 비웠습니다');
+}
+function applyGroupToSelected() {
+  const val = (document.getElementById('resol-group-bulk')?.value || '').trim();
+  if (!resolSelected || !resolSelected.size) { showToast('먼저 체크박스로 건을 선택해주세요'); return; }
+  let n = 0;
+  resolSelected.forEach(i => {
+    const { arr, idx } = _resolRawRef(i);
+    if (arr && arr[idx]) { arr[idx].group = val; n++; }
+  });
+  if (typeof savePersistedData === 'function') savePersistedData();
+  renderResolPanel();
+  showToast(`선택한 ${n}건을 '${val}'(으)로 지정했습니다`);
+}
+
 function renderResolPanel() {
   const empty   = document.getElementById("scan-resol-empty");
   const cont    = document.getElementById("scan-resol-content");
@@ -6056,6 +6085,19 @@ function renderResolPanel() {
         <i class="ti ti-trash" aria-hidden="true"></i> 전체 삭제
       </button>
     </p>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:8px 10px;background:#EEF2FF;border:1px solid #E0E7FF;border-radius:8px;font-size:12px;flex-wrap:wrap">
+      <span style="font-weight:600;color:#4338CA"><i class="ti ti-category"></i> 구분</span>
+      <input id="resol-group-bulk" list="resol-group-bulk-dl" placeholder="예: 가정폭력 / 성폭력 / 25년추납"
+             style="border:1px solid #C7D2FE;border-radius:6px;padding:3px 8px;font-size:12px;width:200px">
+      <datalist id="resol-group-bulk-dl"></datalist>
+      <button onclick="applyGroupToAll()" class="btn btn-sm" style="background:#4338CA;color:#fff;border-color:#4338CA;padding:3px 10px;font-size:11px">
+        전체에 적용
+      </button>
+      <button onclick="applyGroupToSelected()" class="btn btn-sm" style="border-color:#4338CA;color:#4338CA;padding:3px 10px;font-size:11px">
+        선택 건에만 적용
+      </button>
+      <span style="color:var(--muted);font-size:11px">— 이 목록 사건들을 가정폭력/성폭력 등으로 묶습니다</span>
+    </div>
     <div id="resol-bulk-bar" style="display:none;align-items:center;gap:8px;margin-bottom:8px;padding:8px 10px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;font-size:12px">
       <span id="resol-bulk-count" style="font-weight:600;color:#1D4ED8"></span>
       <button onclick="mergeSelectedRows()" class="btn btn-sm" style="background:#1D4ED8;color:#fff;border-color:#1D4ED8">
@@ -6112,7 +6154,7 @@ function renderResolPanel() {
             <td style="${cs};font-weight:500;cursor:pointer" data-field="num"    data-idx="${i}">${numTxt}</td>
             <td style="${cs};cursor:pointer"                 data-field="lawyer" data-idx="${i}">${c.lawyer||'<span style="color:#DC2626;font-size:11px">클릭입력</span>'}</td>
             <td style="${cs};cursor:pointer"                 data-field="client" data-idx="${i}">${c.client||'<span style="color:#DC2626;font-size:11px">클릭입력</span>'}</td>
-            <td style="${cs};cursor:pointer;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(c.case||'').replace(/"/g,'')}" data-field="case" data-idx="${i}">${c.case||c.caseName||'<span style="color:#6B7280;font-size:11px">클릭입력</span>'}</td>
+            <td style="${cs};cursor:pointer;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(c.case||'').replace(/"/g,'')}" data-field="case" data-idx="${i}">${c.case||c.caseName||'<span style="color:#6B7280;font-size:11px">클릭입력</span>'}${c.group?` <span style="font-size:9px;padding:1px 5px;border-radius:99px;background:#EEF2FF;color:#4338CA">${c.group}</span>`:''}</td>
             <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="fee" data-idx="${i}">${c.fee ? c.fee.toLocaleString() : '<span style="color:#9CA3AF;font-size:11px">클릭입력</span>'}</td>
             <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="stamp" data-idx="${i}">${c.stamp ? c.stamp.toLocaleString() : '<span style="color:#9CA3AF;font-size:11px">클릭입력</span>'}</td>
             <td style="${cs};cursor:pointer;text-align:right;font-family:monospace" data-field="delivery" data-idx="${i}">${c.delivery ? c.delivery.toLocaleString() : '<span style="color:#9CA3AF;font-size:11px">클릭입력</span>'}</td>
@@ -6151,6 +6193,15 @@ function renderResolPanel() {
         </tr>
       </tbody>
     </table>`;
+
+  // 구분 일괄지정 입력칸 후보 채우기
+  const gdl = document.getElementById('resol-group-bulk-dl');
+  if (gdl) {
+    const set = new Set();
+    [...BIZ[curBiz].cases, ...resolList[curBiz]].forEach(c=>{ if(c && c.group) set.add(c.group); });
+    ((PAID_CASES[curBiz])||[]).forEach(p=>{ if(p.group) set.add(p.group); });
+    gdl.innerHTML = [...set].map(g=>`<option value="${g.replace(/"/g,'')}">`).join('');
+  }
 
   updateBulkBar();
 }
