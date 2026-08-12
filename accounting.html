@@ -3193,8 +3193,12 @@ let caseListSortField = 'lawyer';
 let caseListSortAsc = true;
 
 function caseListSort(field) {
+  if (caseListManualMode) return;   // 수동정렬 중엔 헤더 정렬 무시
+  // 헤더로 정렬을 고르면 저장된 수동 순서(_lorder)를 버리고 자동정렬로 돌아간다
+  [...BIZ[curBiz].cases, ...resolList[curBiz]].forEach(c => { if (c) delete c._lorder; });
   if (caseListSortField === field) { caseListSortAsc = !caseListSortAsc; }
   else { caseListSortField = field; caseListSortAsc = true; }
+  if (typeof savePersistedData === 'function') savePersistedData();
   renderCaseList();
 }
 
@@ -3331,9 +3335,15 @@ function renderCaseList() {
   const casesLen = b.cases.length;
   all = all.map((c,i)=>({ c, i, _src: i < casesLen ? 'cases' : 'resol', _sidx: i < casesLen ? i : i - casesLen }));
 
-  if (caseListManualMode) {
-    // 수동정렬: _lorder 기준으로만 정렬 (자동정렬 건너뜀)
-    all.forEach((x,i)=>{ if(x.c && x.c._lorder===undefined) x.c._lorder=i; });
+  // 이 사업에 수동정렬 순서(_lorder)가 저장돼 있으면, 모드가 꺼져 있어도 그 순서를 유지한다.
+  // (사용자가 헤더를 클릭해 다른 정렬을 고르면 caseListSort에서 _lorder를 지워 자동정렬로 복귀)
+  const hasManualOrder = all.some(x => x.c && x.c._lorder !== undefined);
+
+  if (caseListManualMode || hasManualOrder) {
+    // 수동정렬: _lorder 기준. 없는 항목은 뒤로 보냄
+    let maxOrder = 0;
+    all.forEach(x => { if (x.c && x.c._lorder !== undefined && x.c._lorder > maxOrder) maxOrder = x.c._lorder; });
+    all.forEach((x,i)=>{ if(x.c && x.c._lorder===undefined) x.c._lorder = maxOrder + 1 + i; });
     all.sort((a,b2)=>(a.c._lorder??0)-(b2.c._lorder??0));
   } else {
   all.sort((a,b2)=>{
@@ -6157,9 +6167,15 @@ function renderResolPanel() {
 
   // 정렬 적용 (원본 인덱스 보존)
   const indexed = raw.map((c, i) => ({ c, i }));
-  if (resolManualMode) {
-    // 수동정렬: 저장된 _order 값 기준으로만 정렬 (연도/기준 자동정렬 건너뜀)
-    indexed.forEach(({c}, i) => { if (c && c._order === undefined) c._order = i; });
+  // 저장된 수동정렬 순서(_order)가 있으면 모드가 꺼져 있어도 그 순서를 유지한다.
+  // (헤더를 클릭해 다른 정렬을 고르면 resolSort에서 _order를 지워 자동정렬로 복귀)
+  const hasManualOrder = indexed.some(({c}) => c && c._order !== undefined);
+
+  if (resolManualMode || hasManualOrder) {
+    // 수동정렬: 저장된 _order 값 기준. 없는 항목은 뒤로
+    let mx = 0;
+    indexed.forEach(({c}) => { if (c && c._order !== undefined && c._order > mx) mx = c._order; });
+    indexed.forEach(({c}, i) => { if (c && c._order === undefined) c._order = mx + 1 + i; });
     indexed.sort((a, b) => (a.c._order??0) - (b.c._order??0));
   } else {
   indexed.sort((a, b) => {
@@ -6483,8 +6499,11 @@ function deleteAllRows() {
 // 컬럼 정렬
 function resolSort(field) {
   resolManualMode = false;   // 헤더로 정렬 기준을 고르면 수동정렬은 해제
+  // 저장된 수동 순서(_order)도 버리고 자동정렬로 돌아간다
+  [...BIZ[curBiz].cases, ...resolList[curBiz]].forEach(c => { if (c) delete c._order; });
   if (resolSortField === field) resolSortAsc = !resolSortAsc;
   else { resolSortField = field; resolSortAsc = true; }
+  if (typeof savePersistedData === 'function') savePersistedData();
   renderResolPanel();
 }
 
