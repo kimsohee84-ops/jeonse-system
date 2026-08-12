@@ -5081,6 +5081,14 @@ function editPaidCase(idx) {
   document.getElementById('pc-amt').value    = c.amt    || 0;
   document.getElementById('pc-type').value   = c.type   || '민사';
   document.getElementById('pc-note').value   = c.note   || '';
+  // 세목(예산 항목) 채우기 + 이 사업의 예산 항목을 후보로 제공
+  const subEl = document.getElementById('pc-subitem');
+  if (subEl) {
+    subEl.value = c.subItem || '';
+    const dl = document.getElementById('pc-subitem-datalist');
+    if (dl) dl.innerHTML = ((BUDGET_CATS[curBiz])||[]).filter(r=>r.sub)
+      .map(r=>`<option value="${(r.sub||'').replace(/"/g,'')}">${r.cat||''}</option>`).join('');
+  }
   document.getElementById('paid-case-modal').style.display = 'flex';
 }
 
@@ -5100,9 +5108,16 @@ function savePaidCase() {
   c.amt    = parseInt(document.getElementById('pc-amt').value) || 0;
   c.type   = document.getElementById('pc-type').value;
   c.note   = document.getElementById('pc-note').value.trim();
+  // 세목(예산 항목) 저장 — 비우면 세목 미지정 처리
+  const subEl = document.getElementById('pc-subitem');
+  if (subEl) {
+    const sv = subEl.value.trim();
+    if (sv) c.subItem = sv; else delete c.subItem;
+  }
   closePaidCaseModal();
   savePersistedData();
   renderExecHistory();
+  renderDashboard();
   showToast('수정됐습니다');
 }
 
@@ -7927,6 +7942,11 @@ function recordExecution(cases, b, yy, mm, dd) {
 <option value="우편비">우편비</option>
 <option value="운영비">운영비</option>
         </select>
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>세목 (예산 항목) <span style="font-size:11px;color:var(--muted)">— 어느 예산에서 나가는지 지정</span></label>
+        <input class="form-input" id="pc-subitem" list="pc-subitem-datalist" placeholder="예: 소송구조 / 홍보영상 (예산 항목과 같은 이름)">
+        <datalist id="pc-subitem-datalist"></datalist>
       </div>
       <div class="field" style="grid-column:1/-1"><label>비고</label><input class="form-input" id="pc-note"></div>
     </div>
