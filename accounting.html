@@ -7586,11 +7586,11 @@ function recordExecution(cases, b, yy, mm, dd) {
   }
   const ex = EXEC_DATA[curBiz];
 
-  // 같은 월 있으면 갱신, 없으면 추가
+  // 같은 월 항목 준비 (합계·건수는 아래 PAID_CASES 누적 후 다시 계산)
   const existingIdx = ex.monthly.findIndex(m => m.month === monthKey);
   const monthEntry  = {
     month: monthKey, label: monthLabel,
-    count: lawCases.length,   // 수당 제외 변호사 사건 건수만
+    count: lawCases.length,
     total: monthTotal, date: dateStr, status: '완료'
   };
   if (existingIdx >= 0) {
@@ -7598,27 +7598,45 @@ function recordExecution(cases, b, yy, mm, dd) {
   } else {
     ex.monthly.push(monthEntry);
   }
-  // 집행액 = 월별 합계 (누적 더하기로 인한 이중 집계 방지)
-  ex.executed = ex.monthly.reduce((s,m)=>s+(m.total||0), 0);
+  // (집행액은 PAID_CASES 누적 후 아래에서 재계산)
   ex.budget    = b.budget;
 
-  // BIZ 집행액 동기화
-  BIZ[curBiz].executed = ex.executed;
-
   // 건별 상세 저장 (재생성용)
+  // 같은 달에 결의서를 여러 장(예: 가정폭력·성폭력) 등록할 수 있으므로,
+  // 그달 기존 건을 지우지 않고 이어붙인다. 똑같은 건(접수번호+적요+금액 동일)만 중복 제외.
   if (!PAID_CASES[curBiz]) PAID_CASES[curBiz] = [];
-  PAID_CASES[curBiz] = PAID_CASES[curBiz].filter(p => !(p.date||'').startsWith(monthKey));
+  const sig = p => `${(p.num||'').trim()}|${(p.note||p.case||p.caseName||'').trim()}|${p.amt||0}`;
+  const existingSigs = new Set(
+    PAID_CASES[curBiz].filter(p => (p.date||'').startsWith(monthKey)).map(sig)
+  );
   cases.forEach(c => {
     const amt = (c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0)+(c.etc||0);
     const num = (c.num||'').replace(/^(국부|서금|양이원|대법원|법무부|성평등|이태원|서울시|초록우산|여객기)\s*/,'');
-    PAID_CASES[curBiz].push({
+    const rec = {
       date: dateStr, num, client: c.client||'', lawyer: c.lawyer||'',
       firm: c.firm||'', amt, type: c.type||'민사',
       subItem: c.subItem||'',
       note: c.case||c.caseName||c.note||'',
       _allowance: c._allowance||false
-    });
+    };
+    // 접수번호 있는 건만 중복 검사 (빈 접수번호=우편비·인건비 등은 항상 추가)
+    const s = sig(rec);
+    if (num && existingSigs.has(s)) return;
+    existingSigs.add(s);
+    PAID_CASES[curBiz].push(rec);
   });
+
+  // 그달 월 합계·건수를 PAID_CASES(누적된 실제 건) 기준으로 다시 계산 → 여러 장 등록해도 정확
+  const monthPaid = PAID_CASES[curBiz].filter(p => (p.date||'').startsWith(monthKey));
+  const monthSum  = monthPaid.reduce((s,p)=>s+(p.amt||0), 0);
+  const monthCnt  = monthPaid.filter(p => !p._allowance && !p._overhead && p.type !== '인건비').length;
+  const mIdx = ex.monthly.findIndex(m => m.month === monthKey);
+  if (mIdx >= 0) { ex.monthly[mIdx].total = monthSum; ex.monthly[mIdx].count = monthCnt; }
+
+  // 집행액 = 월별 합계 총합
+  ex.executed = ex.monthly.reduce((s,m)=>s+(m.total||0), 0);
+  // BIZ 집행액 동기화
+  BIZ[curBiz].executed = ex.executed;
 
   // 작업 목록 초기화
   resolList[curBiz] = [];
