@@ -3005,8 +3005,10 @@ function renderResolDoc() {
 function addResolItem() {
   const item = readResolForm();
   if (!item) return;
-  // 같은 결의서 내 접수번호 중복 방지
-  if (window._resolItems.find(x=>x.num===item.num)) {
+  // 같은 결의서 내 접수번호 중복 방지 — 단, 접수번호가 있는 경우에만.
+  // 우편비·인건비·수당 등 접수번호 없는 건은 여러 개 추가할 수 있어야 하므로 막지 않는다.
+  const num = (item.num || '').trim();
+  if (num && window._resolItems.find(x => (x.num||'').trim() === num)) {
     showToast("이미 이 결의서에 추가된 접수번호입니다");
     return;
   }
@@ -3055,9 +3057,17 @@ function saveResol() {
   let added = 0;
   items.forEach(r=>{
     if (!resolList[r.biz]) resolList[r.biz] = [];
-    if (!resolList[r.biz].find(x=>x.num===r.num)) {
+    // 중복 판정: 접수번호(num)가 있는 건만, num+적요(사건명)가 모두 같을 때 중복으로 본다.
+    // 접수번호가 빈 건(우편비·인건비·수당 등)은 절대 중복으로 막지 않고 항상 추가한다.
+    const num = (r.num || '').trim();
+    const desc = (r.case || r.caseName || r.note || '').trim();
+    const isDup = num && resolList[r.biz].some(x =>
+      (x.num || '').trim() === num &&
+      ((x.case || x.caseName || x.note || '').trim() === desc)
+    );
+    if (!isDup) {
       resolList[r.biz].push(r);
-      BIZ[r.biz].executed += r.total;
+      BIZ[r.biz].executed += (r.total || 0);
       added++;
     }
   });
