@@ -2227,7 +2227,11 @@ function renderAllBizTable() {
 
   const data = ALL_BIZ_DATA.map((b, i) => {
     const ex = b.linked ? EXEC_DATA[b.linked] : null;
-    return { ...b, exec: ex ? ex.executed : b.exec, _origIdx: i, _ex: ex };
+    // 교부액: 수입 내역(income) 합계를 우선 사용. 없으면 기존 하드코딩 값(b.paid) 폴백.
+    const incomeSum = (ex && Array.isArray(ex.income))
+      ? ex.income.reduce((s, r) => s + (r.amt || 0), 0) : 0;
+    const paid = incomeSum > 0 ? incomeSum : (b.paid || 0);
+    return { ...b, paid, exec: ex ? ex.executed : b.exec, _origIdx: i, _ex: ex };
   });
 
   const won = n => (n||0).toLocaleString();
@@ -5161,6 +5165,7 @@ function saveIncome() {
   }
   closeIncomeModal();
   renderExecHistory();
+  if (typeof renderAllBizTable === 'function') renderAllBizTable();
   savePersistedData();
   showToast(_editIncomeIdx >= 0 ? '수정됐습니다' : '수입이 등록됐습니다');
 }
@@ -5168,7 +5173,9 @@ function editIncome(idx)   { openIncomeModal(idx); }
 function deleteIncome(idx) {
   if (!confirm('이 수입 내역을 삭제할까요?')) return;
   EXEC_DATA[curBiz].income.splice(idx, 1);
-  renderExecHistory(); savePersistedData();
+  renderExecHistory();
+  if (typeof renderAllBizTable === 'function') renderAllBizTable();
+  savePersistedData();
   showToast('삭제됐습니다');
 }
 
