@@ -3306,7 +3306,7 @@ function renderCaseList() {
   // 정렬 헤더 렌더링
   const cols = [
     ['num','접수번호'], ['lawyer','변호사'], ['client','의뢰인'], ['case','사건명'],
-    ['type','유형'], ['fee','보수'], ['stamp','인지대'], ['delivery','송달료'],
+    ['type','유형'], ['group','구분'], ['fee','보수'], ['stamp','인지대'], ['delivery','송달료'],
     ['total','합계'], ['tax','계산서'], ['resol','결의서']
   ];
   const theadRow = document.getElementById("list-thead-row");
@@ -3389,6 +3389,7 @@ function renderCaseList() {
       <td>${c.client}</td>
       <td style="font-size:11px">${c.case||c.caseName}</td>
       <td><span class="badge ${typeMap[c.type]||"bn"}" ${ed} data-lfield="type" style="cursor:pointer">${c.type}</span></td>
+      <td style="font-size:11px;cursor:pointer" ${ed} data-lfield="group">${c.group ? `<span style="padding:1px 6px;border-radius:99px;background:#EEF2FF;color:#4338CA">${c.group}</span>` : '<span style="color:#9CA3AF">클릭입력</span>'}</td>
       <td class="mono" ${ed} data-lfield="fee" style="cursor:pointer">${fee ? fee.toLocaleString() : '<span style="color:#9CA3AF">클릭입력</span>'}</td>
       <td class="mono" ${ed} data-lfield="stamp" style="cursor:pointer">${stamp ? stamp.toLocaleString() : '<span style="color:#9CA3AF">클릭입력</span>'}</td>
       <td class="mono" ${ed} data-lfield="delivery" style="cursor:pointer">${delivery ? delivery.toLocaleString() : '<span style="color:#9CA3AF">클릭입력</span>'}</td>
@@ -3420,6 +3421,7 @@ document.addEventListener('click', function(e) {
   if      (field === 'fee' || field === 'stamp' || field === 'delivery') currentVal = c[field] || 0;
   else if (field === 'type') currentVal = c.type || '민사';
   else if (field === 'tax')  currentVal = c.tax  || '전자세금계산서';
+  else if (field === 'group') currentVal = c.group || '';
 
   const parentTd = el.tagName === 'TD' ? el : el.closest('td');
   const originalHTML = parentTd.innerHTML;
@@ -3442,6 +3444,21 @@ document.addEventListener('click', function(e) {
       if (opt === currentVal) o.selected = true;
       input.appendChild(o);
     });
+  } else if (field === 'group') {
+    input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentVal;
+    input.placeholder = '예: 가정폭력, 데이트폭력, 스토킹';
+    input.style.textAlign = 'left';
+    // 이 사업에서 이미 쓰인 구분값을 자동완성 후보로 제공 (지출결의서 다운로드 시 이 값 기준으로 시트가 나뉨)
+    const dlId = 'group-dl-' + Math.random().toString(36).slice(2);
+    const dl = document.createElement('datalist');
+    dl.id = dlId;
+    const seen = new Set();
+    [...(BIZ[curBiz].cases||[]), ...(resolList[curBiz]||[])].forEach(x => { if (x && x.group) seen.add(x.group); });
+    seen.forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); });
+    parentTd.appendChild(dl);
+    input.setAttribute('list', dlId);
   } else {
     input = document.createElement('input');
     input.type = 'text';
@@ -3465,6 +3482,8 @@ document.addEventListener('click', function(e) {
       if (c._fromOcr || !c.note || ['민사','형사','신청','가사','행정','감치','집행','수당','인건비','우편비','사무용품비'].includes(c.note)) c.note = val;
     } else if (field === 'tax') {
       c.tax = val;
+    } else if (field === 'group') {
+      if (val) c.group = val; else delete c.group;
     }
     if (typeof savePersistedData === 'function') savePersistedData();
     renderCaseList();
