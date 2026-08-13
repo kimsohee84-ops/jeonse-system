@@ -461,24 +461,22 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         else:
             resol_cases_data = _other_cases
 
-        # 유형(가정폭력/성폭력 등)별로 지출결의서 시트 자체를 분리할 사업인지 판단.
-        # 화면 "유형" 컬럼(c.type) 값이 바뀔 때마다 별도 시트로 — 각 시트는 순번 1부터, 계(합계)도 별도.
-        SPLIT_TYPE_BIZ_KEYWORDS = ("성평등가족부",)
-        split_by_type = any(k in (biz_short or "") for k in SPLIT_TYPE_BIZ_KEYWORDS) or \
-                        any(k in (biz_full  or "") for k in SPLIT_TYPE_BIZ_KEYWORDS)
+        # 구분(group, 예: 가정폭력/성폭력/데이트폭력·스토킹)이 지정된 사건이 섞여 있으면
+        # 지출결의서 시트 자체를 구분값별로 분리한다 — 각 시트는 순번 1부터, 계(합계)도 별도.
+        # (c.type/"유형"은 가사·형사·민사 같은 사건 종류라 시트 분리 기준으로 쓰지 않음)
+        _by_group = {}
+        _group_order = []
+        for c in resol_cases_data:
+            key = (c.get("group","") or "").strip()
+            if key not in _by_group:
+                _by_group[key] = []
+                _group_order.append(key)
+            _by_group[key].append(c)
 
-        if split_by_type:
-            _by_type = {}
-            _type_order = []
-            for c in resol_cases_data:
-                key = (c.get("type","") or "").strip() or "기타"
-                if key not in _by_type:
-                    _by_type[key] = []
-                    _type_order.append(key)
-                _by_type[key].append(c)
-            # 가정폭력을 맨 앞으로, 나머지는 등장 순서 그대로
-            _type_order.sort(key=lambda k: (0 if k == "가정폭력" else 1))
-            type_groups = [(k, _by_type[k]) for k in _type_order]
+        if len(_group_order) > 1:
+            # 구분 미지정("") 건들을 맨 앞 시트로, 나머지는 등장 순서 그대로
+            _group_order.sort(key=lambda k: (0 if k == "" else 1))
+            type_groups = [(k if k else None, _by_group[k]) for k in _group_order]
         else:
             type_groups = [(None, resol_cases_data)]
 
