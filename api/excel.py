@@ -461,17 +461,33 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         else:
             resol_cases_data = _other_cases
 
+        # 기본 정렬: 변호사 없는 관리비성 항목(인건비·사무용품비·수당 등 "소송구조" 아닌 것)을 맨 위로,
+        # 그 아래는 변호사 이름 가나다순. 화면(지출목록)의 정렬 상태와 무관하게 다운로드 시 항상 이 순서로 고정.
+        # 구분(group)값이 같은 사건끼리는 그대로 붙어 있어야 안내줄이 한 번만 깔끔하게 들어가므로,
+        # 구분값을 1순위로 두고 그 안에서(관리비 우선, 변호사순)를 2·3순위로 정렬.
+        def _resol_sort_key(c):
+            raw_group = (c.get("group","") or "").strip()
+            lawyer = (c.get("lawyer","") or "").strip()
+            is_admin = 0 if not lawyer else 1
+            return (raw_group, is_admin, lawyer)
+        resol_cases_data = sorted(resol_cases_data, key=_resol_sort_key)
+
         # 구분(group, 예: 가정폭력/성폭력/데이트폭력·스토킹)이 지정된 사건이 섞여 있으면
         # 지출결의서 시트 자체를 구분값별로 분리한다 — 각 시트는 순번 1부터, 계(합계)도 별도.
         # (c.type/"유형"은 가사·형사·민사 같은 사건 종류라 시트 분리 기준으로 쓰지 않음)
+        # "데이트폭력, 스토킹"은 별도 시트가 아니라 기본(가정폭력) 시트 안에 안내줄로만 구분해서 포함
+        # — 사건의 group 값 자체는 그대로 둬서 insert_group_dividers가 안내줄을 넣게 함
+        MERGE_INTO_BASE_SHEET = {"데이트폭력, 스토킹"}
+
         _by_group = {}
         _group_order = []
         for c in resol_cases_data:
-            key = (c.get("group","") or "").strip()
-            if key not in _by_group:
-                _by_group[key] = []
-                _group_order.append(key)
-            _by_group[key].append(c)
+            raw_key = (c.get("group","") or "").strip()
+            bucket_key = "" if raw_key in MERGE_INTO_BASE_SHEET else raw_key
+            if bucket_key not in _by_group:
+                _by_group[bucket_key] = []
+                _group_order.append(bucket_key)
+            _by_group[bucket_key].append(c)
 
         if len(_group_order) > 1:
             # 구분 미지정("") 건들을 맨 앞 시트로, 나머지는 등장 순서 그대로
