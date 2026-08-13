@@ -110,7 +110,7 @@ def _diagonal_line_png():
 
 def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, start_seq=1,
               ay=None, am=None, ad=None):
-    from openpyxl.styles import Border, Side
+    from openpyxl.styles import Border, Side, Font
     th = Side(style='thin')
     md = Side(style='medium')
     no = Side(style=None)
@@ -286,12 +286,26 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
                 top=Side(style=t) if t else Side(),
                 bottom=Side(style=bot) if bot else Side()
             )
+    seq_counter = start_seq
     for i in range(20):
         r = 11+i+o
         ws.row_dimensions[r].height = 24  # 11~30행 높이 고정
-        set_val(ws,r,1,start_seq+i)   # 순번은 빈 줄이어도 계속 이어서 매김
-        if i < len(page_rows):
-            row = page_rows[i]
+        row = page_rows[i] if i < len(page_rows) else None
+        if row is not None and row.get("kind") == "header":
+            # 구분(그룹) 전환 안내줄 — 순번 없이 한 행 전체를 병합해서 가운데 표시
+            for sm in [f"B{r}:D{r}", f"E{r}:K{r}", f"L{r}:O{r}", f"P{r}:Q{r}"]:
+                try: ws.unmerge_cells(sm)
+                except: pass
+            full_mc = f"A{r}:Q{r}"
+            try: ws.unmerge_cells(full_mc)
+            except: pass
+            ws.merge_cells(full_mc)
+            set_val(ws,r,1,row.get("label",""),center)
+            ws.cell(r,1).font = Font(bold=True, size=10)
+            continue  # 안내줄은 순번을 소비하지 않음
+        set_val(ws,r,1,seq_counter)   # 순번은 빈 줄이어도 계속 이어서 매김
+        seq_counter += 1
+        if row is not None:
             acct_label = "일반관리비\n전세피해자사업비" if row["acct_type"]=="일반관리비" else "법률구조사업비(사)"
             set_val(ws,r,2,acct_label,center)
             set_val(ws,r,5,row["desc"])
@@ -316,6 +330,7 @@ def fill_page(ws, o, page_rows, page_total, biz_title, yy, mm, dd, page_num=0, s
 
     ws.row_dimensions[31+o].height = 24
     set_val(ws,31+o,1,"계"); set_val(ws,31+o,12,page_total)
+    return seq_counter  # 다음 페이지의 시작 순번(안내줄은 제외하고 이어서 매김)
 
 # 결제방식 라벨 — build_excel에서 모듈 전역으로 1회 세팅 (fill_page가 매 페이지 동일하게 참조)
 PAY_METHOD_LABEL = {"current": "계좌이체"}
@@ -406,12 +421,27 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                         desc = (client+" "+case_nm).strip()
                     else:
                         desc = lawyer+" 弁 "+num+"호 "+client+" "+case_nm
-                    rows.append({"desc":desc,"amt":amt,"acct_type":acct_type,"note":note})
+                    group = (c.get("group","") or "").strip()
+                    rows.append({"desc":desc,"amt":amt,"acct_type":acct_type,"note":note,"group":group,"kind":"item"})
                 except Exception as _e:
                     # 이 건만 건너뛰고 나머지는 정상 진행 (전체 다운로드가 죽지 않도록)
                     safe_num = c.get('num','?') if isinstance(c,dict) else '?'
-                    rows.append({"desc":f"[읽기오류: {safe_num}] {_e}","amt":0,"acct_type":"법률구조사업비","note":"확인필요"})
+                    rows.append({"desc":f"[읽기오류: {safe_num}] {_e}","amt":0,"acct_type":"법률구조사업비","note":"확인필요","group":"","kind":"item"})
             return rows
+
+        def insert_group_dividers(rows):
+            """사건의 구분(group)이 바뀌는 지점에 '○○ 전표' 안내줄을 끼워 넣는다.
+            맨 처음 그룹은(지출결의서 제목이 이미 그 구분을 나타내므로) 안내줄을 넣지 않고,
+            그 이후 구분값이 이전과 달라질 때만(비어있지 않은 경우) 안내줄 삽입."""
+            out = []
+            prev_group = None
+            for idx, r in enumerate(rows):
+                g = r.get("group","")
+                if idx > 0 and g and g != prev_group:
+                    out.append({"kind":"header","label":f"{g} 전표","amt":0})
+                out.append(r)
+                prev_group = g
+            return out
 
         # 직원 수당은 개별 직원별로 나열하지 않고 하나로 합쳐서 표시 (지출결의서 전용 — 대량이체/지출목록 시트는 개별 유지)
         _allowance_items = [c for c in cases_data if isinstance(c, dict) and c.get("_allowance")]
@@ -435,6 +465,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
             resol_cases_data = _other_cases
 
         all_rows = make_resol_rows(resol_cases_data)
+        all_rows = insert_group_dividers(all_rows)
         pages = [all_rows[i:i+20] for i in range(0, max(len(all_rows),1), 20)]
 
         seq = 1
@@ -462,8 +493,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                         nc.fill=copy.copy(cell.fill); nc.number_format=cell.number_format
                         nc.alignment=copy.copy(cell.alignment)
 
-            fill_page(ws_new,o,page_rows,page_total,biz_title,yy,mm,dd,p_idx,start_seq=seq,ay=ay,am=am,ad=ad)
-            seq += len(page_rows)
+            seq = fill_page(ws_new,o,page_rows,page_total,biz_title,yy,mm,dd,p_idx,start_seq=seq,ay=ay,am=am,ad=ad)
         # ── 인쇄 설정: 원본 양식과 동일하게 ──
         from openpyxl.worksheet.properties import PageSetupProperties
         from openpyxl.worksheet.pagebreak import Break
