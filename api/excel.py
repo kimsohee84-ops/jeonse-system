@@ -365,6 +365,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
     wb_new = Workbook(); wb_new.remove(wb_new.active)
 
     pages = []  # mode='resol'이 아니면 빈 채로 유지 (이후 코드에서 참조해도 안전)
+    resol_sheets = []  # [(ws_new, pages), ...] — 지출결의서 시트가 여러 장(유형별 분리)일 수 있어 목록으로 관리
 
     # ══════════════════════════════════════════
     # ① 지출결의서 (mode: 'resol' 또는 'all')
@@ -386,16 +387,12 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
             and str(m) != 'E10:L10'  # 10행 금액 영역은 fill_page에서 직접 재분할
         ]
 
-        ws_new = wb_new.create_sheet(new_name)
-
         # 열너비 — A4 세로 인쇄에 맞게 조정 (원본 비율 유지하면서 축소)
         A4_COL_WIDTHS = {
             'A':3.46,'B':5.13,'C':7.25,'D':3.57,'E':8.70,'F':4.77,'G':3.75,
             'H':3.46,'I':3.93,'J':4.63,'K':6.5,'L':4.25,'M':3.69,'N':4.63,
             'O':4.63,'P':6.5,'Q':1.38
         }
-        for col, w in A4_COL_WIDTHS.items():
-            ws_new.column_dimensions[col].width = w
 
         # 건당 한 줄 (보수+인지대+송달료 합계) — 20건씩 페이지 분할
         # expand_rows는 사용 안 함: 지출결의서는 합계 한 줄, 지출목록에서 열로 분리
@@ -464,64 +461,94 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         else:
             resol_cases_data = _other_cases
 
-        all_rows = make_resol_rows(resol_cases_data)
-        all_rows = insert_group_dividers(all_rows)
-        pages = [all_rows[i:i+20] for i in range(0, max(len(all_rows),1), 20)]
+        # 유형(가정폭력/성폭력 등)별로 지출결의서 시트 자체를 분리할 사업인지 판단.
+        # 화면 "유형" 컬럼(c.type) 값이 바뀔 때마다 별도 시트로 — 각 시트는 순번 1부터, 계(합계)도 별도.
+        SPLIT_TYPE_BIZ_KEYWORDS = ("성평등가족부",)
+        split_by_type = any(k in (biz_short or "") for k in SPLIT_TYPE_BIZ_KEYWORDS) or \
+                        any(k in (biz_full  or "") for k in SPLIT_TYPE_BIZ_KEYWORDS)
 
-        seq = 1
-        for p_idx,page_rows in enumerate(pages):
-            o = p_idx*32
-            page_total=sum(r["amt"] for r in page_rows)
-            # 행높이
-            for rn,dim in ws_src.row_dimensions.items():
-                ws_new.row_dimensions[rn+o].height=dim.height
+        if split_by_type:
+            _by_type = {}
+            _type_order = []
+            for c in resol_cases_data:
+                key = (c.get("type","") or "").strip() or "기타"
+                if key not in _by_type:
+                    _by_type[key] = []
+                    _type_order.append(key)
+                _by_type[key].append(c)
+            # 가정폭력을 맨 앞으로, 나머지는 등장 순서 그대로
+            _type_order.sort(key=lambda k: (0 if k == "가정폭력" else 1))
+            type_groups = [(k, _by_type[k]) for k in _type_order]
+        else:
+            type_groups = [(None, resol_cases_data)]
 
-            # 병합셀 (문자열 목록으로)
-            apply_merge_list(ws_new, merge_strings, o)
-
-            # 서식 복사
-            for row in ws_src.iter_rows(min_row=1,max_row=31):
-                for cell in row:
-                    if cell.__class__.__name__=="MergedCell": continue
-                    nc=ws_new.cell(row=cell.row+o,column=cell.column)
-                    if nc.__class__.__name__=="MergedCell": continue
-                    # 값 복사 (수식 포함 — "일금", =K8, "원정", =L31 등)
-                    if cell.value is not None:
-                        nc.value = cell.value
-                    if cell.has_style:
-                        nc.font=copy.copy(cell.font); nc.border=copy.copy(cell.border)
-                        nc.fill=copy.copy(cell.fill); nc.number_format=cell.number_format
-                        nc.alignment=copy.copy(cell.alignment)
-
-            seq = fill_page(ws_new,o,page_rows,page_total,biz_title,yy,mm,dd,p_idx,start_seq=seq,ay=ay,am=am,ad=ad)
-        # ── 인쇄 설정: 원본 양식과 동일하게 ──
         from openpyxl.worksheet.properties import PageSetupProperties
         from openpyxl.worksheet.pagebreak import Break
 
-        ws_new.page_setup.orientation  = 'portrait'
-        ws_new.page_setup.paperSize    = 9
-        ws_new.page_setup.scale        = 100
-        ws_new.page_setup.fitToPage    = False
-        ws_new.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=False)
+        for grp_label, grp_cases in type_groups:
+            sheet_name = f"{new_name}-{grp_label}" if grp_label else new_name
+            sheet_name = sheet_name[:31]  # 엑셀 시트명 31자 제한
+            ws_new = wb_new.create_sheet(sheet_name)
+            for col, w in A4_COL_WIDTHS.items():
+                ws_new.column_dimensions[col].width = w
 
-        # 여백 (cm → 인치)
-        ws_new.page_margins.top    = 2.1 / 2.54
-        ws_new.page_margins.bottom = 0.6 / 2.54
-        ws_new.page_margins.left   = 1.3 / 2.54
-        ws_new.page_margins.right  = 1.4 / 2.54
-        ws_new.page_margins.header = 0.8 / 2.54
-        ws_new.page_margins.footer = 0.5 / 2.54
+            all_rows = make_resol_rows(grp_cases)
+            all_rows = insert_group_dividers(all_rows)
+            pages = [all_rows[i:i+20] for i in range(0, max(len(all_rows),1), 20)]
 
-        # 인쇄 영역
-        last_row = 31 + (len(pages)-1) * 32
-        ws_new.print_area = f"A1:Q{last_row}"
+            seq = 1
+            for p_idx,page_rows in enumerate(pages):
+                o = p_idx*32
+                page_total=sum(r.get("amt",0) for r in page_rows)
+                # 행높이
+                for rn,dim in ws_src.row_dimensions.items():
+                    ws_new.row_dimensions[rn+o].height=dim.height
 
-        # 페이지 구분선
-        for p_idx in range(len(pages)-1):
-            break_row = 31 + p_idx*32
-            ws_new.row_breaks.append(Break(id=break_row))
+                # 병합셀 (문자열 목록으로)
+                apply_merge_list(ws_new, merge_strings, o)
 
-        # 변호사 계좌 정보 (lawyer 시트 선택 시 — resol 모드 내 부속 옵션)
+                # 서식 복사
+                for row in ws_src.iter_rows(min_row=1,max_row=31):
+                    for cell in row:
+                        if cell.__class__.__name__=="MergedCell": continue
+                        nc=ws_new.cell(row=cell.row+o,column=cell.column)
+                        if nc.__class__.__name__=="MergedCell": continue
+                        # 값 복사 (수식 포함 — "일금", =K8, "원정", =L31 등)
+                        if cell.value is not None:
+                            nc.value = cell.value
+                        if cell.has_style:
+                            nc.font=copy.copy(cell.font); nc.border=copy.copy(cell.border)
+                            nc.fill=copy.copy(cell.fill); nc.number_format=cell.number_format
+                            nc.alignment=copy.copy(cell.alignment)
+
+                seq = fill_page(ws_new,o,page_rows,page_total,biz_title,yy,mm,dd,p_idx,start_seq=seq,ay=ay,am=am,ad=ad)
+            # ── 인쇄 설정: 원본 양식과 동일하게 ──
+            ws_new.page_setup.orientation  = 'portrait'
+            ws_new.page_setup.paperSize    = 9
+            ws_new.page_setup.scale        = 100
+            ws_new.page_setup.fitToPage    = False
+            ws_new.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=False)
+
+            # 여백 (cm → 인치)
+            ws_new.page_margins.top    = 2.1 / 2.54
+            ws_new.page_margins.bottom = 0.6 / 2.54
+            ws_new.page_margins.left   = 1.3 / 2.54
+            ws_new.page_margins.right  = 1.4 / 2.54
+            ws_new.page_margins.header = 0.8 / 2.54
+            ws_new.page_margins.footer = 0.5 / 2.54
+
+            # 인쇄 영역
+            last_row = 31 + (len(pages)-1) * 32
+            ws_new.print_area = f"A1:Q{last_row}"
+
+            # 페이지 구분선
+            for p_idx in range(len(pages)-1):
+                break_row = 31 + p_idx*32
+                ws_new.row_breaks.append(Break(id=break_row))
+
+            resol_sheets.append((ws_new, pages))
+
+        # 변호사 계좌 정보 (lawyer 시트 선택 시 — resol 모드 내 부속 옵션, 유형별로 반복하지 않고 한 번만)
         if 'lawyer' in sheets:
             ws_acct_src=wb_src_list["변호사 계좌 정보"]
             ws_acct_new=wb_new.create_sheet("변호사 계좌 정보")
@@ -627,31 +654,30 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                                     FOUNDATION_BANK, FOUNDATION_ACCT, FOUNDATION_OWNER,
                                     withholding, f"{c.get('client','')}원천세", f"{c.get('client','')}원천세", tax_type)
 
-    # 저장 전 핵심 병합셀 강제 확인 및 재추가 (resol 시트가 있을 때만)
-    if mode in ('resol', 'all') and new_name in wb_new.sheetnames:
-        ws_resol = wb_new[new_name]
+    # 저장 전 핵심 병합셀 강제 확인 및 재추가 (resol 시트가 있을 때만 — 유형별로 시트가 여러 장일 수 있어 전부 순회)
     required_merges_per_page = ["A31:K31"]
-    for p_idx in range(len(pages)):
-        o = p_idx * 32
-        for mc in required_merges_per_page:
-            parts = mc.split(':')
-            c1 = ''.join(c for c in parts[0] if c.isalpha())
-            r1 = int(''.join(c for c in parts[0] if c.isdigit())) + o
-            c2 = ''.join(c for c in parts[1] if c.isalpha())
-            r2 = int(''.join(c for c in parts[1] if c.isdigit())) + o
-            mc_shifted = f"{c1}{r1}:{c2}{r2}"
-            min_col = column_index_from_string(c1)
-            max_col = column_index_from_string(c2)
-            to_remove = []
-            for existing in list(ws_resol.merged_cells.ranges):
-                if (existing.min_row <= r2 and existing.max_row >= r1 and
-                    existing.min_col <= max_col and existing.max_col >= min_col):
-                    to_remove.append(str(existing))
-            for rm in to_remove:
-                try: ws_resol.unmerge_cells(rm)
+    for ws_resol, resol_pages in resol_sheets:
+        for p_idx in range(len(resol_pages)):
+            o = p_idx * 32
+            for mc in required_merges_per_page:
+                parts = mc.split(':')
+                c1 = ''.join(c for c in parts[0] if c.isalpha())
+                r1 = int(''.join(c for c in parts[0] if c.isdigit())) + o
+                c2 = ''.join(c for c in parts[1] if c.isalpha())
+                r2 = int(''.join(c for c in parts[1] if c.isdigit())) + o
+                mc_shifted = f"{c1}{r1}:{c2}{r2}"
+                min_col = column_index_from_string(c1)
+                max_col = column_index_from_string(c2)
+                to_remove = []
+                for existing in list(ws_resol.merged_cells.ranges):
+                    if (existing.min_row <= r2 and existing.max_row >= r1 and
+                        existing.min_col <= max_col and existing.max_col >= min_col):
+                        to_remove.append(str(existing))
+                for rm in to_remove:
+                    try: ws_resol.unmerge_cells(rm)
+                    except: pass
+                try: ws_resol.merge_cells(mc_shifted)
                 except: pass
-            try: ws_resol.merge_cells(mc_shifted)
-            except: pass
 
     # transfer 모드면 sheets에 transfer 강제 포함
     if mode == 'transfer':
