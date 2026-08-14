@@ -3298,7 +3298,7 @@ function _caseListDisplayOrder() {
       if (caseListSortField === 'total') {
         va = (a.c.fee||0)+(a.c.stamp||0)+(a.c.delivery||0)+(a.c.deposit||0)+(a.c.etc||0);
         vb = (b2.c.fee||0)+(b2.c.stamp||0)+(b2.c.delivery||0)+(b2.c.deposit||0)+(b2.c.etc||0);
-      } else if (['fee','stamp','delivery'].includes(caseListSortField)) {
+      } else if (['fee','stamp','delivery','deposit','etc'].includes(caseListSortField)) {
         va = a.c[caseListSortField]||0; vb = b2.c[caseListSortField]||0;
       } else if (caseListSortField === 'case') {
         va = (a.c.case||a.c.caseName||'').toString().toLowerCase();
@@ -3383,6 +3383,7 @@ function renderCaseList() {
   const cols = [
     ['num','접수번호'], ['lawyer','변호사'], ['client','의뢰인'], ['case','사건명'],
     ['type','유형'], ['group','구분'], ['fee','보수'], ['stamp','인지대'], ['delivery','송달료'],
+    ['deposit','보관금'], ['etc','기타'],
     ['total','합계'], ['tax','계산서'], ['resol','결의서']
   ];
   const theadRow = document.getElementById("list-thead-row");
@@ -3431,7 +3432,7 @@ function renderCaseList() {
     if (caseListSortField === 'total') {
       va = (a.c.fee||0)+(a.c.stamp||0)+(a.c.delivery||0)+(a.c.deposit||0)+(a.c.etc||0);
       vb = (b2.c.fee||0)+(b2.c.stamp||0)+(b2.c.delivery||0)+(b2.c.deposit||0)+(b2.c.etc||0);
-    } else if (['fee','stamp','delivery'].includes(caseListSortField)) {
+    } else if (['fee','stamp','delivery','deposit','etc'].includes(caseListSortField)) {
       va = a.c[caseListSortField]||0; vb = b2.c[caseListSortField]||0;
     } else if (caseListSortField === 'case') {
       va = (a.c.case||a.c.caseName||'').toString().toLowerCase();
@@ -3452,8 +3453,8 @@ function renderCaseList() {
     const taxB = (c.tax==="수령"||c.tax==="전자세금계산서") ? '<span class="badge bg">수령완료</span>' : '<span class="badge ba">미수령</span>';
     const resolB = c.resol==="완료" ? '<span class="badge bb">작성완료</span>' : '<span class="badge" style="background:var(--light);color:var(--muted)">대기</span>';
     const typeMap = {민사:"bn",형사:"br",신청:"badge",가사:"bg",행정:"ba",감치:"br",집행:"bn",지급명령:"bn",인건비:"bg",우편비:"ba"};
-    const fee = c.fee||0, stamp = c.stamp||0, delivery = c.delivery||0;
-    const total = (fee+stamp+delivery).toLocaleString();
+    const fee = c.fee||0, stamp = c.stamp||0, delivery = c.delivery||0, deposit = c.deposit||0, etc = c.etc||0;
+    const total = (fee+stamp+delivery+deposit+etc).toLocaleString();
     const ed = `data-lsrc="${src}" data-lidx="${srcIdx}"`;
     const dragAttrs = caseListManualMode
       ? `draggable="true" ondragstart="caseDragStart(${ri})" ondragover="event.preventDefault()" ondrop="caseDrop(${ri})"`
@@ -3469,6 +3470,8 @@ function renderCaseList() {
       <td class="mono" ${ed} data-lfield="fee" style="cursor:pointer">${fee ? fee.toLocaleString() : '<span style="color:#9CA3AF">클릭입력</span>'}</td>
       <td class="mono" ${ed} data-lfield="stamp" style="cursor:pointer">${stamp ? stamp.toLocaleString() : '<span style="color:#9CA3AF">클릭입력</span>'}</td>
       <td class="mono" ${ed} data-lfield="delivery" style="cursor:pointer">${delivery ? delivery.toLocaleString() : '<span style="color:#9CA3AF">클릭입력</span>'}</td>
+      <td class="mono" ${ed} data-lfield="deposit" style="cursor:pointer">${deposit ? deposit.toLocaleString() : '<span style="color:#9CA3AF">클릭입력</span>'}</td>
+      <td class="mono" ${ed} data-lfield="etc" style="cursor:pointer">${etc ? etc.toLocaleString() : '<span style="color:#9CA3AF">클릭입력</span>'}</td>
       <td class="mono" style="font-weight:600">${total}</td>
       <td ${ed} data-lfield="tax" style="cursor:pointer">${taxB}</td>
       <td>${resolB}</td>
@@ -3494,7 +3497,7 @@ document.addEventListener('click', function(e) {
   if (!c) return;
 
   let currentVal = '';
-  if      (field === 'fee' || field === 'stamp' || field === 'delivery') currentVal = c[field] || 0;
+  if      (field === 'fee' || field === 'stamp' || field === 'delivery' || field === 'deposit' || field === 'etc') currentVal = c[field] || 0;
   else if (field === 'type') currentVal = c.type || '민사';
   else if (field === 'tax')  currentVal = c.tax  || '전자세금계산서';
   else if (field === 'group') currentVal = c.group || '';
@@ -3564,7 +3567,7 @@ document.addEventListener('click', function(e) {
   const save = () => {
     if (done) return; done = true;
     const val = typeof input.value === 'string' ? input.value.trim() : input.value;
-    if (field === 'fee' || field === 'stamp' || field === 'delivery') {
+    if (field === 'fee' || field === 'stamp' || field === 'delivery' || field === 'deposit' || field === 'etc') {
       c[field] = parseInt(String(val).replace(/,/g,'')) || 0;
     } else if (field === 'type') {
       c.type = val;
