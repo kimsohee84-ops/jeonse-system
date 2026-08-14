@@ -412,7 +412,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
                     def _num(v):
                         try: return float(v) if v not in (None,"") else 0
                         except (TypeError, ValueError): return 0
-                    amt = _num(c.get("fee",0)) + _num(c.get("stamp",0)) + _num(c.get("delivery",0))
+                    amt = _num(c.get("fee",0)) + _num(c.get("stamp",0)) + _num(c.get("delivery",0)) + _num(c.get("deposit",0)) + _num(c.get("etc",0))
                     if amt == int(amt): amt = int(amt)
                     if not lawyer and not num:
                         desc = (client+" "+case_nm).strip()
@@ -447,7 +447,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
             def _num(v):
                 try: return float(v) if v not in (None,"") else 0
                 except (TypeError, ValueError): return 0
-            _allowance_total = sum(_num(c.get("fee",0))+_num(c.get("stamp",0))+_num(c.get("delivery",0)) for c in _allowance_items)
+            _allowance_total = sum(_num(c.get("fee",0))+_num(c.get("stamp",0))+_num(c.get("delivery",0))+_num(c.get("deposit",0))+_num(c.get("etc",0)) for c in _allowance_items)
             if _allowance_total == int(_allowance_total): _allowance_total = int(_allowance_total)
             _unique_names = {c.get("client","") for c in _allowance_items if c.get("client")}
             _headcount = len(_unique_names) if _unique_names else len(_allowance_items)
@@ -623,7 +623,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
         # 변호사 지급 (사건별)
         for c in cases_data:
             if c.get("_allowance"): continue
-            amt = (c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)
+            amt = (c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)+(c.get("deposit",0) or 0)+(c.get("etc",0) or 0)
             if not amt: continue
             linfo = lawyers_dict.get(c.get("lawyer",""), {})
             num = (c.get("num","") or "").replace("국부 ","").replace("서금 ","").replace("법무부 ","").strip()
@@ -735,7 +735,7 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
             )
 
         # 제목
-        total = sum((c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0) for c in cases_data)
+        total = sum((c.get("fee",0) or 0)+(c.get("stamp",0) or 0)+(c.get("delivery",0) or 0)+(c.get("deposit",0) or 0)+(c.get("etc",0) or 0) for c in cases_data)
         ws_l.merge_cells('B2:W2')
         ws_l['B2'].value = f"({biz_label}) {biz_full} {yy}년 {mm}월 사업비 지출 목록 (실무자확인표)"
         ws_l['B2'].font = Font(bold=True, size=12)
@@ -777,7 +777,9 @@ def build_excel(cases_data, lawyers_data, biz_short, yy, mm, dd, sheets=None, mo
             fee_amt      = case.get("fee",0) or 0
             stamp_amt    = case.get("stamp",0) or 0
             delivery_amt = case.get("delivery",0) or 0
-            amt = fee_amt + stamp_amt + delivery_amt
+            deposit_amt  = case.get("deposit",0) or 0
+            etc_amt      = case.get("etc",0) or 0
+            amt = fee_amt + stamp_amt + delivery_amt + deposit_amt + etc_amt
             num = (case.get("num","") or "").strip()
             # 접수번호 분리 (예: "법무부 26-8" → yr=26, seq=8)
             import re
