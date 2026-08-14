@@ -3447,6 +3447,14 @@ function renderCaseList() {
   });
   }
 
+  // 컬럼별 합계 (보수/인지대/송달료/보관금/기타 각각 + 전체합계)
+  const sumFee      = all.reduce((s,x)=>s+(x.c.fee||0),0);
+  const sumStamp     = all.reduce((s,x)=>s+(x.c.stamp||0),0);
+  const sumDelivery  = all.reduce((s,x)=>s+(x.c.delivery||0),0);
+  const sumDeposit   = all.reduce((s,x)=>s+(x.c.deposit||0),0);
+  const sumEtc       = all.reduce((s,x)=>s+(x.c.etc||0),0);
+  const sumTotal     = sumFee+sumStamp+sumDelivery+sumDeposit+sumEtc;
+
   document.getElementById("list-tbody").innerHTML = all.map((x,ri)=>{
     const c = x.c, src = x._src, srcIdx = x._sidx;
     const rowClass = c.tax==="수령"||c.tax==="전자세금계산서" ? "row-g" : "row-a";
@@ -3479,7 +3487,17 @@ function renderCaseList() {
         <button onclick="deleteCaseRow('${src}',${srcIdx})" title="삭제" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:12px;padding:1px 2px">🗑</button>
       </td>
     </tr>`;
-  }).join("");
+  }).join("") + `
+    <tr style="border-top:2px solid var(--border);background:var(--light);font-weight:600">
+      <td colspan="6" style="padding:8px;text-align:right;color:var(--muted);font-size:11px">합 계</td>
+      <td class="mono">${sumFee.toLocaleString()}</td>
+      <td class="mono">${sumStamp.toLocaleString()}</td>
+      <td class="mono">${sumDelivery.toLocaleString()}</td>
+      <td class="mono">${sumDeposit.toLocaleString()}</td>
+      <td class="mono">${sumEtc.toLocaleString()}</td>
+      <td class="mono" style="color:#1D4ED8">${sumTotal.toLocaleString()}</td>
+      <td colspan="3"></td>
+    </tr>`;
 }
 
 // ── 지출목록(list-tbody) 전용 인라인 수정 ──
@@ -6402,6 +6420,11 @@ function renderResolPanel() {
   }
 
   const total = raw.reduce((s,c) => s+(c.fee||0)+(c.stamp||0)+(c.delivery||0)+(c.deposit||0)+(c.etc||0), 0);
+  const totalFee      = raw.reduce((s,c) => s+(c.fee||0), 0);
+  const totalStamp    = raw.reduce((s,c) => s+(c.stamp||0), 0);
+  const totalDelivery = raw.reduce((s,c) => s+(c.delivery||0), 0);
+  const totalDeposit  = raw.reduce((s,c) => s+(c.deposit||0), 0);
+  const totalEtc      = raw.reduce((s,c) => s+(c.etc||0), 0);
   const nav   = document.getElementById("resol-nav-text");
   if(nav) nav.textContent = `총 ${raw.length}건 / ${total.toLocaleString()}원`;
 
@@ -6530,7 +6553,12 @@ function renderResolPanel() {
         <tr style="border-top:2px solid var(--border);background:var(--light);font-weight:600">
           <td></td>
           <td colspan="4" style="padding:8px;text-align:right;color:var(--muted);font-size:11px">합 계</td>
-          <td style="padding:8px;text-align:right;font-family:monospace">${total.toLocaleString()}</td>
+          <td style="padding:8px;text-align:right;font-family:monospace">${totalFee.toLocaleString()}</td>
+          <td style="padding:8px;text-align:right;font-family:monospace">${totalStamp.toLocaleString()}</td>
+          <td style="padding:8px;text-align:right;font-family:monospace">${totalDelivery.toLocaleString()}</td>
+          <td style="padding:8px;text-align:right;font-family:monospace">${totalDeposit.toLocaleString()}</td>
+          <td style="padding:8px;text-align:right;font-family:monospace">${totalEtc.toLocaleString()}</td>
+          <td style="padding:8px;text-align:right;font-family:monospace;color:#1D4ED8">${total.toLocaleString()}</td>
           <td colspan="5"></td>
         </tr>
       </tbody>
