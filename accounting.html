@@ -3503,7 +3503,10 @@ document.addEventListener('click', function(e) {
   let input;
   if (field === 'type') {
     input = document.createElement('select');
-    getTypeOptions(curBiz).forEach(opt => {
+    // 현재 값이 사업별 유형 목록에 없어도(예: 엑셀에서 불러온 세부 유형) 안 사라지게 목록에 끼워 넣는다.
+    const _typeOpts = getTypeOptions(curBiz);
+    const _typeList = _typeOpts.includes(currentVal) || !currentVal ? _typeOpts : [..._typeOpts, currentVal];
+    _typeList.forEach(opt => {
       const o = document.createElement('option');
       o.value = opt; o.textContent = opt;
       if (opt === currentVal) o.selected = true;
@@ -3964,7 +3967,10 @@ function parseExecSheet(wb, sheetName) {
             date: dateStr, amt, memo: client, lawyer, firm, accNum,
             category: isOps ? '일반관리비' : '법률구조사업비',
             subcat: colMap.use>=0 ? (row[colMap.use]||'').toString().trim() : (ctype||''),
-            type: isOps ? '운영비' : (ctype || '민사'),
+            // 원본 엑셀의 "사건유형/항목" 값(ctype)이 있으면 그걸 그대로 쓴다.
+            // (예전엔 운영비성 행이면 무조건 '운영비'로 뭉뚱그려서, 원본의 공공요금·일용임금 같은
+            //  세부 유형이 다 사라졌음 — 이제는 원본 값을 우선하고, 비어있을 때만 기본값 사용)
+            type: ctype || (isOps ? '운영비' : '민사'),
             fee:      colMap.fee>=0      ? num(row[colMap.fee])      : 0,
             stamp:    colMap.stamp>=0    ? num(row[colMap.stamp])    : 0,
             delivery: colMap.delivery>=0 ? num(row[colMap.delivery]) : 0,
@@ -4052,7 +4058,7 @@ function parseExecSheet(wb, sheetName) {
           monthly[mm].ops   += r.amt;
           monthly[mm].cases.push({
             num:'', lawyer: r.lawyer||'', client: r.memo, case: r.subcat||r.type||'운영비', caseName: r.subcat||r.type||'운영비',
-            type:'운영비', amt: r.amt, date: r.date, fee:r.amt, stamp:0, delivery:0,
+            type: r.type || '운영비', amt: r.amt, date: r.date, fee:r.amt, stamp:0, delivery:0,
             accountType:'일반관리비', note: r.category
           });
         } else {
@@ -6711,7 +6717,10 @@ document.addEventListener('click', function(e) {
     input.style.cssText='width:100%;border:none;outline:2px solid #3B82F6;border-radius:3px;background:#EFF6FF;font-size:11px;padding:2px 4px';
   } else if (field === 'type') {
     input = document.createElement('select');
-    getTypeOptions(curBiz).forEach(opt => {
+    // 현재 값이 사업별 유형 목록에 없어도(예: 엑셀에서 불러온 세부 유형) 안 사라지게 목록에 끼워 넣는다.
+    const _typeOpts2 = getTypeOptions(curBiz);
+    const _typeList2 = _typeOpts2.includes(currentVal) || !currentVal ? _typeOpts2 : [..._typeOpts2, currentVal];
+    _typeList2.forEach(opt => {
       const o = document.createElement('option');
       o.value=opt; o.textContent=opt;
       if(opt===currentVal) o.selected=true;
