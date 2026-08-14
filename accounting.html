@@ -3460,10 +3460,10 @@ function renderCaseList() {
       : '';
     const dragStyle = caseListManualMode ? 'cursor:move;' : '';
     return `<tr class="${rowClass}" ${dragAttrs} style="${dragStyle}">
-      <td class="mono" style="font-size:11px">${caseListManualMode?'<span style="color:#94a3b8;margin-right:4px" title="끌어서 이동">⠿</span>':''}${c.num}</td>
-      <td>${c.lawyer}</td>
-      <td>${c.client}</td>
-      <td style="font-size:11px">${c.case||c.caseName}</td>
+      <td class="mono" style="font-size:11px;cursor:pointer" ${ed} data-lfield="num">${caseListManualMode?'<span style="color:#94a3b8;margin-right:4px" title="끌어서 이동">⠿</span>':''}${c.num||'<span style="color:#9CA3AF">클릭입력</span>'}</td>
+      <td ${ed} data-lfield="lawyer" style="cursor:pointer">${c.lawyer||'<span style="color:#9CA3AF">클릭입력</span>'}</td>
+      <td ${ed} data-lfield="client" style="cursor:pointer">${c.client||'<span style="color:#9CA3AF">클릭입력</span>'}</td>
+      <td style="font-size:11px;cursor:pointer" ${ed} data-lfield="case">${c.case||c.caseName||'<span style="color:#9CA3AF">클릭입력</span>'}</td>
       <td><span class="badge ${typeMap[c.type]||"bn"}" ${ed} data-lfield="type" style="cursor:pointer">${c.type}</span></td>
       <td style="font-size:11px;cursor:pointer" ${ed} data-lfield="group">${c.group ? `<span style="padding:1px 6px;border-radius:99px;background:#EEF2FF;color:#4338CA">${c.group}</span>` : '<span style="color:#9CA3AF">클릭입력</span>'}</td>
       <td class="mono" ${ed} data-lfield="fee" style="cursor:pointer">${fee ? fee.toLocaleString() : '<span style="color:#9CA3AF">클릭입력</span>'}</td>
@@ -3498,6 +3498,10 @@ document.addEventListener('click', function(e) {
   else if (field === 'type') currentVal = c.type || '민사';
   else if (field === 'tax')  currentVal = c.tax  || '전자세금계산서';
   else if (field === 'group') currentVal = c.group || '';
+  else if (field === 'num')    currentVal = c.num || '';
+  else if (field === 'lawyer') currentVal = c.lawyer || '';
+  else if (field === 'client') currentVal = c.client || '';
+  else if (field === 'case')   currentVal = c.case || c.caseName || '';
 
   const parentTd = el.tagName === 'TD' ? el : el.closest('td');
   const originalHTML = parentTd.innerHTML;
@@ -3538,6 +3542,12 @@ document.addEventListener('click', function(e) {
     seen.forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); });
     parentTd.appendChild(dl);
     input.setAttribute('list', dlId);
+  } else if (field === 'num' || field === 'lawyer' || field === 'client' || field === 'case') {
+    input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentVal;
+    input.style.textAlign = 'left';
+    if (field === 'num') input.placeholder = '예: 26-181';
   } else {
     input = document.createElement('input');
     input.type = 'text';
@@ -3563,6 +3573,14 @@ document.addEventListener('click', function(e) {
       c.tax = val;
     } else if (field === 'group') {
       if (val) c.group = val; else delete c.group;
+    } else if (field === 'num') {
+      c.num = val ? makeNum(val) : '';
+    } else if (field === 'lawyer') {
+      c.lawyer = val;
+    } else if (field === 'client') {
+      c.client = val;
+    } else if (field === 'case') {
+      c.case = val; c.caseName = val;
     }
     if (typeof savePersistedData === 'function') savePersistedData();
     renderCaseList();
