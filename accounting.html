@@ -271,6 +271,7 @@ h1,h2,h3,.login-logo h1,.topnav-logo,.card-title,.nav-section,.stat-val{font-fam
       <div id="admin-menu-section" style="display:none;margin-top:4px">
         <div class="nav-section" style="margin-top:8px">관리자</div>
         <div class="nav-item" onclick="showView('usermgmt')"><i class="ti ti-users-group" aria-hidden="true"></i> 사용자 관리</div>
+        <div class="nav-item" onclick="showView('bizsettings')"><i class="ti ti-building-cog" aria-hidden="true"></i> 사업 이름 설정</div>
       </div>
 
     </aside><main class="main">
@@ -1039,6 +1040,18 @@ h1,h2,h3,.login-logo h1,.topnav-logo,.card-title,.nav-section,.stat-val{font-fam
         </div>
       </div>
 
+      <!-- 사업 이름 설정 (관리자) -->
+      <div class="view" id="view-bizsettings">
+        <p class="page-title">사업 이름 설정</p>
+        <p class="page-sub">사업(기관)별 정식 명칭·약칭을 수정합니다 · 왼쪽 메뉴 아이콘/순서는 바뀌지 않고, 대시보드·보고서·엑셀 등에 쓰이는 이름만 바뀝니다</p>
+        <div class="card">
+          <table class="tbl">
+            <thead><tr><th style="width:120px">사업키</th><th>정식 명칭 (name)</th><th>약칭 (short)</th><th style="width:80px">저장</th></tr></thead>
+            <tbody id="bizsettings-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -1638,15 +1651,16 @@ const STORAGE_KEY = 'jeonse_acc_data_v1';
 function savePersistedData() {
   try {
     const ALL_KEYS = Object.keys(BIZ);
-    const cases = {}, executed = {}, lawyers = {}, typeOptions = {};
+    const cases = {}, executed = {}, lawyers = {}, typeOptions = {}, bizMeta = {};
     ALL_KEYS.forEach(k => {
       cases[k] = BIZ[k].cases;
       executed[k] = BIZ[k].executed;
       lawyers[k] = BIZ[k].lawyers;
       typeOptions[k] = BIZ[k].typeOptions;
+      bizMeta[k] = { name: BIZ[k].name, short: BIZ[k].short };
     });
     const data = {
-      cases, executed, lawyers, typeOptions,
+      cases, executed, lawyers, typeOptions, bizMeta,
       resolList,
       EXEC_DATA,
       PAID_CASES,
@@ -1699,6 +1713,15 @@ function applyPersistedData(data) {
         }
       });
     }
+    if (data.bizMeta) {
+      ALL_KEYS.forEach(k => {
+        const m = data.bizMeta[k];
+        if (m && typeof m === 'object') {
+          if (m.name && String(m.name).trim())  BIZ[k].name  = String(m.name).trim();
+          if (m.short && String(m.short).trim()) BIZ[k].short = String(m.short).trim();
+        }
+      });
+    }
     if (data.resolList) {
       ALL_KEYS.forEach(k => {
         if (Array.isArray(data.resolList[k])) resolList[k] = data.resolList[k].filter(c => c);
@@ -1731,9 +1754,12 @@ function applyPersistedData(data) {
 // 현재 상태를 저장 data 객체로 직렬화 (localStorage 저장과 동일 형식)
 function buildPersistPayload() {
   const ALL_KEYS = Object.keys(BIZ);
-  const cases = {}, executed = {}, lawyers = {}, typeOptions = {};
-  ALL_KEYS.forEach(k => { cases[k]=BIZ[k].cases; executed[k]=BIZ[k].executed; lawyers[k]=BIZ[k].lawyers; typeOptions[k]=BIZ[k].typeOptions; });
-  return { cases, executed, lawyers, typeOptions, resolList, EXEC_DATA, PAID_CASES, CUSTOM_COLUMN_PROFILES, BUDGET_CATS, savedAt: new Date().toISOString() };
+  const cases = {}, executed = {}, lawyers = {}, typeOptions = {}, bizMeta = {};
+  ALL_KEYS.forEach(k => {
+    cases[k]=BIZ[k].cases; executed[k]=BIZ[k].executed; lawyers[k]=BIZ[k].lawyers; typeOptions[k]=BIZ[k].typeOptions;
+    bizMeta[k] = { name: BIZ[k].name, short: BIZ[k].short };
+  });
+  return { cases, executed, lawyers, typeOptions, bizMeta, resolList, EXEC_DATA, PAID_CASES, CUSTOM_COLUMN_PROFILES, BUDGET_CATS, savedAt: new Date().toISOString() };
 }
 
 let _serverSaveTimer = null;
@@ -1776,7 +1802,7 @@ async function saveAdminAggregate() {
 
   // 현재 관리자 화면의 전체 상태 (여기서 사업 칸만 뽑아 쓴다)
   const full = buildPersistPayload();
-  const perBizField = ['cases', 'executed', 'lawyers', 'typeOptions', 'resolList', 'EXEC_DATA', 'PAID_CASES'];
+  const perBizField = ['cases', 'executed', 'lawyers', 'typeOptions', 'bizMeta', 'resolList', 'EXEC_DATA', 'PAID_CASES'];
 
   for (const ownerId of Object.keys(ownerBizMap)) {
     try {
@@ -1863,7 +1889,7 @@ async function syncAdminAggregate() {
 
   // 통합 결과를 담을 빈 payload
   const merged = {
-    cases: {}, executed: {}, lawyers: {}, typeOptions: {}, resolList: {},
+    cases: {}, executed: {}, lawyers: {}, typeOptions: {}, bizMeta: {}, resolList: {},
     EXEC_DATA: {}, PAID_CASES: {}, CUSTOM_COLUMN_PROFILES: null, BUDGET_CATS: {}
   };
 
@@ -1895,6 +1921,7 @@ async function syncAdminAggregate() {
       if (data.executed && typeof data.executed[bizKey] === 'number') merged.executed[bizKey] = data.executed[bizKey];
       if (data.lawyers && data.lawyers[bizKey]) merged.lawyers[bizKey] = data.lawyers[bizKey];
       if (data.typeOptions && data.typeOptions[bizKey]) merged.typeOptions[bizKey] = data.typeOptions[bizKey];
+      if (data.bizMeta && data.bizMeta[bizKey]) merged.bizMeta[bizKey] = data.bizMeta[bizKey];
       if (data.resolList && data.resolList[bizKey]) merged.resolList[bizKey] = data.resolList[bizKey];
       if (data.EXEC_DATA && data.EXEC_DATA[bizKey]) merged.EXEC_DATA[bizKey] = data.EXEC_DATA[bizKey];
       if (data.PAID_CASES && data.PAID_CASES[bizKey]) merged.PAID_CASES[bizKey] = data.PAID_CASES[bizKey];
@@ -1969,6 +1996,34 @@ function showView(name) {
   if (name === "dashboard") renderDashboard();
   if (name === "report")    renderReport();
   if (name === "usermgmt")  renderUserMgmt();
+  if (name === "bizsettings") renderBizSettings();
+}
+
+// ── 사업 이름 설정 (관리자) ──
+function renderBizSettings() {
+  const tbody = document.getElementById('bizsettings-tbody');
+  if (!tbody) return;
+  const ALL_KEYS = Object.keys(BIZ);
+  tbody.innerHTML = ALL_KEYS.map(k => `
+    <tr>
+      <td class="mono" style="color:var(--muted)">${k}</td>
+      <td><input class="form-input" id="bs-name-${k}" value="${(BIZ[k].name||'').replace(/"/g,'&quot;')}" style="font-size:13px"></td>
+      <td><input class="form-input" id="bs-short-${k}" value="${(BIZ[k].short||'').replace(/"/g,'&quot;')}" style="font-size:13px"></td>
+      <td><button class="btn btn-sm btn-primary" onclick="saveBizSetting('${k}')"><i class="ti ti-check" aria-hidden="true"></i> 저장</button></td>
+    </tr>
+  `).join('');
+}
+function saveBizSetting(key) {
+  const nameEl  = document.getElementById('bs-name-' + key);
+  const shortEl = document.getElementById('bs-short-' + key);
+  const newName  = (nameEl.value || '').trim();
+  const newShort = (shortEl.value || '').trim();
+  if (!newName || !newShort) { showToast('명칭/약칭을 모두 입력해주세요'); return; }
+  BIZ[key].name  = newName;
+  BIZ[key].short = newShort;
+  savePersistedData();
+  renderDashboard();
+  showToast(`${key} 사업 이름이 저장됐습니다`);
 }
 
 function renderDashboard() {
