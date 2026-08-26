@@ -90,8 +90,9 @@ function parseDoc(text) {
     if (m3) { r.accNum = m3[1] + '-' + m3[2]; break; }
   }
   if (!r.accNum) {
-    // "※접수" / "번호"가 칸이 좁아 서로 다른 줄로 나뉘어 찍히는 경우(제6호 서식 등)도 있어 줄바꿈을 허용
-    const m = text.match(/(?:재단\s*)?※?\s*접\s*수[\s\S]{0,4}?번\s*호[\s\S]{0,20}?(\d{2})\s*[-:.]\s*(\d+)/);
+    // "※접수" / "(당사자는 기재하지 말 것)" / "번호" 가 서로 다른 줄로 나뉘어 찍히는 경우(제6호 서식 등)가 있어
+    // 줄바꿈과 사이 안내문구를 넉넉히 허용한다.
+    const m = text.match(/(?:재단\s*)?※?\s*접\s*수[\s\S]{0,60}?번\s*호[\s\S]{0,20}?(\d{2})\s*[-:.]\s*(\d+)/);
     if (m) r.accNum = m[1] + '-' + m[2];
   }
 
@@ -147,16 +148,28 @@ function parseDoc(text) {
   }
 
   // 성폭력 피해자 무료법률구조비용 청구서(제6호 서식): "의뢰자" 라벨이 없고,
-  // "법률구조대상자" 표의 "성 명" 칸에 의뢰인 이름이 있다. 이 표에만 있는
-  // "☑일반 / □아동" 체크박스를 기준점 삼아 그 직전(성명 칸) 한글 토큰을 이름으로 채택.
-  if (!r.client && /일\s*반[\s\S]{0,20}아\s*동/.test(text)) {
-    const idx = text.search(/일\s*반/);
-    if (idx > 0) {
-      const before = text.slice(Math.max(0, idx - 40), idx);
-      const tokens = before.match(/[가-힣OoㅇЮ]{2,8}/g) || [];
-      const bad = new Set(['성명','구분','생년월일','피해시기','피해연령','피해유형','인적사항','법률구조대상자','법률구조','대상자','법률구조내역']);
-      const cand = tokens.filter(t => !bad.has(t));
-      if (cand.length) r.client = cand[cand.length - 1];
+  // "법률구조대상자" 표의 "성 명"/"사건명" 값이 실제 OCR에서는
+  //   "레OO엣	세	(체크) 성추행	손해배상(기)"  ← 이름 / 나이표시 / 피해유형(가운데) / 사건명
+  // 처럼 한 줄에 탭으로 묶여 나온다. 피해유형 3개 선택지(강간/성추행/기타) 중
+  // "성추행"이 표 구조상 항상 성명 칸과 같은 물리적 행에 인쇄되므로 이를 기준점으로 삼는다.
+  if (!r.client || !r.caseName) {
+    const BAD_CELL = new Set(['성명','구분','생년월일','피해시기','피해연령','피해유형','인적사항',
+      '법률구조대상자','법률구조','대상자','법률구조내역','법률','구조','피해내역','청구내역','청구','내역','소송비용']);
+    const isCheckboxOnly = s => /^[□☑ㅁBb0-9]{0,3}\s*(강\s*간|성\s*추\s*행|기\s*타)$/.test(s);
+    for (const line of lines) {
+      if (!/성\s*추\s*행/.test(line)) continue;
+      let parts = line.includes('\t') ? line.split('\t') : line.split(/\s{2,}/);
+      parts = parts.map(s => s.trim()).filter(Boolean);
+      if (parts.length < 2) continue;
+      if (!r.client) {
+        const cand = parts[0];
+        if (/^[가-힣0-9]{2,8}$/.test(cand) && !BAD_CELL.has(cand) && !isCheckboxOnly(cand)) r.client = cand;
+      }
+      if (!r.caseName) {
+        const last = parts[parts.length - 1];
+        if (last && /[가-힣]/.test(last) && !isCheckboxOnly(last) && !BAD_CELL.has(last)) r.caseName = last;
+      }
+      break;
     }
   }
 
@@ -309,10 +322,20 @@ function parseDoc(text) {
   }
 
   // 입금 계좌번호
+  // "계좌번호" 라벨 바로 뒤에 실제 숫자가 아니라 "예금주" 같은 다음 라벨이 붙어 나오는 경우(제6호 서식 등)가
+  // 있어, 숫자가 실제로 포함된 값일 때만 채택한다.
   for (const line of lines) {
     const m = line.match(/계\s*좌\s*번\s*호\s+(.+)/) ||
               line.match(/(신한|국민|기업|농협|우리|하나|SC)\s+[\d\-]+.*/);
-    if (m) { r.account = (m[1]||m[0]).trim(); break; }
+    if (m) {
+      const val = (m[1]||m[0]).trim();
+      if (/\d{4,}/.test(val)) { r.account = val; break; }
+    }
+  }
+  if (!r.account) {
+    // 라벨과 실제 계좌번호 숫자가 서로 다른 줄로 흩어져 나온 경우: "…은행" 표기 근처의 긴 숫자열을 채택
+    const m = text.match(/\)?\s*은행[\s\S]{0,60}?(\d[\d\-]{6,20}\d)/);
+    if (m) r.account = m[1];
   }
 
   // 법무법인/사무소
