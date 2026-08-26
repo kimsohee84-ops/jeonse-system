@@ -64,9 +64,10 @@ function parseDoc(text) {
   // 재단 접수번호
   // OCR이 "국토부 26:110", "국부 26-110", "(국)26262", "국토부 26.215"(마침표) 등 다양하게 읽음
   // "접수번호" 바로 뒤(최대 20자) 숫자만 추출 → 같은 줄의 계좌번호 등 오인식 방지
+  // 성폭력 피해자 무료법률구조비용 청구서(제6호 서식)처럼 "재단" 없이 "※접수번호"라고만 쓰는 양식도 있어 "재단"은 있어도 되고 없어도 됨
   for (const line of lines) {
-    if (/재단\s*접수번호/.test(line)) {
-      const after = line.replace(/.*재단\s*접수번호/, '').slice(0, 20);
+    if (/(?:재단\s*)?※?\s*접수\s*번호/.test(line)) {
+      const after = line.replace(/.*(?:재단\s*)?※?\s*접수\s*번호/, '').slice(0, 20);
       // "-", ":", "." 모두 구분자로 허용 (예: 26-110, 26:110, 26.215)
       let m = after.match(/(\d{2})\s*[-:.]\s*(\d+)/);
       if (m) { r.accNum = m[1] + '-' + m[2]; break; }
@@ -89,17 +90,21 @@ function parseDoc(text) {
     if (m3) { r.accNum = m3[1] + '-' + m3[2]; break; }
   }
   if (!r.accNum) {
-    const m = text.match(/재단\s*접수번호[^\n]{0,30}?(\d{2})\s*[-:]\s*(\d+)/s);
+    // "※접수" / "번호"가 칸이 좁아 서로 다른 줄로 나뉘어 찍히는 경우(제6호 서식 등)도 있어 줄바꿈을 허용
+    const m = text.match(/(?:재단\s*)?※?\s*접\s*수[\s\S]{0,4}?번\s*호[\s\S]{0,20}?(\d{2})\s*[-:.]\s*(\d+)/);
     if (m) r.accNum = m[1] + '-' + m[2];
   }
 
   // 사건명
+  // 성폭력 피해자 무료법률구조비용 청구서(제6호 서식)는 "사건명 / 진행상황"이 표 헤더(칸 제목)일 뿐이라
+  // 그 자체를 값으로 잘못 채가는 걸 막는다 (실제 값은 데이터 행에 있어 별도 로직으로 처리 — 아래 참고)
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(/사\s*건\s*명\s+(.*)/);
     if (m) {
       let val = m[1].replace(/사건번호.*$/, '').trim();
       val = val.replace(/\s+/g, ' ').trim();
-      if (val) { r.caseName = val; break; }
+      // "/ 진행상황" 처럼 헤더 문구만 남은 경우는 실제 사건명이 아니므로 건너뜀
+      if (val && !/^\/?\s*진행\s*상황/.test(val)) { r.caseName = val; break; }
     }
   }
 
@@ -141,6 +146,20 @@ function parseDoc(text) {
     }
   }
 
+  // 성폭력 피해자 무료법률구조비용 청구서(제6호 서식): "의뢰자" 라벨이 없고,
+  // "법률구조대상자" 표의 "성 명" 칸에 의뢰인 이름이 있다. 이 표에만 있는
+  // "☑일반 / □아동" 체크박스를 기준점 삼아 그 직전(성명 칸) 한글 토큰을 이름으로 채택.
+  if (!r.client && /일\s*반[\s\S]{0,20}아\s*동/.test(text)) {
+    const idx = text.search(/일\s*반/);
+    if (idx > 0) {
+      const before = text.slice(Math.max(0, idx - 40), idx);
+      const tokens = before.match(/[가-힣OoㅇЮ]{2,8}/g) || [];
+      const bad = new Set(['성명','구분','생년월일','피해시기','피해연령','피해유형','인적사항','법률구조대상자','법률구조','대상자','법률구조내역']);
+      const cand = tokens.filter(t => !bad.has(t));
+      if (cand.length) r.client = cand[cand.length - 1];
+    }
+  }
+
   // 상대방 별도 처리
   if (!r.opponent) {
     for (let i = 0; i < lines.length; i++) {
@@ -158,11 +177,17 @@ function parseDoc(text) {
   }
 
   // 변호사
-  for (const line of lines) {
-    const m = line.match(/변\s*호\s*사\s+([가-힣\s]{2,10})(?:\s*[①인\(\)◯]|$)/);
+  // "담당 변호사: 정수경"처럼 콜론(:)으로 이어지는 서명란 표기(제6호 서식 등)를 우선으로 찾고,
+  // 없으면 기존 방식("변호사 소속" 같은 표 라벨 오인식은 이름 제외 목록으로 걸러짐)으로 찾는다.
+  {
+    const m = text.match(/담당\s*변\s*호\s*사\s*[:：]?\s*([가-힣]{2,4})/);
+    if (m) r.lawyer = m[1].trim();
+  }
+  if (!r.lawyer) for (const line of lines) {
+    const m = line.match(/변\s*호\s*사\s*[:：]?\s+([가-힣\s]{2,10})(?:\s*[①인\(\)◯]|$)/);
     if (m) {
       const name = m[1].replace(/\s/g,'').trim();
-      if (!['보수합계','보수','합계','회'].includes(name) && name.length >= 2 && name.length <= 4) {
+      if (!['보수합계','보수','합계','회','소속','법인명'].includes(name) && name.length >= 2 && name.length <= 4) {
         r.lawyer = name;
         break;
       }
