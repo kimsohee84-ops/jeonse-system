@@ -1935,6 +1935,39 @@ async function syncAdminAggregate() {
     if (!merged.CUSTOM_COLUMN_PROFILES && data.CUSTOM_COLUMN_PROFILES) merged.CUSTOM_COLUMN_PROFILES = data.CUSTOM_COLUMN_PROFILES;
   });
 
+  // ── 관리자 직접 관리 사업 병합: 담당자에게 배정 안 된 사업을 admin 서랍에서 채운다 ──
+  // (예: 서울시복지재단 등 관리자가 직접 넣은 사업이 화면에서 빠지지 않게 함)
+  try {
+    const ra = await fetch(`/api/data?user=${encodeURIComponent(curUser.id)}`);
+    if (ra.ok) {
+      const ja = await ra.json();
+      const adminData = (ja && ja.data) || null;
+      if (adminData) {
+        ALL_KEYS.forEach(bizKey => {
+          if (_bizOwner[bizKey]) return; // 이미 담당자가 가진 사업은 그대로 둔다
+          const has =
+            (adminData.cases && Array.isArray(adminData.cases[bizKey]) && adminData.cases[bizKey].length) ||
+            (adminData.executed && typeof adminData.executed[bizKey] === 'number') ||
+            (adminData.EXEC_DATA && adminData.EXEC_DATA[bizKey]) ||
+            (adminData.PAID_CASES && Array.isArray(adminData.PAID_CASES[bizKey]) && adminData.PAID_CASES[bizKey].length) ||
+            (adminData.resolList && adminData.resolList[bizKey]);
+          if (!has) return;
+          _bizOwner[bizKey] = curUser.id; // 관리자를 이 사업의 주인으로 → 저장도 admin 서랍에 됨
+          if (adminData.cases && adminData.cases[bizKey] !== undefined) merged.cases[bizKey] = adminData.cases[bizKey];
+          if (adminData.executed && adminData.executed[bizKey] !== undefined) merged.executed[bizKey] = adminData.executed[bizKey];
+          if (adminData.lawyers && adminData.lawyers[bizKey] !== undefined) merged.lawyers[bizKey] = adminData.lawyers[bizKey];
+          if (adminData.typeOptions && adminData.typeOptions[bizKey] !== undefined) merged.typeOptions[bizKey] = adminData.typeOptions[bizKey];
+          if (adminData.bizMeta && adminData.bizMeta[bizKey] !== undefined) merged.bizMeta[bizKey] = adminData.bizMeta[bizKey];
+          if (adminData.resolList && adminData.resolList[bizKey] !== undefined) merged.resolList[bizKey] = adminData.resolList[bizKey];
+          if (adminData.EXEC_DATA && adminData.EXEC_DATA[bizKey] !== undefined) merged.EXEC_DATA[bizKey] = adminData.EXEC_DATA[bizKey];
+          if (adminData.PAID_CASES && adminData.PAID_CASES[bizKey] !== undefined) merged.PAID_CASES[bizKey] = adminData.PAID_CASES[bizKey];
+        });
+        if (adminData.BUDGET_CATS) Object.assign(merged.BUDGET_CATS, adminData.BUDGET_CATS);
+        if (!merged.CUSTOM_COLUMN_PROFILES && adminData.CUSTOM_COLUMN_PROFILES) merged.CUSTOM_COLUMN_PROFILES = adminData.CUSTOM_COLUMN_PROFILES;
+      }
+    }
+  } catch (e) { console.warn('관리자 서랍 병합 실패:', e); }
+
   applyPersistedData(merged);
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch {}
   _serverReady = true;   // 이제부터 관리자 편집은 각 원주인 서랍에 되돌려 저장됨
