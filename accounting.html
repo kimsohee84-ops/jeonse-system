@@ -1912,12 +1912,13 @@ async function syncAdminAggregate() {
     const access = (USERS[e.id] && USERS[e.id].bizAccess) || [];
     candidates.push({ id: e.id, data: e.data, all: access.includes('all'), set: new Set(access) });
   });
+  // 관리자 계정(정본) 서랍을 명시적으로 불러온다 — 누가 로그인하든 관리자 데이터가 기준
+  const adminId = Object.keys(USERS).find(id => USERS[id] && USERS[id].role === 'admin') || 'admin';
   let adminData = null;
   try {
-    const ra = await fetch(`/api/data?user=${encodeURIComponent(curUser.id)}`);
+    const ra = await fetch(`/api/data?user=${encodeURIComponent(adminId)}`);
     if (ra.ok) { const ja = await ra.json(); adminData = (ja && ja.data) || null; }
   } catch (e) { console.warn('관리자 서랍 로드 실패:', e); }
-  if (adminData) candidates.push({ id: curUser.id, data: adminData, all: true, set: new Set() });
 
   // 사업별 '내용 충실도' 점수: 지급/사건/집행내역 건수가 많을수록 높음
   const bizScore = (data, k) => {
@@ -1939,19 +1940,26 @@ async function syncAdminAggregate() {
     });
   };
 
-  // 각 사업마다, 접근권한이 있는 후보 중 '내용이 가장 완전한' 서랍을 채택
+  // 각 사업: 관리자(정본) 서랍에 데이터가 있으면 무조건 그것을 사용.
+  //          관리자에 없는 사업만 담당자 서랍 중 가장 완전한 것을 사용. → 누가 봐도 같은 값
   ALL_KEYS.forEach(k => {
+    if (adminData && bizScore(adminData, k) > 0) {
+      _bizOwner[k] = adminId;
+      copyBiz(merged, adminData, k);
+      return;
+    }
     let best = null, bestScore = 0;
     candidates.forEach(c => {
       if (!(c.all || c.set.has(k))) return;      // 접근권한 없는 담당자는 제외
       const sc = bizScore(c.data, k);
-      if (sc > 0 && sc > bestScore) { bestScore = sc; best = c; } // 더 많을 때만 교체(동점=먼저=담당자 유지)
+      if (sc > 0 && sc > bestScore) { bestScore = sc; best = c; }
     });
     if (best) { _bizOwner[k] = best.id; copyBiz(merged, best.data, k); }
   });
 
   // 예산 카테고리·컬럼 프로필: 모든 서랍에서 모으되 관리자 것을 우선
   candidates.forEach(c => { if (c.data.BUDGET_CATS) Object.assign(merged.BUDGET_CATS, c.data.BUDGET_CATS); });
+  if (adminData && adminData.BUDGET_CATS) Object.assign(merged.BUDGET_CATS, adminData.BUDGET_CATS);
   const customSrc = (adminData && adminData.CUSTOM_COLUMN_PROFILES)
     ? adminData
     : (candidates.find(c => c.data.CUSTOM_COLUMN_PROFILES) || {}).data;
