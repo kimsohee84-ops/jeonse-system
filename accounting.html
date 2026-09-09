@@ -1777,14 +1777,13 @@ function queueServerSave() {
   if (!_serverReady) return;             // 서버에서 최신 데이터를 받아오기 전엔 절대 저장하지 않음
   clearTimeout(_serverSaveTimer);
   _serverSaveTimer = setTimeout(() => {
-    // ── 통합 모드: 사업별로 원주인 서랍에 각각 되돌려 저장 (관리자·담당자 공통) ──
-    if (Object.keys(_bizOwner).length) {
-      saveAdminAggregate();
-      return;
-    }
-    // ── 일반 담당자: 자기 서랍에 저장 ──
+    // ── 정본 저장: 누가 편집하든 관리자(정본) 서랍 한 곳에 저장 → 다음에 누가 봐도 최신 ──
+    const canonId = Object.keys(USERS).find(id => USERS[id] && USERS[id].role === 'admin') || 'admin';
     const payload = buildPersistPayload();
-    fetch(`/api/data?user=${encodeURIComponent(curUser.id)}`, {
+    payload.savedAt = new Date().toISOString();
+    payload.savedBy = (curUser && curUser.id) || '';       // 마지막으로 저장한 사람 기록
+    payload.savedByName = (curUser && curUser.name) || '';
+    fetch(`/api/data?user=${encodeURIComponent(canonId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -1843,30 +1842,28 @@ async function syncFromServer() {
   _serverReady = false;
   if (!curUser || !curUser.id) { _serverReady = true; return; }
 
-  // ── 모든 사용자: 통합 뷰로 로드(모든 서랍을 합쳐 사업별 가장 완전한 데이터) → 누가 봐도 같은 금액 ──
-  await syncAdminAggregate();
-  return;
-
+  // ── 정본 로드: 누가 로그인하든 관리자(정본) 서랍 한 곳을 읽는다 → 항상 최신 동일 데이터 ──
+  const canonId = Object.keys(USERS).find(id => USERS[id] && USERS[id].role === 'admin') || 'admin';
   let serverData = null;
   try {
-    const r = await fetch(`/api/data?user=${encodeURIComponent(curUser.id)}`);
+    const r = await fetch(`/api/data?user=${encodeURIComponent(canonId)}`);
     if (r.ok) { const j = await r.json(); serverData = j && j.data; }
   } catch (e) {
     console.warn('서버 불러오기 실패(로컬 사용):', e);
-    _serverReady = true;   // 서버를 못 읽었으면 로컬로 계속 (단, 이 세션에서 저장 시 서버 덮어쓸 수 있으니 주의)
+    _serverReady = true;   // 서버를 못 읽었으면 로컬로 계속
     return;
   }
 
-  if (serverData && serverData.cases) {
-    // 서버에 데이터가 있으면 무조건 서버 기준. 옛 로컬은 버리고 서버로 덮어씀.
+  if (serverData && (serverData.cases || serverData.PAID_CASES || serverData.EXEC_DATA)) {
+    // 서버(정본)에 데이터가 있으면 무조건 서버 기준. 옛 로컬은 버리고 서버로 덮어씀.
     applyPersistedData(serverData);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(serverData)); } catch {}
-    _serverReady = true;           // 이제부터 저장 허용 (사용자가 편집하면 서버에 반영)
+    _serverReady = true;           // 이제부터 저장 허용 (편집하면 정본에 반영)
     if (typeof setBiz === 'function') setBiz(curBiz || 'kt');
     renderDashboard();
     if (typeof renderResolPanel === 'function') renderResolPanel();
   } else {
-    // 서버가 비어 있음(최초 사용) → 로컬 데이터를 서버로 올려 시작점 만듦
+    // 정본이 비어 있음(최초 사용) → 로컬 데이터를 정본으로 올려 시작점 만듦
     _serverReady = true;
     queueServerSave();
   }
