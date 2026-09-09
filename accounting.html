@@ -1906,67 +1906,58 @@ async function syncAdminAggregate() {
     } catch { return null; }
   }));
 
-  results.forEach(entry => {
-    if (!entry || !entry.data) return;
-    const { id, data } = entry;
-    const access = (USERS[id] && USERS[id].bizAccess) || [];
-    // 이 담당자가 맡은 사업키 (all 이면 데이터가 실제로 들어있는 사업만 취함)
-    const ownedBiz = access.includes('all')
-      ? ALL_KEYS.filter(k => data.cases && Array.isArray(data.cases[k]) && data.cases[k].length)
-      : access.filter(k => ALL_KEYS.includes(k));
-
-    ownedBiz.forEach(bizKey => {
-      // 사업이 이미 다른 담당자에게 잡혀 있지 않은 경우에만 (한 사업=한 담당자)
-      if (_bizOwner[bizKey]) return;
-      _bizOwner[bizKey] = id;
-
-      if (data.cases && data.cases[bizKey]) merged.cases[bizKey] = data.cases[bizKey];
-      if (data.executed && typeof data.executed[bizKey] === 'number') merged.executed[bizKey] = data.executed[bizKey];
-      if (data.lawyers && data.lawyers[bizKey]) merged.lawyers[bizKey] = data.lawyers[bizKey];
-      if (data.typeOptions && data.typeOptions[bizKey]) merged.typeOptions[bizKey] = data.typeOptions[bizKey];
-      if (data.bizMeta && data.bizMeta[bizKey]) merged.bizMeta[bizKey] = data.bizMeta[bizKey];
-      if (data.resolList && data.resolList[bizKey]) merged.resolList[bizKey] = data.resolList[bizKey];
-      if (data.EXEC_DATA && data.EXEC_DATA[bizKey]) merged.EXEC_DATA[bizKey] = data.EXEC_DATA[bizKey];
-      if (data.PAID_CASES && data.PAID_CASES[bizKey]) merged.PAID_CASES[bizKey] = data.PAID_CASES[bizKey];
-    });
-
-    // 예산 카테고리·컬럼 프로필은 사업 단위가 아니면 첫 담당자 것 채택
-    if (data.BUDGET_CATS) Object.assign(merged.BUDGET_CATS, data.BUDGET_CATS);
-    if (!merged.CUSTOM_COLUMN_PROFILES && data.CUSTOM_COLUMN_PROFILES) merged.CUSTOM_COLUMN_PROFILES = data.CUSTOM_COLUMN_PROFILES;
+  // ── 후보 서랍 구성: 담당자 서랍들 + 관리자 서랍 ──
+  // 관리자를 마지막에 넣어, 동점이 아니라 '내용이 더 많은' 경우에만 관리자가 이긴다.
+  const candidates = [];
+  results.forEach(e => {
+    if (!e || !e.data) return;
+    const access = (USERS[e.id] && USERS[e.id].bizAccess) || [];
+    candidates.push({ id: e.id, data: e.data, all: access.includes('all'), set: new Set(access) });
   });
-
-  // ── 관리자 직접 관리 사업 병합: 담당자에게 배정 안 된 사업을 admin 서랍에서 채운다 ──
-  // (예: 서울시복지재단 등 관리자가 직접 넣은 사업이 화면에서 빠지지 않게 함)
+  let adminData = null;
   try {
     const ra = await fetch(`/api/data?user=${encodeURIComponent(curUser.id)}`);
-    if (ra.ok) {
-      const ja = await ra.json();
-      const adminData = (ja && ja.data) || null;
-      if (adminData) {
-        ALL_KEYS.forEach(bizKey => {
-          if (_bizOwner[bizKey]) return; // 이미 담당자가 가진 사업은 그대로 둔다
-          const has =
-            (adminData.cases && Array.isArray(adminData.cases[bizKey]) && adminData.cases[bizKey].length) ||
-            (adminData.executed && typeof adminData.executed[bizKey] === 'number') ||
-            (adminData.EXEC_DATA && adminData.EXEC_DATA[bizKey]) ||
-            (adminData.PAID_CASES && Array.isArray(adminData.PAID_CASES[bizKey]) && adminData.PAID_CASES[bizKey].length) ||
-            (adminData.resolList && adminData.resolList[bizKey]);
-          if (!has) return;
-          _bizOwner[bizKey] = curUser.id; // 관리자를 이 사업의 주인으로 → 저장도 admin 서랍에 됨
-          if (adminData.cases && adminData.cases[bizKey] !== undefined) merged.cases[bizKey] = adminData.cases[bizKey];
-          if (adminData.executed && adminData.executed[bizKey] !== undefined) merged.executed[bizKey] = adminData.executed[bizKey];
-          if (adminData.lawyers && adminData.lawyers[bizKey] !== undefined) merged.lawyers[bizKey] = adminData.lawyers[bizKey];
-          if (adminData.typeOptions && adminData.typeOptions[bizKey] !== undefined) merged.typeOptions[bizKey] = adminData.typeOptions[bizKey];
-          if (adminData.bizMeta && adminData.bizMeta[bizKey] !== undefined) merged.bizMeta[bizKey] = adminData.bizMeta[bizKey];
-          if (adminData.resolList && adminData.resolList[bizKey] !== undefined) merged.resolList[bizKey] = adminData.resolList[bizKey];
-          if (adminData.EXEC_DATA && adminData.EXEC_DATA[bizKey] !== undefined) merged.EXEC_DATA[bizKey] = adminData.EXEC_DATA[bizKey];
-          if (adminData.PAID_CASES && adminData.PAID_CASES[bizKey] !== undefined) merged.PAID_CASES[bizKey] = adminData.PAID_CASES[bizKey];
-        });
-        if (adminData.BUDGET_CATS) Object.assign(merged.BUDGET_CATS, adminData.BUDGET_CATS);
-        if (!merged.CUSTOM_COLUMN_PROFILES && adminData.CUSTOM_COLUMN_PROFILES) merged.CUSTOM_COLUMN_PROFILES = adminData.CUSTOM_COLUMN_PROFILES;
-      }
+    if (ra.ok) { const ja = await ra.json(); adminData = (ja && ja.data) || null; }
+  } catch (e) { console.warn('관리자 서랍 로드 실패:', e); }
+  if (adminData) candidates.push({ id: curUser.id, data: adminData, all: true, set: new Set() });
+
+  // 사업별 '내용 충실도' 점수: 지급/사건/집행내역 건수가 많을수록 높음
+  const bizScore = (data, k) => {
+    if (!data) return 0;
+    let s = 0;
+    if (data.PAID_CASES && Array.isArray(data.PAID_CASES[k])) s += data.PAID_CASES[k].length;
+    if (data.cases && Array.isArray(data.cases[k])) s += data.cases[k].length;
+    if (data.EXEC_DATA && data.EXEC_DATA[k]) {
+      const ed = data.EXEC_DATA[k];
+      s += (ed.income && Array.isArray(ed.income)) ? ed.income.length : 1;
     }
-  } catch (e) { console.warn('관리자 서랍 병합 실패:', e); }
+    if (data.resolList && Array.isArray(data.resolList[k])) s += data.resolList[k].length * 0.1;
+    if (s === 0 && data.executed && typeof data.executed[k] === 'number' && data.executed[k] !== 0) s = 0.4;
+    return s;
+  };
+  const copyBiz = (dst, src, k) => {
+    ['cases','executed','lawyers','typeOptions','bizMeta','resolList','EXEC_DATA','PAID_CASES'].forEach(f => {
+      if (src[f] && src[f][k] !== undefined) dst[f][k] = src[f][k];
+    });
+  };
+
+  // 각 사업마다, 접근권한이 있는 후보 중 '내용이 가장 완전한' 서랍을 채택
+  ALL_KEYS.forEach(k => {
+    let best = null, bestScore = 0;
+    candidates.forEach(c => {
+      if (!(c.all || c.set.has(k))) return;      // 접근권한 없는 담당자는 제외
+      const sc = bizScore(c.data, k);
+      if (sc > 0 && sc > bestScore) { bestScore = sc; best = c; } // 더 많을 때만 교체(동점=먼저=담당자 유지)
+    });
+    if (best) { _bizOwner[k] = best.id; copyBiz(merged, best.data, k); }
+  });
+
+  // 예산 카테고리·컬럼 프로필: 모든 서랍에서 모으되 관리자 것을 우선
+  candidates.forEach(c => { if (c.data.BUDGET_CATS) Object.assign(merged.BUDGET_CATS, c.data.BUDGET_CATS); });
+  const customSrc = (adminData && adminData.CUSTOM_COLUMN_PROFILES)
+    ? adminData
+    : (candidates.find(c => c.data.CUSTOM_COLUMN_PROFILES) || {}).data;
+  if (customSrc && customSrc.CUSTOM_COLUMN_PROFILES) merged.CUSTOM_COLUMN_PROFILES = customSrc.CUSTOM_COLUMN_PROFILES;
 
   applyPersistedData(merged);
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch {}
