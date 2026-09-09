@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>회계 데이터 복원 도구</title>
+<style>
+  body{font-family:system-ui,'Malgun Gothic',sans-serif;max-width:640px;margin:40px auto;padding:0 20px;color:#1c2320;line-height:1.6;}
+  h1{font-size:20px;}
+  .card{border:1px solid #ddd;border-radius:12px;padding:20px;margin:16px 0;}
+  .warn{background:#FEF3E2;border:1px solid #f0d3a0;border-radius:10px;padding:14px;font-size:13px;color:#7a4e08;}
+  button{font-family:inherit;font-size:14px;padding:10px 18px;border-radius:8px;border:none;cursor:pointer;}
+  .go{background:#0F6E56;color:#fff;}
+  .go:disabled{background:#bbb;cursor:not-allowed;}
+  input[type=file]{font-size:13px;}
+  input[type=text]{font-size:14px;padding:8px 10px;border:1px solid #ccc;border-radius:7px;width:120px;}
+  #log{white-space:pre-wrap;font-size:13px;background:#f5f7f6;border-radius:8px;padding:14px;margin-top:14px;min-height:40px;}
+  .ok{color:#0F6E56;font-weight:600;}
+  .err{color:#a3402d;font-weight:600;}
+  label{font-size:13px;color:#555;}
+</style>
+</head>
+<body>
+<h1>회계 데이터 복원 도구</h1>
+<p style="font-size:14px;color:#555;">내 컴퓨터의 백업 파일(html.json)을 읽어, 가장 완전한 시점 데이터를 서버(관리자 서랍)에 되돌립니다.</p>
+
+<div class="warn">
+  ⚠️ 이 도구는 <b>jeonse-system.vercel.app/restore.html</b> 주소로 열어야 작동해요(서버와 같은 주소라야 함).
+  로컬 파일로 그냥 열면 안 돼요. 그리고 복원 후에는 이 파일을 저장소에서 <b>삭제</b>하세요.
+</div>
+
+<div class="card">
+  <p><b>1단계.</b> 백업 파일 선택 (html.json)</p>
+  <input type="file" id="file" accept=".json,application/json">
+  <div id="info" style="margin-top:10px;font-size:13px;color:#555;"></div>
+</div>
+
+<div class="card">
+  <p><b>2단계.</b> 되돌릴 대상 아이디
+    <input type="text" id="uid" value="admin"> <label>(보통 admin)</label>
+  </p>
+  <p><b>3단계.</b> 복원 실행
+    <button class="go" id="run" disabled onclick="run()">서버에 복원하기</button>
+  </p>
+</div>
+
+<div id="log">파일을 선택하면 여기에 내용이 표시됩니다.</div>
+
+<script>
+let picked=null; // {savedAt, total, payload}
+const log=(m,c)=>{const d=document.getElementById('log');d.innerHTML+= (c?`<span class="${c}">${m}</span>`:m)+"\n";};
+function reset(){document.getElementById('log').innerHTML='';}
+
+document.getElementById('file').addEventListener('change', e=>{
+  reset(); picked=null; document.getElementById('run').disabled=true;
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const j=JSON.parse(rd.result);
+      const hist = Array.isArray(j.history) ? j.history : (Array.isArray(j) ? j : null);
+      if(!hist){ log('백업 형식을 찾을 수 없어요. (history 목록이 없어요)','err'); return; }
+      // 각 스냅샷 파싱 → 지급건수 최대인 것 선택
+      let best=null;
+      hist.forEach((it)=>{
+        let d = (typeof it==='string')? JSON.parse(it) : it;
+        d = (d && d.data) ? d.data : d;
+        const pc = d.PAID_CASES||{};
+        let total=0; Object.values(pc).forEach(v=>{ if(Array.isArray(v)) total+=v.length; });
+        if(!best || total>best.total){ best={savedAt:d.savedAt||'?', total, payload:d}; }
+      });
+      picked=best;
+      const bizN = Object.keys(picked.payload.cases||picked.payload.PAID_CASES||{}).length;
+      document.getElementById('info').innerHTML =
+        `가장 완전한 시점: <b>${picked.savedAt}</b> · 총 지급 <b>${picked.total}</b>건 · 사업 ${bizN}개`;
+      log('백업을 읽었어요. 위 시점 데이터로 복원할 준비가 됐어요.','ok');
+      log('복원 버튼을 누르면 서버의 해당 아이디 데이터를 이 백업으로 되돌립니다.');
+      document.getElementById('run').disabled=false;
+    }catch(err){ log('파일을 읽는 중 오류: '+err.message,'err'); }
+  };
+  rd.readAsText(f);
+});
+
+async function run(){
+  if(!picked){ return; }
+  const uid = (document.getElementById('uid').value||'admin').trim();
+  if(!confirm(`서버의 '${uid}' 데이터를 백업(${picked.savedAt}, ${picked.total}건)으로 되돌립니다.\n진행할까요?`)) return;
+  document.getElementById('run').disabled=true;
+  log(`\n서버에 복원 중... (아이디: ${uid})`);
+  try{
+    const r = await fetch(`/api/data?user=${encodeURIComponent(uid)}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(picked.payload)
+    });
+    if(r.ok){
+      log('복원 완료! ✅','ok');
+      log('이제 accounting.html을 열어 관리자로 로그인하면 데이터가 돌아와 있어요.');
+      log('확인되면 이 restore.html 파일은 저장소에서 삭제하세요.');
+    }else{
+      log('서버 응답 오류: '+r.status+' '+r.statusText,'err');
+      log('주소가 jeonse-system.vercel.app/restore.html 이 맞는지 확인하세요.');
+    }
+  }catch(err){
+    log('복원 실패: '+err.message,'err');
+    log('이 페이지를 반드시 jeonse-system.vercel.app/restore.html 주소로 열어야 해요.');
+  }
+}
+</script>
+</body>
+</html>
