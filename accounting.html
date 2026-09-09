@@ -1777,8 +1777,8 @@ function queueServerSave() {
   if (!_serverReady) return;             // 서버에서 최신 데이터를 받아오기 전엔 절대 저장하지 않음
   clearTimeout(_serverSaveTimer);
   _serverSaveTimer = setTimeout(() => {
-    // ── 관리자 통합 모드: 사업별로 원주인 서랍에 각각 되돌려 저장 ──
-    if (curUser.role === 'admin' && Object.keys(_bizOwner).length) {
+    // ── 통합 모드: 사업별로 원주인 서랍에 각각 되돌려 저장 (관리자·담당자 공통) ──
+    if (Object.keys(_bizOwner).length) {
       saveAdminAggregate();
       return;
     }
@@ -1843,11 +1843,9 @@ async function syncFromServer() {
   _serverReady = false;
   if (!curUser || !curUser.id) { _serverReady = true; return; }
 
-  // ── 관리자: 모든 담당자 서랍을 불러와 사업별로 통합 ──
-  if (curUser.role === 'admin') {
-    await syncAdminAggregate();
-    return;
-  }
+  // ── 모든 사용자: 통합 뷰로 로드(모든 서랍을 합쳐 사업별 가장 완전한 데이터) → 누가 봐도 같은 금액 ──
+  await syncAdminAggregate();
+  return;
 
   let serverData = null;
   try {
