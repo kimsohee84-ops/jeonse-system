@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>정본 적용 도구</title>
+<style>
+  body{font-family:system-ui,'Malgun Gothic',sans-serif;max-width:640px;margin:40px auto;padding:0 20px;color:#1c2320;line-height:1.6;}
+  h1{font-size:20px;}
+  .card{border:1px solid #ddd;border-radius:12px;padding:20px;margin:16px 0;}
+  .warn{background:#FEF3E2;border:1px solid #f0d3a0;border-radius:10px;padding:14px;font-size:13px;color:#7a4e08;}
+  button{font-family:inherit;font-size:14px;padding:10px 18px;border-radius:8px;border:none;cursor:pointer;}
+  .go{background:#0F6E56;color:#fff;} .go:disabled{background:#bbb;cursor:not-allowed;}
+  input[type=text]{font-size:14px;padding:8px 10px;border:1px solid #ccc;border-radius:7px;width:120px;}
+  #log{white-space:pre-wrap;font-size:13px;background:#f5f7f6;border-radius:8px;padding:14px;margin-top:14px;min-height:40px;}
+  .ok{color:#0F6E56;font-weight:600;} .err{color:#a3402d;font-weight:600;}
+  table{border-collapse:collapse;font-size:13px;margin-top:8px;}
+  td{padding:3px 10px;border-bottom:1px solid #eee;} td.r{text-align:right;font-variant-numeric:tabular-nums;}
+</style>
+</head>
+<body>
+<h1>정본 적용 도구</h1>
+<p style="font-size:14px;color:#555;">사업별 담당자 최신값을 합친 <b>정본_canon.json</b>을 읽어, 서버의 관리자 정본 서랍에 저장합니다.</p>
+
+<div class="warn">
+  ⚠️ 반드시 <b>jeonse-system.vercel.app/apply_canon.html</b> 주소로 열어야 작동해요.<br>
+  적용 전 <b>모든 담당자가 로그아웃</b>한 상태여야 해요. 적용 후 이 파일은 저장소에서 <b>삭제</b>하세요.
+</div>
+
+<div class="card">
+  <p><b>1단계.</b> 정본 파일 선택 (정본_canon.json)</p>
+  <input type="file" id="file" accept=".json,application/json">
+  <div id="info"></div>
+</div>
+<div class="card">
+  <p><b>2단계.</b> 대상 아이디 <input type="text" id="uid" value="admin"> (관리자 정본)</p>
+  <p><b>3단계.</b> <button class="go" id="run" disabled onclick="run()">서버에 정본 적용</button></p>
+</div>
+<div id="log">정본 파일을 선택하세요.</div>
+
+<script>
+let payload=null;
+const NAME={kt:'국토부',sf:'서민금융',mois:'이태원(행안부)',gender:'성평등가족부',green:'초록우산',yangik:'양육비',court:'대법원',moj:'법무부',air:'여객기(국토부)',seoul:'서울시복지재단'};
+const log=(m,c)=>{const d=document.getElementById('log');d.innerHTML+=(c?`<span class="${c}">${m}</span>`:m)+"\n";};
+
+document.getElementById('file').addEventListener('change',e=>{
+  document.getElementById('log').innerHTML=''; payload=null; document.getElementById('run').disabled=true;
+  const f=e.target.files[0]; if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      let j=JSON.parse(rd.result);
+      payload = (j && j.data) ? j.data : j;   // {data:...} 형태도 허용
+      const ex=payload.executed||{};
+      let rows='', tot=0;
+      Object.keys(ex).sort().forEach(k=>{ const v=ex[k]||0; tot+=(typeof v==='number'?v:0);
+        rows+=`<tr><td>${NAME[k]||k}</td><td class="r">${(v||0).toLocaleString('ko-KR')}</td></tr>`; });
+      document.getElementById('info').innerHTML=
+        `<table>${rows}<tr><td><b>총 집행액</b></td><td class="r"><b>${tot.toLocaleString('ko-KR')}</b></td></tr></table>`;
+      log('정본을 읽었어요. 위 값으로 서버에 적용할 준비가 됐어요.','ok');
+      document.getElementById('run').disabled=false;
+    }catch(err){ log('파일을 읽는 중 오류: '+err.message,'err'); }
+  };
+  rd.readAsText(f);
+});
+
+async function run(){
+  if(!payload) return;
+  const uid=(document.getElementById('uid').value||'admin').trim();
+  if(!confirm(`서버의 '${uid}' 정본을 이 파일 내용으로 덮어씁니다.\n모든 담당자가 로그아웃 상태인가요? 진행할까요?`)) return;
+  document.getElementById('run').disabled=true;
+  payload.savedAt=new Date().toISOString();
+  payload.savedBy='정본정리';
+  log(`\n서버에 적용 중... (아이디: ${uid})`);
+  try{
+    const r=await fetch(`/api/data?user=${encodeURIComponent(uid)}`,{
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+    });
+    if(r.ok){
+      log('정본 적용 완료! ✅','ok');
+      log('이제 accounting.html(다 같이 보기 버전)을 올리면, 누가 로그인해도 이 정본을 봐요.');
+      log('확인되면 이 apply_canon.html 파일은 저장소에서 삭제하세요.');
+    }else{ log('서버 응답 오류: '+r.status,'err'); log('주소가 jeonse-system.vercel.app/apply_canon.html 인지 확인하세요.'); }
+  }catch(err){ log('적용 실패: '+err.message,'err'); log('이 페이지를 jeonse-system.vercel.app/apply_canon.html 주소로 열어야 해요.'); }
+}
+</script>
+</body>
+</html>
