@@ -68,12 +68,16 @@ def expand_rows(cases_data):
             fee      = _num(c.get("fee",0))
             stamp    = _num(c.get("stamp",0))
             delivery = _num(c.get("delivery",0))
+            deposit  = _num(c.get("deposit",0))
+            etc      = _num(c.get("etc",0))
 
             items = []
             if fee:      items.append(("변호사 보수", fee))
             if stamp:    items.append(("인지대",      stamp))
             if delivery: items.append(("송달료",      delivery))
-            if not items:  # 셋 다 0이면 빈 행이라도 하나는 표시
+            if deposit:  items.append(("보관금",      deposit))
+            if etc:      items.append(("기타",        etc))
+            if not items:  # 전부 0이면 빈 행이라도 하나는 표시
                 items.append((note, 0))
 
             for label, amt in items:
