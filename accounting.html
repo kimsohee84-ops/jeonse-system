@@ -1684,21 +1684,23 @@ const STORAGE_KEY = 'jeonse_acc_data_v1';
 function savePersistedData() {
   try {
     const ALL_KEYS = Object.keys(BIZ);
-    const cases = {}, executed = {}, lawyers = {}, typeOptions = {}, bizMeta = {};
+    const cases = {}, executed = {}, lawyers = {}, typeOptions = {}, bizMeta = {}, budgets = {};
     ALL_KEYS.forEach(k => {
       cases[k] = BIZ[k].cases;
       executed[k] = BIZ[k].executed;
+      budgets[k] = BIZ[k].budget;
       lawyers[k] = BIZ[k].lawyers;
       typeOptions[k] = BIZ[k].typeOptions;
       bizMeta[k] = { name: BIZ[k].name, short: BIZ[k].short };
     });
     const data = {
-      cases, executed, lawyers, typeOptions, bizMeta,
+      cases, executed, budgets, lawyers, typeOptions, bizMeta,
       resolList,
       EXEC_DATA,
       PAID_CASES,
       CUSTOM_COLUMN_PROFILES,
       BUDGET_CATS,
+      ALL_BIZ_DATA: (typeof ALL_BIZ_DATA !== 'undefined' ? ALL_BIZ_DATA : undefined),
       savedAt: new Date().toISOString()
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -1777,6 +1779,41 @@ function applyPersistedData(data) {
     if (data.BUDGET_CATS && typeof data.BUDGET_CATS === 'object') {
       Object.assign(BUDGET_CATS, data.BUDGET_CATS);
     }
+    // ── 사업별 배정 예산 복원 ──
+    // 예전에는 예산이 저장 대상이 아니어서, '사업 현황 수정'으로 바꿔도
+    // 새로고침/재로그인하면 코드에 박힌 기본값으로 되돌아갔다.
+    if (data.budgets) {
+      ALL_KEYS.forEach(k => {
+        const v = data.budgets[k];
+        if (typeof v === 'number' && v >= 0) {
+          BIZ[k].budget = v;
+          if (EXEC_DATA[k]) EXEC_DATA[k].budget = v;
+        }
+      });
+    }
+    // ── 전체 사업 현황 표(ALL_BIZ_DATA) 복원 ──
+    // 예산·목표건수·완료건수·상태·기준일·비고 등 이 표에서 수정한 값이 유지되도록 한다.
+    if (Array.isArray(data.ALL_BIZ_DATA) && typeof ALL_BIZ_DATA !== 'undefined') {
+      const saved = data.ALL_BIZ_DATA.filter(x => x && typeof x === 'object');
+      // 코드에 새로 추가된 사업이 저장본에 없을 수 있으므로, 기존 행은 값만 덮어쓰고
+      // 저장본에만 있는 행(사용자가 추가한 신규 사업)은 뒤에 붙인다.
+      const keyOf = x => (x.linked || x.agency || x.name || '');
+      const byKey = {};
+      saved.forEach(x => { byKey[keyOf(x)] = x; });
+      ALL_BIZ_DATA.forEach(row => {
+        const s = byKey[keyOf(row)];
+        if (s) { Object.assign(row, s); delete byKey[keyOf(row)]; }
+      });
+      Object.values(byKey).forEach(x => ALL_BIZ_DATA.push(x));
+      // 사업 현황 표의 예산을 BIZ/EXEC_DATA에도 반영 (대시보드·집행현황과 숫자 일치)
+      ALL_BIZ_DATA.forEach(row => {
+        const k = row.linked;
+        if (k && BIZ[k] && typeof row.budget === 'number' && row.budget >= 0) {
+          BIZ[k].budget = row.budget;
+          if (EXEC_DATA[k]) EXEC_DATA[k].budget = row.budget;
+        }
+      });
+    }
   } catch (e) {
     console.error('데이터 복원 오류:', e);
   }
@@ -1787,12 +1824,15 @@ function applyPersistedData(data) {
 // 현재 상태를 저장 data 객체로 직렬화 (localStorage 저장과 동일 형식)
 function buildPersistPayload() {
   const ALL_KEYS = Object.keys(BIZ);
-  const cases = {}, executed = {}, lawyers = {}, typeOptions = {}, bizMeta = {};
+  const cases = {}, executed = {}, lawyers = {}, typeOptions = {}, bizMeta = {}, budgets = {};
   ALL_KEYS.forEach(k => {
-    cases[k]=BIZ[k].cases; executed[k]=BIZ[k].executed; lawyers[k]=BIZ[k].lawyers; typeOptions[k]=BIZ[k].typeOptions;
+    cases[k]=BIZ[k].cases; executed[k]=BIZ[k].executed; budgets[k]=BIZ[k].budget;
+    lawyers[k]=BIZ[k].lawyers; typeOptions[k]=BIZ[k].typeOptions;
     bizMeta[k] = { name: BIZ[k].name, short: BIZ[k].short };
   });
-  return { cases, executed, lawyers, typeOptions, bizMeta, resolList, EXEC_DATA, PAID_CASES, CUSTOM_COLUMN_PROFILES, BUDGET_CATS, savedAt: new Date().toISOString() };
+  return { cases, executed, budgets, lawyers, typeOptions, bizMeta, resolList, EXEC_DATA, PAID_CASES, CUSTOM_COLUMN_PROFILES, BUDGET_CATS,
+           ALL_BIZ_DATA: (typeof ALL_BIZ_DATA !== 'undefined' ? ALL_BIZ_DATA : undefined),
+           savedAt: new Date().toISOString() };
 }
 
 let _serverSaveTimer = null;
@@ -5235,7 +5275,7 @@ function showToast(msg) {
 // ── 전체 사업 현황 데이터 (2026.06.08 기준) ──
 // type: '국고보조금' | '위탁협약' | '내부운영'
 // status: '진행중' | '신규' | '마감예정'
-const ALL_BIZ_DATA = [
+var ALL_BIZ_DATA = [
   // 국고보조금
   { type:'국고보조금', agency:'법무부', name:'법무부 법률구조 사업비', manager:'',
     budget:500000000, exec:118790970, target:250, done:25, apply:102,
