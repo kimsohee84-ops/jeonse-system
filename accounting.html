@@ -201,10 +201,26 @@ h1,h2,h3,.login-logo h1,.topnav-logo,.card-title,.nav-section,.stat-val{font-fam
       <span class="topnav-logo">대한변협법률구조 사업 회계시스템</span>
     </div>
     <div class="topnav-right">
+      <span id="save-status" style="font-size:12px;color:var(--muted);white-space:nowrap" title="서버 저장 상태"></span>
+      <button class="btn-out" onclick="forceSaveNow()" title="지금 서버에 강제 저장"><i class="ti ti-device-floppy" aria-hidden="true"></i> 지금 저장</button>
+      <button class="btn-out" onclick="openBackupModal()" title="서버 자동 백업(최근 10개)에서 되돌리기"><i class="ti ti-history" aria-hidden="true"></i> 백업 복원</button>
       <span class="user-badge" id="ubadge"></span>
       <button class="btn-out" onclick="doLogout()"><i class="ti ti-logout" aria-hidden="true"></i> 로그아웃</button>
     </div>
   </nav>
+
+  <div id="backup-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;max-width:640px;width:92%;max-height:82vh;overflow:auto;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:16px;font-weight:700"><i class="ti ti-history" aria-hidden="true"></i> 백업 복원</div>
+        <button class="btn btn-sm" onclick="document.getElementById('backup-modal').style.display='none'">닫기</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 12px">서버 자동 백업(최신순, 최대 10개). 되돌릴 시점을 고르면 그 상태로 복원돼요. 복원 전 현재 상태도 백업됩니다.</p>
+      <div style="text-align:right;margin-bottom:8px"><button class="btn btn-sm" onclick="exportDataJson()"><i class="ti ti-download" aria-hidden="true"></i> 현재 데이터 백업(JSON)</button></div>
+      <div id="backup-list" style="font-size:13px">불러오는 중…</div>
+      <div id="backup-preview" style="margin-top:12px"></div>
+    </div>
+  </div>
 
   <!-- 사업 탭 제거 → 사이드바로 이동 -->
 
@@ -1421,7 +1437,7 @@ const COLUMN_PROFILES = {
   court: { // 대법원 — 진흥기금 양식
     label: '대법원 (진흥기금 양식)',
     fields: {
-      date:     ['이체일자','날짜','지급일'],
+      date:     ['집행(이체)일자','집행일자','이체일자','날짜','지급일'],
       amt:      ['집행액'],
       fee:      ['착수금'],
       stamp:    ['인지대'],
@@ -1438,7 +1454,7 @@ const COLUMN_PROFILES = {
   moj: { // 법무부 — 출금전표 양식 (항목 다양, 운영비 컬럼 많음)
     label: '법무부 (출금전표 양식)',
     fields: {
-      date:     ['이체일자','날짜'],
+      date:     ['집행(이체)일자','집행일자','이체일자','날짜'],
       amt:      ['집행액'],
       fee:      ['착수금'],
       stamp:    ['인지대'],
@@ -1458,7 +1474,7 @@ const COLUMN_PROFILES = {
   gender: { // 성평등가족부
     label: '성평등가족부',
     fields: {
-      date:     ['비용지급일자','날짜'],
+      date:     ['집행(이체)일자','집행일자','비용지급일자','날짜'],
       amt:      ['집행액'],
       fee:      ['착수금'],
       stamp:    ['인지대'],
@@ -1479,7 +1495,7 @@ const COLUMN_PROFILES = {
   yangik: { // 양육비이행관리원
     label: '양육비이행관리원',
     fields: {
-      date:     ['소송 비용 지급일','날짜'],
+      date:     ['집행(이체)일자','집행일자','소송 비용 지급일','날짜'],
       amt:      ['집행액'],
       fee:      ['착수금'],
       stamp:    ['인지대'],
@@ -1493,7 +1509,7 @@ const COLUMN_PROFILES = {
   mois: { // 행안부(이태원) — 가장 특수한 구조
     label: '행안부(이태원)',
     fields: {
-      date:     ['비용집행일자','날짜'],
+      date:     ['집행(이체)일자','집행일자','비용집행일자','날짜'],
       amt:      ['집행금액','집행액'],
       fee:      ['착수금'],
       stamp:    ['인지대'],
@@ -1786,25 +1802,74 @@ let _serverReady = false;   // 최초 서버 동기화가 끝나기 전에는 �
 let _bizOwner = {};
 
 // 저장 요청을 모아서 서버에 1회 전송 (연속 편집 시 과도한 호출 방지)
-function queueServerSave() {
-  if (!curUser || !curUser.id) return;   // 로그인 상태에서만
-  if (curUser.id === 'did') return;      // 양은미(did)는 보기 전용 — 저장 금지(데이터 덮어쓰기 방지)
-  if (!_serverReady) return;             // 서버에서 최신 데이터를 받아오기 전엔 절대 저장하지 않음
-  clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => {
-    // ── 정본 저장: 누가 편집하든 관리자(정본) 서랍 한 곳에 저장 → 다음에 누가 봐도 최신 ──
-    const canonId = Object.keys(USERS).find(id => USERS[id] && USERS[id].role === 'admin') || 'admin';
-    const payload = buildPersistPayload();
-    payload.savedAt = new Date().toISOString();
-    payload.savedBy = (curUser && curUser.id) || '';       // 마지막으로 저장한 사람 기록
-    payload.savedByName = (curUser && curUser.name) || '';
-    fetch(`/api/data?user=${encodeURIComponent(canonId)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).catch(e => console.warn('서버 저장 실패(로컬은 저장됨):', e));
-  }, 800);
+function setSaveStatus(kind, msg) {
+  const el = document.getElementById('save-status');
+  if (!el) return;
+  const colors = { saving:'var(--muted)', ok:'#0F6E56', fail:'#B91C1C' };
+  el.style.color = colors[kind] || 'var(--muted)';
+  el.textContent = msg || '';
 }
+function queueServerSave() {
+  if (!curUser || !curUser.id) return;
+  if (curUser.id === 'did') return;
+  if (!_serverReady) { setSaveStatus('fail', '⚠ 동기화 전 — 저장 대기 중 (새로고침하지 마세요)'); return; }
+  setSaveStatus('saving', '저장 중…');
+  clearTimeout(_serverSaveTimer);
+  _serverSaveTimer = setTimeout(() => { doServerSave(); }, 800);
+}
+async function doServerSave() {
+  const canonId = Object.keys(USERS).find(id => USERS[id] && USERS[id].role === 'admin') || 'admin';
+  const payload = buildPersistPayload();
+  payload.savedAt = new Date().toISOString();
+  payload.savedBy = (curUser && curUser.id) || '';
+  payload.savedByName = (curUser && curUser.name) || '';
+  try {
+    const r = await fetch(`/api/data?user=${encodeURIComponent(canonId)}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if (!j || j.ok !== true) throw new Error('서버 응답 이상');
+    const t = new Date();
+    setSaveStatus('ok', `✓ 저장됨 ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`);
+  } catch (e) {
+    console.warn('서버 저장 실패:', e);
+    setSaveStatus('fail', '⚠ 서버 저장 실패 — [지금 저장] 다시 누르세요');
+    showToast('⚠ 서버 저장 실패 — 변경사항이 이 브라우저에만 있어요. [지금 저장]을 다시 눌러주세요');
+  }
+}
+async function forceSaveNow() {
+  if (!curUser || !curUser.id) { showToast('로그인 후 사용하세요'); return; }
+  if (curUser.id === 'did') { showToast('보기 전용 계정은 저장할 수 없습니다'); return; }
+  if (!_serverReady) { showToast('서버 동기화가 아직 안 끝났어요. 잠시 후 다시 시도하세요'); return; }
+  clearTimeout(_serverSaveTimer);
+  setSaveStatus('saving', '저장 중…');
+  await doServerSave();
+}
+function _summarizeData(d){try{let n=0;if(d&&d.cases)Object.keys(d.cases).forEach(k=>{if(Array.isArray(d.cases[k]))n+=d.cases[k].length;});const w=d&&d.savedAt?new Date(d.savedAt):null;const wt=w?`${w.getFullYear()}-${String(w.getMonth()+1).padStart(2,'0')}-${String(w.getDate()).padStart(2,'0')} ${String(w.getHours()).padStart(2,'0')}:${String(w.getMinutes()).padStart(2,'0')}`:'(시각 없음)';const by=(d&&d.savedByName)?` · ${d.savedByName}`:'';return{n,whenTxt:wt,by};}catch{return{n:'?',whenTxt:'(오류)',by:''};}}
+function _bizBreakdown(d){try{const o=[];if(d&&d.cases)Object.keys(d.cases).forEach(k=>{const a=d.cases[k];if(Array.isArray(a)&&a.length){const nm=(typeof BIZ!=='undefined'&&BIZ[k]&&BIZ[k].short)?BIZ[k].short:k;o.push(`${nm} ${a.length}`);}});return o.join(' · ');}catch{return '';}}
+window._backupSnapshots=[];
+async function openBackupModal(){
+  const modal=document.getElementById('backup-modal'),list=document.getElementById('backup-list');
+  modal.style.display='flex';list.innerHTML='불러오는 중…';
+  const canonId=Object.keys(USERS).find(id=>USERS[id]&&USERS[id].role==='admin')||'admin';
+  try{
+    const [cR,hR]=await Promise.all([fetch(`/api/data?user=${encodeURIComponent(canonId)}`),fetch(`/api/data?user=${encodeURIComponent(canonId)}&history=1`)]);
+    const cJ=cR.ok?await cR.json():{},hJ=hR.ok?await hR.json():{};
+    const snaps=[];if(cJ&&cJ.data)snaps.push({label:'현재 서버 저장본',data:cJ.data});
+    (hJ&&hJ.history||[]).forEach((s,i)=>{let d=null;try{d=JSON.parse(s);}catch{}if(d)snaps.push({label:`백업 ${i+1}`,data:d});});
+    window._backupSnapshots=snaps;
+    if(!snaps.length){list.innerHTML='<div style="color:var(--muted)">백업이 아직 없어요.</div>';return;}
+    list.innerHTML=snaps.map((s,i)=>{const{n,whenTxt,by}=_summarizeData(s.data);const bd=_bizBreakdown(s.data);return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px"><div style="min-width:0"><div style="font-weight:600">${s.label} <span style="font-size:11px;color:var(--muted)">· 사건 ${n}건</span></div><div style="font-size:12px;color:var(--muted)">${whenTxt}${by}</div>${bd?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${bd}</div>`:''}</div><button class="btn btn-sm btn-primary" onclick="restoreBackup(${i})">복원</button></div>`;}).join('');
+  }catch(e){list.innerHTML='<div style="color:#B91C1C">백업 불러오기 실패: '+(e&&e.message||e)+'</div>';}
+}
+async function restoreBackup(idx){
+  const snap=window._backupSnapshots[idx];if(!snap)return;
+  const{n,whenTxt}=_summarizeData(snap.data);
+  if(!confirm(`"${snap.label}" (${whenTxt} · 사건 ${n}건) 상태로 복원할까요?\n\n현재 상태는 자동 백업된 뒤 되돌아갑니다.`))return;
+  try{applyPersistedData(snap.data);try{localStorage.setItem(STORAGE_KEY,JSON.stringify(snap.data));}catch{}if(typeof setBiz==='function')setBiz(curBiz||'kt');renderDashboard();if(typeof renderResolPanel==='function')renderResolPanel();if(typeof renderResolList==='function')renderResolList();await doServerSave();document.getElementById('backup-modal').style.display='none';showToast(`✓ 복원 완료 — 사건 ${n}건`);}catch(e){showToast('복원 오류: '+(e&&e.message||e));}
+}
+function exportDataJson(){try{const p=buildPersistPayload();p.savedAt=new Date().toISOString();const b=new Blob([JSON.stringify(p,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);const t=new Date();a.download=`회계백업_${t.getFullYear()}${String(t.getMonth()+1).padStart(2,'0')}${String(t.getDate()).padStart(2,'0')}_${String(t.getHours()).padStart(2,'0')}${String(t.getMinutes()).padStart(2,'0')}.json`;a.click();showToast('현재 데이터를 JSON 파일로 저장했어요');}catch(e){showToast('내보내기 오류: '+(e&&e.message||e));}}
 
 // 관리자가 통합 화면에서 편집한 결과를, 담당자별로 나눠서 각자 서랍에 되돌려 저장.
 // 담당자 서랍에서 먼저 최신본을 읽어와(다른 필드 보존) 자기 사업 칸만 갈아끼운다.
@@ -1874,6 +1939,7 @@ async function syncFromServer() {
     applyPersistedData(serverData);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(serverData)); } catch {}
     _serverReady = true;           // 이제부터 저장 허용 (편집하면 정본에 반영)
+    setSaveStatus('ok', '✓ 동기화됨');
     if (typeof setBiz === 'function') setBiz(curBiz || 'kt');
     renderDashboard();
     if (typeof renderResolPanel === 'function') renderResolPanel();
@@ -3961,7 +4027,7 @@ function parseExecSheet(wb, sheetName) {
 
       // 헤더 행 자동 탐색 (날짜류 + 금액류 헤더가 같은 행에 있는지)
       let headerRowIdx = -1;
-      const dateWords = ['이체일자','날짜','지급일','비용지급일자','소송 비용 지급일','비용집행일자'];
+      const dateWords = ['집행(이체)일자','집행일자','이체일자','날짜','지급일','비용지급일자','소송 비용 지급일','비용집행일자'];
       const amtWords  = ['집행액','금액','집행금액'];
 
       // ── "1. 수입" / "2. 지출" 섹션 위치 먼저 파악 ──
@@ -4290,7 +4356,7 @@ function openColumnMapModal() {
   const wb = window._lastParsedWb, sheetName = window._lastParsedSheet;
   const ws = wb.Sheets[sheetName];
   const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:true });
-  const dateWords = ['이체일자','날짜','지급일','비용지급일자','소송 비용 지급일','비용집행일자'];
+  const dateWords = ['집행(이체)일자','집행일자','이체일자','날짜','지급일','비용지급일자','소송 비용 지급일','비용집행일자'];
   const amtWords  = ['집행액','금액','집행금액'];
   let headerRowIdx = -1;
   for (let i=0; i<Math.min(6,rows.length); i++) {
