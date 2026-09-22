@@ -2548,57 +2548,91 @@ function renderAllBizTable() {
 }
 
 // ── 전체 사업 현황 엑셀 저장 ──
-// 화면 표와 똑같은 숫자를 그대로 내보낸다. (요약 / 사업별 상세 2개 시트)
-function exportAllBizExcel() {
-  if (typeof XLSX === 'undefined') { showToast('엑셀 라이브러리 로딩 중입니다. 잠시 후 다시 눌러주세요'); return; }
+// 서버(/api/bizexcel)에서 기존 '사업별 사업 업무진행 현황' 양식 그대로 만들어 받는다.
+// 세부예산내역은 '항목 설정'(BUDGET_CATS)에 등록된 값으로 매번 새로 만들기 때문에,
+// 예산 항목을 고치면 엑셀에도 바로 반영된다.
+async function exportAllBizExcel() {
   renderAllBizTable();                       // 최신 숫자로 한 번 갱신
   const rows = window._allBizRows || [];
   if (!rows.length) { showToast('내보낼 사업이 없습니다'); return; }
 
   const d = new Date();
-  const asOf = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
-  const wb = XLSX.utils.book_new();
+  const asOf = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}.`;
 
-  // 시트1 — 사업별 현황
-  const head = ['사업','유형','예산(원)','교부액(원)','이자(원)','집행액(원)','잔액(원)','집행률','목표건수','완료건수','상태','기준일','비고'];
+  const payload = {
+    asOf,
+    rows: rows.map(b => {
+      const k = b.linked;
+      const cats = (k && typeof BUDGET_CATS !== 'undefined' && Array.isArray(BUDGET_CATS[k]))
+        ? BUDGET_CATS[k].map(c => ({ cat: c.cat||'', sub: c.sub||'', budget: c.budget||0 }))
+        : [];
+      return {
+        type:    b.type    || '',
+        manager: b.manager || '',
+        agency:  b.agency  || '',
+        target:  b.target  || 0,
+        apply:   b.apply   || 0,
+        done:    b.done    || 0,
+        budget:  b.budget  || 0,
+        paid:    b.paid    || 0,
+        exec:    b.exec    || 0,
+        note:    b.note    || '',
+        cats
+      };
+    })
+  };
+
+  showToast('엑셀 만드는 중...');
+  try {
+    const res = await fetch('/api/bizexcel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error('bizexcel 오류:', err.trace || err);
+      throw new Error(err.error || ('서버 오류 ' + res.status));
+    }
+    const data  = await res.json();
+    const bin   = atob(data.xlsx);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const blob = new Blob([bytes], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `사업별_업무진행현황_${asOf.replace(/\./g,'')}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('전체 사업 현황 엑셀로 저장했어요');
+  } catch (e) {
+    console.warn('서버 엑셀 실패 → 간단 형식으로 저장:', e);
+    exportAllBizExcelSimple(rows, asOf);
+  }
+}
+
+// 서버를 못 쓸 때 쓰는 예비용 (서식 없는 단순 표)
+function exportAllBizExcelSimple(rows, asOf) {
+  if (typeof XLSX === 'undefined') { showToast('엑셀을 만들지 못했습니다'); return; }
+  const head = ['사업','유형','예산','교부액','이자','집행액','잔액','집행률','목표건수','집행건수','상태','비고'];
   const body = rows.map(b => {
-    const exec = b.exec||0, budget = b.budget||0;
-    return [
-      b.agency||'', b.type||'', budget, b.paid||0, b.interest||0, exec, budget-exec,
-      budget ? Math.round(exec/budget*1000)/10/100 : 0,
-      b.target||0, b.done||0, b.status||'', b.basedate||'', b.note||''
-    ];
+    const ex = b.exec||0, bu = b.budget||0;
+    return [b.agency||'', b.type||'', bu, b.paid||0, b.interest||0, ex, bu-ex,
+            bu ? ex/bu : 0, b.target||0, b.done||0, b.status||'', b.note||''];
   });
-  const T = rows.reduce((a,b)=>({
-    budget:a.budget+(b.budget||0), paid:a.paid+(b.paid||0),
-    interest:a.interest+(b.interest||0), exec:a.exec+(b.exec||0)
-  }), {budget:0,paid:0,interest:0,exec:0});
-  body.push(['합계','', T.budget, T.paid, T.interest, T.exec, T.budget-T.exec,
-             T.budget ? Math.round(T.exec/T.budget*1000)/10/100 : 0, '', '', '', '', '']);
-
-  const ws = XLSX.utils.aoa_to_sheet([
-    [`2026년 사업 집행 현황  (기준일 ${asOf})`],
-    [],
-    head, ...body
-  ]);
-  ws['!cols'] = [{wch:22},{wch:11},{wch:15},{wch:15},{wch:12},{wch:15},{wch:15},{wch:9},{wch:9},{wch:9},{wch:9},{wch:12},{wch:40}];
-  // 금액은 천단위 구분, 집행률은 백분율로 보이게
-  const last = 3 + body.length;
-  for (let r = 4; r <= last; r++) {
-    ['C','D','E','F','G'].forEach(c => { const cell = ws[c+r]; if (cell) cell.z = '#,##0'; });
+  const T = rows.reduce((a,b)=>({b:a.b+(b.budget||0), p:a.p+(b.paid||0), e:a.e+(b.exec||0)}), {b:0,p:0,e:0});
+  body.push(['합계','',T.b,T.p,'',T.e,T.b-T.e, T.b?T.e/T.b:0,'','','','']);
+  const ws = XLSX.utils.aoa_to_sheet([[`2026년 사업 집행 현황 (기준일 ${asOf})`],[],head,...body]);
+  ws['!cols'] = [{wch:24},{wch:12},{wch:16},{wch:16},{wch:12},{wch:16},{wch:16},{wch:9},{wch:9},{wch:9},{wch:9},{wch:40}];
+  for (let r = 4; r <= 3 + body.length; r++) {
+    ['C','D','E','F','G'].forEach(c => { const x = ws[c+r]; if (x) x.z = '#,##0'; });
     const p = ws['H'+r]; if (p) p.z = '0.0%';
   }
-  XLSX.utils.book_append_sheet(wb, ws, '사업별 현황');
-
-  // 시트2 — 사업별 세부 예산 내역
-  const det = [['사업','세부 예산 내역','진행 현황']];
-  rows.forEach(b => det.push([b.agency||'', b.detail||'', b.note||'']));
-  const ws2 = XLSX.utils.aoa_to_sheet(det);
-  ws2['!cols'] = [{wch:22},{wch:70},{wch:50}];
-  XLSX.utils.book_append_sheet(wb, ws2, '세부내역');
-
-  XLSX.writeFile(wb, `전체사업현황_${asOf.replace(/\./g,'')}.xlsx`);
-  showToast('전체 사업 현황 엑셀로 저장했어요');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '사업현황');
+  XLSX.writeFile(wb, `사업별_업무진행현황_${asOf.replace(/\./g,'')}.xlsx`);
+  showToast('엑셀로 저장했어요 (간단 형식)');
 }
 
 function openBudgetCatModal(bizKey) {
