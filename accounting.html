@@ -308,6 +308,7 @@ h1,h2,h3,.login-logo h1,.topnav-logo,.card-title,.nav-section,.stat-val{font-fam
           <div style="font-size:13px;color:var(--muted)">사업별</div>
           <div style="display:flex;gap:8px;align-items:center">
             
+            <button onclick="exportAllBizExcel()" class="btn btn-sm btn-success" style="font-size:11px" title="화면에 보이는 전체 사업 현황을 엑셀 파일로 저장합니다"><i class="ti ti-download"></i> 엑셀 저장</button>
             <button onclick="openAddBizModal()" class="btn btn-sm" style="font-size:11px;border-color:#0f6e56;color:#0f6e56"><i class="ti ti-plus"></i> 신규 사업</button>
             <button onclick="openBizEditModal()" class="btn btn-sm" style="font-size:11px"><i class="ti ti-edit"></i> 현황 수정</button>
           </div>
@@ -2462,10 +2463,14 @@ function renderAllBizTable() {
   const data = ALL_BIZ_DATA.map((b, i) => {
     const ex = b.linked ? EXEC_DATA[b.linked] : null;
     // 교부액: 수입 내역(income) 합계를 우선 사용. 없으면 기존 하드코딩 값(b.paid) 폴백.
-    const incomeSum = (ex && Array.isArray(ex.income))
-      ? ex.income.reduce((s, r) => s + (r.amt || 0), 0) : 0;
+    // ※ 이자수입은 기관이 교부한 돈이 아니라 통장에서 발생한 수입(나중에 반납)이므로
+    //   교부액에서 제외한다. 전체 집행내역 화면의 '총 수입'에는 그대로 포함된다.
+    const incRows  = (ex && Array.isArray(ex.income)) ? ex.income : [];
+    const isInt    = r => /이자/.test(String(r && r.note || ''));
+    const incomeSum   = incRows.filter(r => !isInt(r)).reduce((s, r) => s + (r.amt || 0), 0);
+    const interestSum = incRows.filter(isInt).reduce((s, r) => s + (r.amt || 0), 0);
     const paid = incomeSum > 0 ? incomeSum : (b.paid || 0);
-    return { ...b, paid, exec: ex ? ex.executed : b.exec, _origIdx: i, _ex: ex };
+    return { ...b, paid, interest: interestSum, exec: ex ? ex.executed : b.exec, _origIdx: i, _ex: ex };
   });
 
   const won = n => (n||0).toLocaleString();
@@ -2504,24 +2509,27 @@ function renderAllBizTable() {
     </svg>`;
   };
 
-  const COLS = '1.6fr 1fr 1fr 1fr 70px 0.7fr';
+  const COLS = '1.5fr 1fr 1fr 1fr 1fr 60px 0.6fr';
   let html = `<div style="display:grid;grid-template-columns:${COLS};gap:12px;padding:12px 20px;background:var(--light);font-size:13px;color:#334155;font-weight:500">
     <div>사업</div><div style="text-align:right">예산</div><div style="text-align:right">교부액</div>
-    <div style="text-align:right">집행액</div><div style="text-align:center">집행</div><div style="text-align:right">집행률</div>
+    <div style="text-align:right">집행액</div><div style="text-align:right">잔액</div>
+    <div style="text-align:center">집행</div><div style="text-align:right">집행률</div>
   </div>`;
 
   data.forEach(b => {
     const paid = b.paid||0, exec = b.exec||0;
-    const over = paid > 0 && exec > paid;      // 교부액 초과
+    const bal  = (b.budget||0) - exec;          // 잔액 = 예산 − 집행액
+    const over = paid > 0 && exec > paid;       // 교부액 초과
     const sub  = over ? `<div style="font-size:12px;color:${WARN};margin-top:3px">교부액 초과</div>`
                       : `<div style="font-size:12px;color:#64748b;margin-top:3px">${b.type||''}${b.manager?' · '+b.manager:''}</div>`;
     html += `<div style="display:grid;grid-template-columns:${COLS};gap:12px;padding:18px 20px;background:var(--surface);border-top:1px solid var(--border);align-items:center;cursor:pointer" onclick="editBizRow(${b._origIdx})">
       <div><div style="font-size:17px;font-weight:600;color:#0f172a">${b.agency||''}</div>${sub}</div>
       <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:#0f172a">${won(b.budget)}</div>
-      <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:#475569">${won(paid)}</div>
+      <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:#475569">${won(paid)}${b.interest ? `<div style="font-size:11px;color:#94a3b8;font-family:inherit">이자 ${won(b.interest)} 별도</div>` : ''}</div>
       <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:${over?WARN:GREEN}">${won(exec)}</div>
+      <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:${bal<0?WARN:'#475569'}">${won(bal)}</div>
       <div style="text-align:center">${ring(exec, b.budget, over)}</div>
-      <div style="text-align:right;font-size:24px;font-weight:700;color:${over?WARN:'#0f172a'}">${b.budget?Math.round(exec/b.budget*100):0}%</div>
+      <div style="text-align:right;font-size:22px;font-weight:700;color:${over?WARN:'#0f172a'}">${b.budget?Math.round(exec/b.budget*100):0}%</div>
     </div>`;
   });
 
@@ -2530,11 +2538,67 @@ function renderAllBizTable() {
     <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:#0f172a">${won(T.budget)}</div>
     <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:#0f172a">${won(T.paid)}</div>
     <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;color:${GREEN}">${won(T.exec)}</div>
+    <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:#0f172a">${won(T.budget - T.exec)}</div>
     <div></div>
-    <div style="text-align:right;font-size:24px;font-weight:700;color:#0f172a">${T.budget?Math.round(T.exec/T.budget*100):0}%</div>
+    <div style="text-align:right;font-size:22px;font-weight:700;color:#0f172a">${T.budget?Math.round(T.exec/T.budget*100):0}%</div>
   </div>`;
 
   el.innerHTML = html;
+  window._allBizRows = data;   // 엑셀 저장에서 재사용 (화면과 같은 숫자 보장)
+}
+
+// ── 전체 사업 현황 엑셀 저장 ──
+// 화면 표와 똑같은 숫자를 그대로 내보낸다. (요약 / 사업별 상세 2개 시트)
+function exportAllBizExcel() {
+  if (typeof XLSX === 'undefined') { showToast('엑셀 라이브러리 로딩 중입니다. 잠시 후 다시 눌러주세요'); return; }
+  renderAllBizTable();                       // 최신 숫자로 한 번 갱신
+  const rows = window._allBizRows || [];
+  if (!rows.length) { showToast('내보낼 사업이 없습니다'); return; }
+
+  const d = new Date();
+  const asOf = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+  const wb = XLSX.utils.book_new();
+
+  // 시트1 — 사업별 현황
+  const head = ['사업','유형','예산(원)','교부액(원)','이자(원)','집행액(원)','잔액(원)','집행률','목표건수','완료건수','상태','기준일','비고'];
+  const body = rows.map(b => {
+    const exec = b.exec||0, budget = b.budget||0;
+    return [
+      b.agency||'', b.type||'', budget, b.paid||0, b.interest||0, exec, budget-exec,
+      budget ? Math.round(exec/budget*1000)/10/100 : 0,
+      b.target||0, b.done||0, b.status||'', b.basedate||'', b.note||''
+    ];
+  });
+  const T = rows.reduce((a,b)=>({
+    budget:a.budget+(b.budget||0), paid:a.paid+(b.paid||0),
+    interest:a.interest+(b.interest||0), exec:a.exec+(b.exec||0)
+  }), {budget:0,paid:0,interest:0,exec:0});
+  body.push(['합계','', T.budget, T.paid, T.interest, T.exec, T.budget-T.exec,
+             T.budget ? Math.round(T.exec/T.budget*1000)/10/100 : 0, '', '', '', '', '']);
+
+  const ws = XLSX.utils.aoa_to_sheet([
+    [`2026년 사업 집행 현황  (기준일 ${asOf})`],
+    [],
+    head, ...body
+  ]);
+  ws['!cols'] = [{wch:22},{wch:11},{wch:15},{wch:15},{wch:12},{wch:15},{wch:15},{wch:9},{wch:9},{wch:9},{wch:9},{wch:12},{wch:40}];
+  // 금액은 천단위 구분, 집행률은 백분율로 보이게
+  const last = 3 + body.length;
+  for (let r = 4; r <= last; r++) {
+    ['C','D','E','F','G'].forEach(c => { const cell = ws[c+r]; if (cell) cell.z = '#,##0'; });
+    const p = ws['H'+r]; if (p) p.z = '0.0%';
+  }
+  XLSX.utils.book_append_sheet(wb, ws, '사업별 현황');
+
+  // 시트2 — 사업별 세부 예산 내역
+  const det = [['사업','세부 예산 내역','진행 현황']];
+  rows.forEach(b => det.push([b.agency||'', b.detail||'', b.note||'']));
+  const ws2 = XLSX.utils.aoa_to_sheet(det);
+  ws2['!cols'] = [{wch:22},{wch:70},{wch:50}];
+  XLSX.utils.book_append_sheet(wb, ws2, '세부내역');
+
+  XLSX.writeFile(wb, `전체사업현황_${asOf.replace(/\./g,'')}.xlsx`);
+  showToast('전체 사업 현황 엑셀로 저장했어요');
 }
 
 function openBudgetCatModal(bizKey) {
