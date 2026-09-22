@@ -1616,13 +1616,25 @@ function canAccessBiz(bizKey) {
   const access = curUser.bizAccess || ['all'];
   return curUser.role === 'admin' || access.includes('all') || access.includes(bizKey);
 }
+// 저장 안 된 상태로 창을 닫거나 새로고침하면 브라우저가 한 번 물어보게 한다
+window.addEventListener('beforeunload', (e) => {
+  if (_unsaved) { e.preventDefault(); e.returnValue = ''; return ''; }
+});
+
 document.addEventListener("DOMContentLoaded", ()=>{
   document.getElementById("lpw").addEventListener("keydown", e=>{ if(e.key==="Enter") doLogin(); });
   document.getElementById("lid").addEventListener("keydown", e=>{ if(e.key==="Enter") document.getElementById("lpw").focus(); });
   document.getElementById("f-date").value = new Date().toISOString().slice(0,10);
 });
 
-function doLogout() {
+async function doLogout() {
+  // 저장 대기 중이면 먼저 서버에 보내고 나간다 (로그아웃하다 마지막 입력을 잃지 않도록)
+  if (_unsaved) {
+    if (!confirm('아직 서버에 저장되지 않은 변경사항이 있어요.\n\n[확인] 지금 저장하고 로그아웃\n[취소] 로그아웃하지 않기')) return;
+    clearTimeout(_serverSaveTimer);
+    await doServerSave();
+    if (_unsaved && !confirm('저장에 실패했어요. 그래도 로그아웃할까요?\n(로그아웃하면 저장 안 된 내용은 사라집니다)')) return;
+  }
   curUser = null;
   document.getElementById("app").classList.remove("visible");
   document.getElementById("login-screen").style.display = "flex";
@@ -1837,6 +1849,9 @@ function buildPersistPayload() {
 }
 
 let _serverSaveTimer = null;
+// 아직 서버에 안 들어간 변경이 있는지. 저장이 끝나면 false로 돌아간다.
+// 로그아웃·창닫기 때 이 값을 보고 붙잡아서, 마지막 입력이 날아가는 걸 막는다.
+let _unsaved = false;
 let _serverReady = false;   // 최초 서버 동기화가 끝나기 전에는 서버 저장 금지 (옛 데이터가 서버를 덮는 사고 방지)
 // 관리자 모드에서 "사업키 → 원래 담당자 아이디" 매핑. 관리자가 통합 화면에서 수정하면
 // 그 사업 데이터를 원주인 서랍에 되돌려 저장하기 위해 사용한다.
@@ -1854,6 +1869,7 @@ function queueServerSave() {
   if (!curUser || !curUser.id) return;
   if (curUser.id === 'did') return;
   if (!_serverReady) { setSaveStatus('fail', '⚠ 동기화 전 — 저장 대기 중 (새로고침하지 마세요)'); return; }
+  _unsaved = true;
   setSaveStatus('saving', '저장 중…');
   clearTimeout(_serverSaveTimer);
   _serverSaveTimer = setTimeout(() => { doServerSave(); }, 800);
@@ -1871,6 +1887,7 @@ async function doServerSave() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const j = await r.json();
     if (!j || j.ok !== true) throw new Error('서버 응답 이상');
+    _unsaved = false;
     const t = new Date();
     setSaveStatus('ok', `✓ 저장됨 ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`);
   } catch (e) {
