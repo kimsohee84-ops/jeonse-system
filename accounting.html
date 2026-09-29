@@ -848,6 +848,7 @@ h1,h2,h3,.login-logo h1,.topnav-logo,.card-title,.nav-section,.stat-val{font-fam
           <span class="badge bg">계산서 수령완료</span>
           <span class="badge ba">계산서 미수령</span>
           <div style="flex:1"></div>
+          <button class="btn btn-sm" onclick="openResolRuleModal()" style="border-color:var(--navy);color:var(--navy)" title="지출결의서를 구분별로 나누고 정렬 순서를 정합니다"><i class="ti ti-layout-list" aria-hidden="true"></i> 결의서 구분 설정</button>
           <button class="btn btn-sm" onclick="openTypeOptionsModal()" style="border-color:var(--navy);color:var(--navy)"><i class="ti ti-settings" aria-hidden="true"></i> 유형 옵션 설정</button>
           <button class="btn btn-sm" id="caselist-manual-btn" onclick="toggleCaseListManual()" style="border-color:var(--navy);color:var(--navy)"><i class="ti ti-arrows-sort" aria-hidden="true"></i> 순서 직접 바꾸기</button>
           <button class="btn btn-sm" onclick="printBatchCheckList()"><i class="ti ti-printer" aria-hidden="true"></i> 확인표 인쇄</button>
@@ -1713,6 +1714,7 @@ function savePersistedData() {
       PAID_CASES,
       CUSTOM_COLUMN_PROFILES,
       BUDGET_CATS,
+      RESOL_RULES,
       ALL_BIZ_DATA: (typeof ALL_BIZ_DATA !== 'undefined' ? ALL_BIZ_DATA : undefined),
       savedAt: new Date().toISOString()
     };
@@ -1792,6 +1794,10 @@ function applyPersistedData(data) {
     if (data.BUDGET_CATS && typeof data.BUDGET_CATS === 'object') {
       Object.assign(BUDGET_CATS, data.BUDGET_CATS);
     }
+    // 결의서 구분·분책 규칙 (화면에서 고친 내용 유지)
+    if (data.RESOL_RULES && typeof data.RESOL_RULES === 'object') {
+      RESOL_RULES = data.RESOL_RULES;
+    }
     // ── 사업별 배정 예산 복원 ──
     // 예전에는 예산이 저장 대상이 아니어서, '사업 현황 수정'으로 바꿔도
     // 새로고침/재로그인하면 코드에 박힌 기본값으로 되돌아갔다.
@@ -1843,7 +1849,7 @@ function buildPersistPayload() {
     lawyers[k]=BIZ[k].lawyers; typeOptions[k]=BIZ[k].typeOptions;
     bizMeta[k] = { name: BIZ[k].name, short: BIZ[k].short };
   });
-  return { cases, executed, budgets, lawyers, typeOptions, bizMeta, resolList, EXEC_DATA, PAID_CASES, CUSTOM_COLUMN_PROFILES, BUDGET_CATS,
+  return { cases, executed, budgets, lawyers, typeOptions, bizMeta, resolList, EXEC_DATA, PAID_CASES, CUSTOM_COLUMN_PROFILES, BUDGET_CATS, RESOL_RULES,
            ALL_BIZ_DATA: (typeof ALL_BIZ_DATA !== 'undefined' ? ALL_BIZ_DATA : undefined),
            savedAt: new Date().toISOString() };
 }
@@ -3845,7 +3851,7 @@ document.addEventListener('click', function(e) {
     const dlId = 'group-dl-' + Math.random().toString(36).slice(2);
     const dl = document.createElement('datalist');
     dl.id = dlId;
-    const seen = new Set();
+    const seen = new Set(groupOrderOf(curBiz));   // 사업별 표준 구분을 기본 후보로
     [...(BIZ[curBiz].cases||[]), ...(resolList[curBiz]||[])].forEach(x => { if (x && x.group) seen.add(x.group); });
     seen.forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); });
     parentTd.appendChild(dl);
@@ -4561,6 +4567,98 @@ function guessField(header) {
 
 function closeColumnMapModal() {
   document.getElementById('colmap-modal').style.display = 'none';
+}
+
+
+// ══════════════════════════════════════════════════════
+// 결의서 구분 설정 모달
+// 결의서를 몇 장으로 나눌지, 각 장에 어떤 구분이 어떤 순서로 들어갈지 직접 정한다.
+// ══════════════════════════════════════════════════════
+let _rrBiz = null, _rrBooks = [], _rrAdmin = 0;
+
+function openResolRuleModal() {
+  _rrBiz = curBiz;
+  const r = RESOL_RULES[_rrBiz];
+  _rrBooks = r ? JSON.parse(JSON.stringify(r.books)) : [{ label: '', groups: [] }];
+  _rrAdmin = r ? (r.adminBook || 0) : 0;
+  const lbl = document.getElementById('rr-biz-label');
+  if (lbl) lbl.textContent = '— ' + (BIZ[_rrBiz]?.short || _rrBiz);
+  renderResolRuleRows();
+  document.getElementById('resol-rule-modal').style.display = 'flex';
+}
+function closeResolRuleModal() {
+  document.getElementById('resol-rule-modal').style.display = 'none';
+}
+function rrAddBook() { _rrBooks.push({ label: '', groups: [] }); renderResolRuleRows(); }
+function rrDelBook(i) {
+  _rrBooks.splice(i, 1);
+  if (!_rrBooks.length) _rrBooks.push({ label: '', groups: [] });
+  if (_rrAdmin >= _rrBooks.length) _rrAdmin = 0;
+  renderResolRuleRows();
+}
+function rrMoveBook(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= _rrBooks.length) return;
+  [_rrBooks[i], _rrBooks[j]] = [_rrBooks[j], _rrBooks[i]];
+  if (_rrAdmin === i) _rrAdmin = j; else if (_rrAdmin === j) _rrAdmin = i;
+  renderResolRuleRows();
+}
+function rrEdit(i, field, val) {
+  if (field === 'label') _rrBooks[i].label = val.trim();
+  else _rrBooks[i].groups = val.split(/[,·\/]/).map(x => x.trim()).filter(Boolean);
+}
+function rrSetAdmin(v) { _rrAdmin = parseInt(v) || 0; }
+
+function renderResolRuleRows() {
+  const box = document.getElementById('rr-rows');
+  if (!box) return;
+  const inp = 'width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;box-sizing:border-box';
+  box.innerHTML = _rrBooks.map((bk, i) => `
+    <div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--surface)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:600;color:var(--navy);white-space:nowrap">결의서 ${i + 1}</span>
+        <input style="${inp};flex:1" value="${(bk.label || '').replace(/"/g, '&quot;')}"
+               placeholder="결의서 이름 (예: 성폭력) — 한 장만 만들 거면 비워두세요"
+               onchange="rrEdit(${i},'label',this.value)">
+        <button class="btn btn-sm" onclick="rrMoveBook(${i},-1)" ${i === 0 ? 'disabled' : ''} title="위로" style="padding:4px 8px"><i class="ti ti-arrow-up"></i></button>
+        <button class="btn btn-sm" onclick="rrMoveBook(${i},1)" ${i === _rrBooks.length - 1 ? 'disabled' : ''} title="아래로" style="padding:4px 8px"><i class="ti ti-arrow-down"></i></button>
+        <button class="btn btn-sm" onclick="rrDelBook(${i})" title="삭제" style="padding:4px 8px;color:#DC2626;border-color:#FCA5A5"><i class="ti ti-trash"></i></button>
+      </div>
+      <input style="${inp}" value="${(bk.groups || []).join(', ').replace(/"/g, '&quot;')}"
+             placeholder="이 결의서에 들어갈 구분을 쉼표로 (예: 가정폭력, 데이트, 스토킹)"
+             onchange="rrEdit(${i},'groups',this.value)">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">적은 순서대로 결의서에 찍힙니다. 같은 구분 안에서는 변호사 가나다순.</div>
+    </div>`).join('');
+
+  const sel = document.getElementById('rr-admin');
+  if (sel) {
+    sel.innerHTML = _rrBooks.map((bk, i) =>
+      `<option value="${i}" ${i === _rrAdmin ? 'selected' : ''}>${bk.label || `결의서 ${i + 1}`}</option>`).join('');
+  }
+  const hint = document.getElementById('rr-hint');
+  if (hint) {
+    hint.textContent = _rrBooks.length > 1
+      ? `결의서 ${_rrBooks.length}장으로 나눠서 저장됩니다 (파일 ${_rrBooks.length}개).`
+      : '결의서 한 장으로 만들고, 구분 순서대로 정렬만 합니다.';
+  }
+}
+
+function saveResolRule() {
+  const books = _rrBooks
+    .map(bk => ({ label: (bk.label || '').trim(), groups: (bk.groups || []).filter(Boolean) }))
+    .filter(bk => bk.label || bk.groups.length);
+  if (!books.length) {
+    delete RESOL_RULES[_rrBiz];                 // 규칙 없음 = 기존 정렬 방식 그대로
+    savePersistedData(); closeResolRuleModal();
+    showToast('구분 설정을 지웠습니다 (기본 정렬 사용)');
+    return;
+  }
+  RESOL_RULES[_rrBiz] = { books, adminBook: Math.min(_rrAdmin, books.length - 1) };
+  savePersistedData();
+  closeResolRuleModal();
+  if (typeof renderResolPanel === 'function') renderResolPanel();
+  if (typeof renderCaseList === 'function') renderCaseList();
+  showToast(books.length > 1 ? `결의서 ${books.length}장으로 설정됐습니다` : '구분 순서가 저장됐습니다');
 }
 
 // ── 유형(민사/형사/...) 옵션 설정 — 사업(기관)마다 쓰는 용어가 달라 사업별로 커스텀 가능 ──
@@ -5925,7 +6023,7 @@ function editPaidCase(idx) {
     grpEl.value = c.group || '';
     const gdl = document.getElementById('pc-group-datalist');
     if (gdl) {
-      const set = new Set();
+      const set = new Set(groupOrderOf(curBiz));   // 사업별 표준 구분을 기본 후보로
       ((PAID_CASES[curBiz])||[]).forEach(p=>{ if(p.group) set.add(p.group); });
       ((resolList[curBiz])||[]).forEach(r=>{ if(r.group) set.add(r.group); });
       gdl.innerHTML = [...set].map(g=>`<option value="${g.replace(/"/g,'')}">`).join('');
@@ -6945,7 +7043,7 @@ function renderResolPanel() {
   // 구분 일괄지정 입력칸 후보 채우기
   const gdl = document.getElementById('resol-group-bulk-dl');
   if (gdl) {
-    const set = new Set();
+    const set = new Set(groupOrderOf(curBiz));   // 사업별 표준 구분을 기본 후보로
     [...BIZ[curBiz].cases, ...resolList[curBiz]].forEach(c=>{ if(c && c.group) set.add(c.group); });
     ((PAID_CASES[curBiz])||[]).forEach(p=>{ if(p.group) set.add(p.group); });
     gdl.innerHTML = [...set].map(g=>`<option value="${g.replace(/"/g,'')}">`).join('');
@@ -8286,7 +8384,82 @@ function toggleApprovalDateInputs() {
 }
 
 // 엑셀/CSV로 내보낼 때도 화면과 동일한 정렬(연도 우선 → 선택한 기준)을 적용
+// ══════════════════════════════════════════════════════
+// 지출결의서 구분 · 분책 규칙 (사업별, 화면에서 직접 수정 가능)
+//   books     : 결의서 묶음. 2개 이상이면 결의서 파일이 그 수만큼 따로 나온다.
+//               books[i].groups 의 순서가 곧 결의서 안에서의 정렬 순서.
+//   adminBook : 인건비·소모품비처럼 접수번호가 없는 항목을 어느 결의서에 넣을지 (books 번호)
+// [지출 목록 > 결의서 구분 설정] 에서 자유롭게 고칠 수 있고, 서버에 저장된다.
+// ══════════════════════════════════════════════════════
+let RESOL_RULES = {
+  moj:    { books: [{ label: '', groups: ['일반', '다문화', '외국인', '탈북민'] }], adminBook: 0 },
+  court:  { books: [{ label: '', groups: ['일반', '다문화', '외국인', '탈북민'] }], adminBook: 0 },
+  gender: { books: [{ label: '성폭력',   groups: ['오프라인', '온라인'] },
+                    { label: '가정폭력', groups: ['가정폭력', '데이트', '스토킹'] }], adminBook: 0 },
+};
+
+function resolRule(bizKey) {
+  const r = RESOL_RULES[bizKey];
+  if (!r || !Array.isArray(r.books) || !r.books.length) return null;
+  return r;
+}
+
+// 이 사업에서 쓰는 구분 전체를 순서대로
+function groupOrderOf(bizKey) {
+  const r = resolRule(bizKey);
+  if (!r) return [];
+  return r.books.reduce((a, bk) => a.concat(bk.groups || []), []);
+}
+
+// 구분값이 전체 순서에서 몇 번째인지. 등록 안 된 값·빈값은 맨 뒤로.
+function groupRank(bizKey, g) {
+  const order = groupOrderOf(bizKey);
+  if (!order.length) return 0;
+  const i = order.indexOf((g || '').toString().trim());
+  return i >= 0 ? i : 999;
+}
+
+// 이 건이 몇 번째 결의서에 들어가는지
+function bookIndexOf(bizKey, c) {
+  const r = resolRule(bizKey);
+  if (!r) return 0;
+  const hasNum = ((c && c.num) || '').toString().trim() !== '';
+  if (!hasNum) return Math.min(r.adminBook || 0, r.books.length - 1);   // 인건비·소모품비 등
+  const g = ((c && c.group) || '').toString().trim();
+  const i = r.books.findIndex(bk => (bk.groups || []).includes(g));
+  return i >= 0 ? i : 0;
+}
+
 function sortCasesForExport(list) {
+  // ── 구분 순서가 정해진 사업(법무부·대법원·성평등)은 그 규칙을 최우선으로 쓴다 ──
+  // 예: 방우형 변호사 건이라도 '다문화'면 '일반' 그룹 전체보다 뒤로 간다.
+  if (resolRule(curBiz)) {
+    return list.map((c,i)=>({c,i})).sort((a,b)=>{
+      // 1) 인건비·소모품비처럼 접수번호 없는 운영성 항목은 맨 앞
+      const na = (a.c.num||'').trim() ? 1 : 0;
+      const nb = (b.c.num||'').trim() ? 1 : 0;
+      if (na !== nb) return na - nb;
+      // 2) 책(별도 결의서) 순서
+      const ba = bookIndexOf(curBiz, a.c), bb = bookIndexOf(curBiz, b.c);
+      if (ba !== bb) return ba - bb;
+      // 3) 구분 순서 (일반 → 다문화 → 외국인 → 탈북민 / 가정폭력 → 데이트 → 스토킹)
+      const ga = groupRank(curBiz, a.c.group), gb = groupRank(curBiz, b.c.group);
+      if (ga !== gb) return ga - gb;
+      // 4) 변호사 가나다
+      const la = (a.c.lawyer||'').trim(), lb = (b.c.lawyer||'').trim();
+      if (la !== lb) {
+        if (!la) return 1;
+        if (!lb) return -1;
+        return la.localeCompare(lb, 'ko');
+      }
+      // 5) 같은 변호사 안에서는 접수번호 오름차순
+      const xa = parseInt((a.c.num||'').replace(/\D/g,'').slice(-6))||0;
+      const xb = parseInt((b.c.num||'').replace(/\D/g,'').slice(-6))||0;
+      if (xa !== xb) return xa - xb;
+      return a.i - b.i;
+    }).map(x=>x.c);
+  }
+
   // 다운로드 버튼이 있는 "지출목록" 표의 정렬 기준을 최우선으로 사용
   let field, asc;
   if (typeof caseListSortField !== 'undefined' && caseListSortField) {
@@ -8370,6 +8543,11 @@ async function downloadExcelByMode(mode) {
     const sheetsToSend = mode === 'all' ? ['resol', 'lawyer', 'transfer'] :
                          mode === 'transfer' ? ['transfer'] : [];
 
+    // ── 결의서를 별도 문서로 나눠야 하는 사업(성평등: 성폭력 / 가정폭력) ──
+    // 가정폭력 책 안에서는 가정폭력 → 데이트 → 스토킹 순으로 이어진다.
+    const rule = ((mode === 'resol' || mode === 'all') ? resolRule(curBiz) : null);
+    const books = (rule && rule.books.length > 1) ? rule.books : null;
+
     showToast(`${fileLabel} 엑셀 생성 중...`);
 
     // 결재일자: 결의서 미리보기에서 직접 입력한 값을 우선 사용, 없으면 다운로드 모달 체크박스 값 사용
@@ -8381,41 +8559,58 @@ async function downloadExcelByMode(mode) {
       ad = approvalOn ? (parseInt(document.getElementById('dl-ad').value)||null) : null;
     }
 
-    const res = await fetch('/api/excel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        cases, lawyers: BIZ[curBiz].lawyers,
-        bizShort: b.short, bizFull: b.name, payMethod: b.payMethod, yy, mm, dd,
-        ay, am, ad,
-        sheets: sheetsToSend,
-        mode
-      })
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      console.error('서버 traceback:', err.trace || '(없음)');
-      throw new Error(err.error || '서버 오류');
-    }
-
-    const data  = await res.json();
-    const bin   = atob(data.xlsx);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-
-    const blob = new Blob([bytes], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    });
-    const url = URL.createObjectURL(blob);
-    const a   = document.createElement('a');
-    a.href     = url;
     const yTag = window._resolYearFilter ? `_${window._resolYearFilter}년분` : '';
-    a.download = `전세피해자_${b.short}${yTag}_${yy}년${mm}월_${fileLabel}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
 
-    showToast(`저장 완료: 전세피해자_${b.short}${yTag}_${yy}년${mm}월_${fileLabel}.xlsx`);
+    // 파일 한 개 만들어 내려받기 (책이 여러 개면 책마다 호출)
+    const makeOne = async (subset, tag) => {
+      const res = await fetch('/api/excel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cases: subset, lawyers: BIZ[curBiz].lawyers,
+          bizShort: b.short, bizFull: b.name + (tag ? ` - ${tag}` : ''),
+          payMethod: b.payMethod, yy, mm, dd,
+          ay, am, ad,
+          sheets: sheetsToSend,
+          mode
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        console.error('서버 traceback:', err.trace || '(없음)');
+        throw new Error(err.error || '서버 오류');
+      }
+      const data  = await res.json();
+      const bin   = atob(data.xlsx);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `${b.short}${yTag}_${yy}년${mm}월_${fileLabel}${tag ? '_' + tag : ''}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return a.download;
+    };
+
+    if (books) {
+      const made = [];
+      for (let bi = 0; bi < books.length; bi++) {
+        const subset = cases.filter(c => bookIndexOf(curBiz, c) === bi);
+        if (!subset.length) continue;
+        const cnt = subset.filter(c => (c.num||'').trim()).length;
+        made.push(`${books[bi].label} ${cnt}건`);
+        await makeOne(subset, books[bi].label);
+        await new Promise(r => setTimeout(r, 400));   // 연속 다운로드가 브라우저에 막히지 않도록
+      }
+      showToast(made.length ? `결의서 ${made.length}장 저장 완료 — ${made.join(' · ')}` : '내보낼 건이 없습니다');
+    } else {
+      const name = await makeOne(cases, '');
+      showToast(`저장 완료: ${name}`);
+    }
 
     // 집행내역 등록 확인 팝업 — 지출결의서가 포함된 다운로드일 때만 의미가 있음
     if (mode === 'resol' || mode === 'all') {
@@ -8832,6 +9027,32 @@ function recordExecution(cases, b, yy, mm, dd) {
     <div style="display:flex;gap:8px">
       <button class="btn" style="flex:1;justify-content:center" onclick="closeColumnMapModal()">취소</button>
       <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveColumnMap()"><i class="ti ti-check"></i> 매핑 저장</button>
+    </div>
+  </div>
+</div>
+
+<div id="resol-rule-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:640px;max-width:96vw;box-shadow:var(--shadow-md);max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
+      <h3 style="font-size:15px;font-weight:600;color:var(--navy)"><i class="ti ti-layout-list" aria-hidden="true"></i> 결의서 구분 설정 <span id="rr-biz-label" style="font-size:12px;color:var(--muted);font-weight:400"></span></h3>
+      <button onclick="closeResolRuleModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.7">
+      지출결의서를 몇 장으로 나눌지, 각 장에 어떤 구분이 어떤 순서로 들어갈지 정합니다.<br>
+      예) 성평등가족부 — <b>성폭력</b>(오프라인, 온라인) / <b>가정폭력</b>(가정폭력, 데이트, 스토킹)<br>
+      예) 법무부 — 한 장에 <b>일반, 다문화, 외국인, 탈북민</b> 순서로 정렬
+    </p>
+    <div id="rr-rows"></div>
+    <button class="btn btn-sm" onclick="rrAddBook()" style="margin-bottom:1rem"><i class="ti ti-plus"></i> 결의서 추가</button>
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--light);border-radius:10px;margin-bottom:1rem;flex-wrap:wrap">
+      <span style="font-size:12px;font-weight:500;white-space:nowrap">인건비 · 소모품비 등 접수번호 없는 항목은</span>
+      <select id="rr-admin" class="form-select" style="width:auto;min-width:130px;font-size:12px" onchange="rrSetAdmin(this.value)"></select>
+      <span style="font-size:12px">에 넣기</span>
+    </div>
+    <div id="rr-hint" style="font-size:12px;color:var(--navy);font-weight:500;margin-bottom:1rem"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeResolRuleModal()">취소</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveResolRule()"><i class="ti ti-check"></i> 저장</button>
     </div>
   </div>
 </div>
